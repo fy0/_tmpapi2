@@ -53,6 +53,9 @@ func RegisterAdminRoutes(
 		// 卡密管理
 		registerRedeemCodeRoutes(admin, h)
 
+		// 发票管理
+		registerInvoiceRoutes(admin, h)
+
 		// 优惠码管理
 		registerPromoCodeRoutes(admin, h)
 
@@ -418,6 +421,16 @@ func registerRedeemCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		codes.POST("/batch-delete", h.Admin.Redeem.BatchDelete)
 		codes.POST("/batch-update", h.Admin.Redeem.BatchUpdate)
 		codes.POST("/:id/expire", h.Admin.Redeem.Expire)
+	}
+}
+
+func registerInvoiceRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	invoices := admin.Group("/invoices")
+	{
+		invoices.GET("", h.Admin.Invoice.List)
+		invoices.GET("/:id", h.Admin.Invoice.GetByID)
+		invoices.POST("/:id/upload", h.Admin.Invoice.Upload)
+		invoices.GET("/:id/download", h.Admin.Invoice.Download)
 	}
 }
 

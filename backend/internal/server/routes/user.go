@@ -107,6 +107,16 @@ func RegisterUserRoutes(
 			redeem.GET("/history", h.Redeem.GetHistory)
 		}
 
+		// 发票管理
+		invoices := authenticated.Group("/invoices")
+		{
+			invoices.GET("/summary", h.Invoice.GetSummary)
+			invoices.GET("/recharges", h.Invoice.ListRecharges)
+			invoices.GET("", h.Invoice.List)
+			invoices.POST("", h.Invoice.Create)
+			invoices.GET("/:id/download", h.Invoice.Download)
+		}
+
 		// 用户订阅
 		subscriptions := authenticated.Group("/subscriptions")
 		{

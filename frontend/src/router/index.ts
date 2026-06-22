@@ -303,6 +303,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/invoices',
+    name: 'Invoices',
+    component: () => import('@/views/user/InvoicesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Invoices',
+      titleKey: 'invoice.title',
+      descriptionKey: 'invoice.description'
+    }
+  },
+  {
     path: '/payment/qrcode',
     name: 'PaymentQRCode',
     component: () => import('@/views/user/PaymentQRCodeView.vue'),
@@ -523,6 +535,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Redeem Code Management',
       titleKey: 'admin.redeem.title',
       descriptionKey: 'admin.redeem.description'
+    }
+  },
+  {
+    path: '/admin/invoices',
+    name: 'AdminInvoices',
+    component: () => import('@/views/admin/InvoicesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Invoice Management',
+      titleKey: 'invoice.management',
+      descriptionKey: 'invoice.managementDescription'
     }
   },
   {
@@ -836,8 +860,10 @@ router.beforeEach(async (to, _from, next) => {
       '/admin/groups',
       '/admin/subscriptions',
       '/admin/redeem',
+      '/admin/invoices',
       '/subscriptions',
-      '/redeem'
+      '/redeem',
+      '/invoices'
     ]
 
     if (restrictedPaths.some((path) => to.path.startsWith(path))) {
