@@ -1,7 +1,7 @@
 import { apiClient } from './client'
 import type { BasePaginationResponse } from '@/types'
 
-export type InvoiceStatus = 'pending' | 'issued' | 'rejected'
+export type InvoiceStatus = 'pending' | 'issued' | 'rejected' | 'withdrawn'
 
 export interface InvoiceSummary {
   available_amount: number
@@ -42,8 +42,11 @@ export interface InvoiceRequest {
   uploaded_by?: number | null
   issued_at?: string | null
   rejected_at?: string | null
+  withdrawn_at?: string | null
   created_at: string
   updated_at: string
+  can_withdraw?: boolean
+  withdraw_deadline?: string | null
   recharges?: InvoiceRecharge[]
 }
 
@@ -84,6 +87,10 @@ export const invoicesAPI = {
 
   download(id: number) {
     return apiClient.get<Blob>(`/invoices/${id}/download`, { responseType: 'blob' })
+  },
+
+  withdraw(id: number) {
+    return apiClient.post<InvoiceRequest>(`/invoices/${id}/withdraw`)
   }
 }
 

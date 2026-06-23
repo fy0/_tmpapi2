@@ -117,6 +117,25 @@ func (h *InvoiceHandler) Create(c *gin.Context) {
 	response.Created(c, invoice)
 }
 
+func (h *InvoiceHandler) Withdraw(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	id, ok := parseInvoiceID(c)
+	if !ok {
+		return
+	}
+	invoice, err := h.invoiceService.WithdrawRequest(c.Request.Context(), subject.UserID, id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, invoice)
+}
+
 func (h *InvoiceHandler) Download(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {

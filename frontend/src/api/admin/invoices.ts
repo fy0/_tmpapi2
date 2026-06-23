@@ -39,7 +39,7 @@ export const adminInvoicesAPI = {
     return apiClient.delete<InvoiceRequest>(`/admin/invoices/${id}/file`)
   },
 
-  exportPending(params?: Pick<InvoiceListParams, 'keyword'>) {
+  exportPending(params?: Pick<InvoiceListParams, 'keyword'> & { min_age_hours?: number }) {
     return apiClient.get<Blob>('/admin/invoices/export', {
       params,
       responseType: 'blob'

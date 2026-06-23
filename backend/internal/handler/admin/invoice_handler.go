@@ -158,7 +158,8 @@ func (h *InvoiceHandler) ExportPending(c *gin.Context) {
 	if len(keyword) > 100 {
 		keyword = keyword[:100]
 	}
-	items, err := h.invoiceService.ListPendingInvoicesForExport(c.Request.Context(), keyword)
+	minAgeHours, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_age_hours")))
+	items, err := h.invoiceService.ListPendingInvoicesForExport(c.Request.Context(), keyword, minAgeHours)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

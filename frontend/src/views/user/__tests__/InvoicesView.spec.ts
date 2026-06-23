@@ -2,13 +2,14 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import InvoicesView from '../InvoicesView.vue'
 
-const { getSummary, getProfile, getRecharges, list, create, download, showError, showSuccess } = vi.hoisted(() => ({
+const { getSummary, getProfile, getRecharges, list, create, download, withdraw, showError, showSuccess } = vi.hoisted(() => ({
   getSummary: vi.fn(),
   getProfile: vi.fn(),
   getRecharges: vi.fn(),
   list: vi.fn(),
   create: vi.fn(),
   download: vi.fn(),
+  withdraw: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }))
@@ -21,6 +22,7 @@ vi.mock('@/api/invoices', () => ({
     list,
     create,
     download,
+    withdraw,
   },
 }))
 
@@ -42,6 +44,10 @@ const AppLayoutStub = { template: '<div><slot /></div>' }
 const SelectStub = { template: '<select />', props: ['modelValue', 'options'] }
 const PaginationStub = { template: '<nav />' }
 const IconStub = { template: '<span />', props: ['name', 'size'] }
+const ConfirmDialogStub = {
+  template: '<div v-if="show"><button class="confirm-withdraw" @click="$emit(\'confirm\')">{{ confirmText }}</button></div>',
+  props: ['show', 'title', 'message', 'confirmText', 'danger'],
+}
 
 function mountView() {
   return mount(InvoicesView, {
@@ -51,6 +57,7 @@ function mountView() {
         Select: SelectStub,
         Pagination: PaginationStub,
         Icon: IconStub,
+        ConfirmDialog: ConfirmDialogStub,
       },
     },
   })
@@ -64,6 +71,7 @@ describe('user InvoicesView', () => {
     list.mockReset()
     create.mockReset()
     download.mockReset()
+    withdraw.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
 
@@ -102,6 +110,7 @@ describe('user InvoicesView', () => {
         total: 1,
       },
     })
+    withdraw.mockResolvedValue({ data: {} })
   })
 
   it('prefills saved invoice profile and renders invoice amounts without currency prefix', async () => {
@@ -113,5 +122,41 @@ describe('user InvoicesView', () => {
     expect((inputs[1].element as HTMLInputElement).value).toBe('TAX-123')
     expect(wrapper.text()).toContain('20.00')
     expect(wrapper.text()).not.toContain('US$')
+  })
+
+  it('withdraws a pending invoice and refreshes invoice data', async () => {
+    list.mockResolvedValue({
+      data: {
+        items: [{
+          id: 101,
+          user_id: 7,
+          status: 'pending',
+          invoice_title: 'ACME Ltd',
+          tax_no: 'TAX-123',
+          amount: 30,
+          note: '',
+          admin_note: '',
+          can_withdraw: true,
+          created_at: '2026-06-23T00:00:00Z',
+          updated_at: '2026-06-23T00:00:00Z',
+        }],
+        total: 1,
+      },
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const withdrawButton = wrapper.findAll('button').find(button => button.text().includes('invoice.withdraw'))
+    expect(withdrawButton).toBeTruthy()
+    await withdrawButton!.trigger('click')
+    await wrapper.find('.confirm-withdraw').trigger('click')
+    await flushPromises()
+
+    expect(withdraw).toHaveBeenCalledWith(101)
+    expect(showSuccess).toHaveBeenCalledWith('invoice.withdrawSuccess')
+    expect(getSummary).toHaveBeenCalledTimes(2)
+    expect(getRecharges).toHaveBeenCalledTimes(2)
+    expect(list).toHaveBeenCalledTimes(2)
   })
 })

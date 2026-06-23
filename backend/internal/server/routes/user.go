@@ -115,6 +115,7 @@ func RegisterUserRoutes(
 			invoices.GET("/recharges", h.Invoice.ListRecharges)
 			invoices.GET("", h.Invoice.List)
 			invoices.POST("", h.Invoice.Create)
+			invoices.POST("/:id/withdraw", h.Invoice.Withdraw)
 			invoices.GET("/:id/download", h.Invoice.Download)
 		}
 

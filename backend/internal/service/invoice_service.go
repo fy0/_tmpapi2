@@ -16,14 +16,16 @@ import (
 )
 
 const (
-	InvoiceStatusPending  = "pending"
-	InvoiceStatusIssued   = "issued"
-	InvoiceStatusRejected = "rejected"
+	InvoiceStatusPending   = "pending"
+	InvoiceStatusIssued    = "issued"
+	InvoiceStatusRejected  = "rejected"
+	InvoiceStatusWithdrawn = "withdrawn"
 
 	defaultInvoiceStorageDir = "data/invoices"
 	maxInvoiceUploadBytes    = 20 << 20
 	SettingMinInvoiceAmount  = "MIN_INVOICE_AMOUNT"
 	SettingMaxInvoiceAmount  = "MAX_INVOICE_AMOUNT"
+	InvoiceWithdrawWindow    = 6 * time.Hour
 )
 
 var (
@@ -33,6 +35,9 @@ var (
 	ErrInvoiceFileTooLarge        = infraerrors.BadRequest("INVOICE_FILE_TOO_LARGE", "invoice file is too large")
 	ErrInvoiceAmountBelowMinimum  = infraerrors.BadRequest("INVOICE_AMOUNT_BELOW_MINIMUM", "invoice amount is below the minimum")
 	ErrInvoiceAmountAboveMaximum  = infraerrors.BadRequest("INVOICE_AMOUNT_ABOVE_MAXIMUM", "invoice amount is above the maximum")
+	ErrInvoiceWithdrawUnavailable = infraerrors.Conflict("INVOICE_WITHDRAW_UNAVAILABLE", "invoice request cannot be withdrawn")
+	ErrInvoiceWithdrawExpired     = infraerrors.Conflict("INVOICE_WITHDRAW_EXPIRED", "invoice request withdraw window has expired")
+	ErrInvoiceUploadUnavailable   = infraerrors.Conflict("INVOICE_UPLOAD_UNAVAILABLE", "invoice request cannot be uploaded")
 )
 
 type InvoiceRepository interface {
@@ -46,6 +51,7 @@ type InvoiceRepository interface {
 	GetByIDForUser(ctx context.Context, userID, id int64) (*InvoiceRequest, error)
 	UpdateIssuedFile(ctx context.Context, id, adminID int64, file InvoiceStoredFile) (*InvoiceRequest, error)
 	ClearIssuedFile(ctx context.Context, id int64) (*InvoiceRequest, error)
+	WithdrawRequest(ctx context.Context, userID, id int64, now time.Time) (*InvoiceRequest, error)
 }
 
 type InvoiceService struct {
@@ -86,25 +92,28 @@ type InvoiceProfile struct {
 }
 
 type InvoiceRequest struct {
-	ID           int64             `json:"id"`
-	UserID       int64             `json:"user_id"`
-	UserEmail    string            `json:"user_email,omitempty"`
-	Status       string            `json:"status"`
-	InvoiceTitle string            `json:"invoice_title"`
-	TaxNo        string            `json:"tax_no"`
-	Amount       float64           `json:"amount"`
-	Note         string            `json:"note"`
-	AdminNote    string            `json:"admin_note"`
-	FileName     string            `json:"file_name,omitempty"`
-	FilePath     string            `json:"-"`
-	ContentType  string            `json:"content_type,omitempty"`
-	FileSize     int64             `json:"file_size,omitempty"`
-	UploadedBy   *int64            `json:"uploaded_by,omitempty"`
-	IssuedAt     *time.Time        `json:"issued_at,omitempty"`
-	RejectedAt   *time.Time        `json:"rejected_at,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
-	Recharges    []InvoiceRecharge `json:"recharges,omitempty"`
+	ID               int64             `json:"id"`
+	UserID           int64             `json:"user_id"`
+	UserEmail        string            `json:"user_email,omitempty"`
+	Status           string            `json:"status"`
+	InvoiceTitle     string            `json:"invoice_title"`
+	TaxNo            string            `json:"tax_no"`
+	Amount           float64           `json:"amount"`
+	Note             string            `json:"note"`
+	AdminNote        string            `json:"admin_note"`
+	FileName         string            `json:"file_name,omitempty"`
+	FilePath         string            `json:"-"`
+	ContentType      string            `json:"content_type,omitempty"`
+	FileSize         int64             `json:"file_size,omitempty"`
+	UploadedBy       *int64            `json:"uploaded_by,omitempty"`
+	IssuedAt         *time.Time        `json:"issued_at,omitempty"`
+	RejectedAt       *time.Time        `json:"rejected_at,omitempty"`
+	WithdrawnAt      *time.Time        `json:"withdrawn_at,omitempty"`
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
+	CanWithdraw      bool              `json:"can_withdraw"`
+	WithdrawDeadline *time.Time        `json:"withdraw_deadline,omitempty"`
+	Recharges        []InvoiceRecharge `json:"recharges,omitempty"`
 }
 
 type CreateInvoiceRequestInput struct {
@@ -118,10 +127,11 @@ type CreateInvoiceRequestInput struct {
 }
 
 type InvoiceListParams struct {
-	Page     int
-	PageSize int
-	Status   string
-	Keyword  string
+	Page        int
+	PageSize    int
+	Status      string
+	Keyword     string
+	MinAgeHours int
 }
 
 type UploadInvoiceFileInput struct {
@@ -217,7 +227,13 @@ func (s *InvoiceService) CreateRequest(ctx context.Context, input CreateInvoiceR
 	}
 	input.MinAmount = settings.MinInvoiceAmount
 	input.MaxAmount = settings.MaxInvoiceAmount
-	return s.repo.CreateRequest(ctx, input)
+	now := time.Now()
+	invoice, err := s.repo.CreateRequest(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	applyInvoiceWithdrawMetadataToRequest(invoice, now)
+	return invoice, nil
 }
 
 func (s *InvoiceService) ListUserInvoices(ctx context.Context, userID int64, params InvoiceListParams) ([]InvoiceRequest, int64, error) {
@@ -229,6 +245,7 @@ func (s *InvoiceService) ListUserInvoices(ctx context.Context, userID int64, par
 	if items == nil {
 		items = []InvoiceRequest{}
 	}
+	applyInvoiceWithdrawMetadata(items, time.Now())
 	return items, total, nil
 }
 
@@ -241,6 +258,7 @@ func (s *InvoiceService) ListAdminInvoices(ctx context.Context, params InvoiceLi
 	if items == nil {
 		items = []InvoiceRequest{}
 	}
+	applyInvoiceWithdrawMetadata(items, time.Now())
 	return items, total, nil
 }
 
@@ -248,14 +266,24 @@ func (s *InvoiceService) GetAdminInvoice(ctx context.Context, id int64) (*Invoic
 	if id <= 0 {
 		return nil, ErrInvoiceNotFound
 	}
-	return s.repo.GetByID(ctx, id)
+	invoice, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	applyInvoiceWithdrawMetadataToRequest(invoice, time.Now())
+	return invoice, nil
 }
 
 func (s *InvoiceService) GetUserInvoice(ctx context.Context, userID, id int64) (*InvoiceRequest, error) {
 	if userID <= 0 || id <= 0 {
 		return nil, ErrInvoiceNotFound
 	}
-	return s.repo.GetByIDForUser(ctx, userID, id)
+	invoice, err := s.repo.GetByIDForUser(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	applyInvoiceWithdrawMetadataToRequest(invoice, time.Now())
+	return invoice, nil
 }
 
 func (s *InvoiceService) GetUserInvoiceFile(ctx context.Context, userID, id int64) (*InvoiceFile, error) {
@@ -292,6 +320,12 @@ func (s *InvoiceService) UploadIssuedFile(ctx context.Context, input UploadInvoi
 	if err != nil {
 		return nil, err
 	}
+	if existing.Status == InvoiceStatusWithdrawn {
+		return nil, ErrInvoiceWithdrawUnavailable
+	}
+	if existing.Status != InvoiceStatusPending && existing.Status != InvoiceStatusIssued {
+		return nil, ErrInvoiceUploadUnavailable
+	}
 
 	safeName := sanitizeInvoiceFileName(input.FileName)
 	targetDir := filepath.Join(s.storageDir, fmt.Sprintf("%d", input.InvoiceID))
@@ -323,6 +357,19 @@ func (s *InvoiceService) UploadIssuedFile(ctx context.Context, input UploadInvoi
 		}
 	}
 	return updated, nil
+}
+
+func (s *InvoiceService) WithdrawRequest(ctx context.Context, userID, id int64) (*InvoiceRequest, error) {
+	if userID <= 0 || id <= 0 {
+		return nil, ErrInvoiceNotFound
+	}
+	now := time.Now()
+	invoice, err := s.repo.WithdrawRequest(ctx, userID, id, now)
+	if err != nil {
+		return nil, err
+	}
+	applyInvoiceWithdrawMetadataToRequest(invoice, now)
+	return invoice, nil
 }
 
 func (s *InvoiceService) DeleteIssuedFile(ctx context.Context, id int64) (*InvoiceRequest, error) {
@@ -411,15 +458,16 @@ func (s *InvoiceService) getInvoiceAmountSetting(ctx context.Context, key, label
 	return normalizeMoney(value), nil
 }
 
-func (s *InvoiceService) ListPendingInvoicesForExport(ctx context.Context, keyword string) ([]InvoiceRequest, error) {
+func (s *InvoiceService) ListPendingInvoicesForExport(ctx context.Context, keyword string, minAgeHours int) ([]InvoiceRequest, error) {
 	const pageSize = 1000
 	var all []InvoiceRequest
 	for page := 1; ; page++ {
 		items, total, err := s.ListAdminInvoices(ctx, InvoiceListParams{
-			Page:     page,
-			PageSize: pageSize,
-			Status:   InvoiceStatusPending,
-			Keyword:  keyword,
+			Page:        page,
+			PageSize:    pageSize,
+			Status:      InvoiceStatusPending,
+			Keyword:     keyword,
+			MinAgeHours: minAgeHours,
 		})
 		if err != nil {
 			return nil, err
@@ -483,12 +531,38 @@ func normalizeInvoiceListParams(params InvoiceListParams) InvoiceListParams {
 	}
 	params.Status = strings.TrimSpace(params.Status)
 	switch params.Status {
-	case "", InvoiceStatusPending, InvoiceStatusIssued, InvoiceStatusRejected:
+	case "", InvoiceStatusPending, InvoiceStatusIssued, InvoiceStatusRejected, InvoiceStatusWithdrawn:
 	default:
 		params.Status = ""
 	}
 	params.Keyword = strings.TrimSpace(params.Keyword)
+	if params.MinAgeHours < 0 {
+		params.MinAgeHours = 0
+	}
+	if params.MinAgeHours > 24*365 {
+		params.MinAgeHours = 24 * 365
+	}
 	return params
+}
+
+func applyInvoiceWithdrawMetadata(items []InvoiceRequest, now time.Time) {
+	for i := range items {
+		applyInvoiceWithdrawMetadataToRequest(&items[i], now)
+	}
+}
+
+func applyInvoiceWithdrawMetadataToRequest(invoice *InvoiceRequest, now time.Time) {
+	if invoice == nil {
+		return
+	}
+	if invoice.Status == InvoiceStatusPending && !invoice.CreatedAt.IsZero() {
+		deadline := invoice.CreatedAt.Add(InvoiceWithdrawWindow)
+		invoice.WithdrawDeadline = &deadline
+		invoice.CanWithdraw = !now.After(deadline)
+		return
+	}
+	invoice.CanWithdraw = false
+	invoice.WithdrawDeadline = nil
 }
 
 func invoiceFileFromRequest(invoice *InvoiceRequest) (*InvoiceFile, error) {

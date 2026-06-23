@@ -41,6 +41,10 @@
             <input v-model.trim="filters.keyword" class="input" :placeholder="t('invoice.searchPlaceholder')" @keyup.enter="reloadInvoices" />
           </div>
           <Select v-model="filters.status" :options="statusOptions" class="w-36" @change="reloadInvoices" />
+          <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-dark-300">
+            <input v-model="filters.exportOlderThanSixHours" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            <span>{{ t('invoice.exportOlderThanSixHours') }}</span>
+          </label>
           <button class="btn btn-secondary" :disabled="exporting" @click="exportPendingInvoices">
             <Icon name="download" size="sm" />
             <span>{{ exporting ? t('common.processing') : t('invoice.exportPendingCsv') }}</span>
@@ -98,7 +102,7 @@
                         <Icon name="eye" size="sm" />
                         <span>{{ t('common.view') }}</span>
                       </button>
-                      <button class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20" @click="openUpload(invoice)">
+                      <button v-if="canUploadInvoice(invoice)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20" @click="openUpload(invoice)">
                         <Icon name="upload" size="sm" />
                         <span>{{ t('invoice.uploadInvoice') }}</span>
                       </button>
@@ -202,7 +206,7 @@
       <template #footer>
         <div class="flex justify-end gap-2">
           <button class="btn btn-secondary" @click="selectedInvoice = null">{{ t('common.close') }}</button>
-          <button v-if="selectedInvoice" class="btn btn-primary" @click="openUpload(selectedInvoice)">
+          <button v-if="selectedInvoice && canUploadInvoice(selectedInvoice)" class="btn btn-primary" @click="openUpload(selectedInvoice)">
             <Icon name="upload" size="sm" />
             <span>{{ t('invoice.uploadInvoice') }}</span>
           </button>
@@ -301,7 +305,7 @@ const previewURL = ref('')
 const previewKind = ref<'image' | 'pdf' | 'other'>('other')
 const previewLoading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
-const filters = reactive({ status: '', keyword: '' })
+const filters = reactive({ status: '', keyword: '', exportOlderThanSixHours: false })
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
 const settingsForm = reactive({ min_invoice_amount: 0, max_invoice_amount: 0 })
 
@@ -310,6 +314,7 @@ const statusOptions = computed(() => [
   { value: 'pending', label: t('invoice.statuses.pending') },
   { value: 'issued', label: t('invoice.statuses.issued') },
   { value: 'rejected', label: t('invoice.statuses.rejected') },
+  { value: 'withdrawn', label: t('invoice.statuses.withdrawn') },
 ])
 
 function formatMoney(amount: number): string {
@@ -318,6 +323,10 @@ function formatMoney(amount: number): string {
 
 function formatFileSize(size?: number): string {
   return formatBytes(size || 0)
+}
+
+function canUploadInvoice(invoice: InvoiceRequest): boolean {
+  return invoice.status === 'pending' || invoice.status === 'issued'
 }
 
 async function loadInvoices() {
@@ -432,6 +441,7 @@ async function exportPendingInvoices() {
   try {
     const res = await adminInvoicesAPI.exportPending({
       keyword: filters.keyword || undefined,
+      min_age_hours: filters.exportOlderThanSixHours ? 6 : undefined,
     })
     saveBlob(res.data, `pending-invoices-${new Date().toISOString().slice(0, 10)}.csv`)
     appStore.showSuccess(t('invoice.exportSuccess'))
@@ -527,6 +537,7 @@ function statusBadgeClass(status: InvoiceStatus): string {
   const base = 'inline-flex rounded-full px-2 py-0.5 text-xs font-medium'
   if (status === 'issued') return `${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300`
   if (status === 'rejected') return `${base} bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300`
+  if (status === 'withdrawn') return `${base} bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-300`
   return `${base} bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300`
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
@@ -26,7 +27,7 @@ SELECT
 	COALESCE((
 		SELECT SUM(rc.value)
 		FROM redeem_codes rc
-		LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id
+		LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id AND irc.released_at IS NULL
 		WHERE rc.used_by = $1
 		  AND rc.status = 'used'
 		  AND rc.value > 0
@@ -75,7 +76,7 @@ func (r *invoiceRepository) ListAvailableRecharges(ctx context.Context, userID i
 	const query = `
 SELECT rc.id, rc.code, rc.type, rc.value, rc.used_at, rc.created_at
 FROM redeem_codes rc
-LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id
+LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id AND irc.released_at IS NULL
 WHERE rc.used_by = $1
   AND rc.status = 'used'
   AND rc.value > 0
@@ -228,8 +229,10 @@ SET status = $2,
     uploaded_by = $7,
     issued_at = NOW(),
     rejected_at = NULL,
+    withdrawn_at = NULL,
     updated_at = NOW()
-WHERE id = $1`,
+WHERE id = $1
+  AND status IN ($8, $9)`,
 		id,
 		service.InvoiceStatusIssued,
 		file.FileName,
@@ -237,6 +240,8 @@ WHERE id = $1`,
 		file.ContentType,
 		file.FileSize,
 		adminID,
+		service.InvoiceStatusPending,
+		service.InvoiceStatusIssued,
 	)
 	if err != nil {
 		return nil, translateInvoiceError(err)
@@ -262,6 +267,7 @@ SET status = $2,
     uploaded_by = NULL,
     issued_at = NULL,
     rejected_at = NULL,
+    withdrawn_at = NULL,
     updated_at = NOW()
 WHERE id = $1
   AND file_name <> ''
@@ -282,11 +288,81 @@ WHERE id = $1
 	return r.GetByID(ctx, id)
 }
 
+func (r *invoiceRepository) WithdrawRequest(ctx context.Context, userID, id int64, now time.Time) (*service.InvoiceRequest, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var status string
+	var createdAt time.Time
+	err = tx.QueryRowContext(ctx, `
+SELECT status, created_at
+FROM invoice_requests
+WHERE id = $1 AND user_id = $2
+FOR UPDATE`,
+		id,
+		userID,
+	).Scan(&status, &createdAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, service.ErrInvoiceNotFound
+		}
+		return nil, err
+	}
+	if status != service.InvoiceStatusPending {
+		return nil, service.ErrInvoiceWithdrawUnavailable
+	}
+	if now.After(createdAt.Add(service.InvoiceWithdrawWindow)) {
+		return nil, service.ErrInvoiceWithdrawExpired
+	}
+
+	res, err := tx.ExecContext(ctx, `
+UPDATE invoice_requests
+SET status = $3,
+    withdrawn_at = $4,
+    updated_at = $4
+WHERE id = $1 AND user_id = $2 AND status = $5`,
+		id,
+		userID,
+		service.InvoiceStatusWithdrawn,
+		now,
+		service.InvoiceStatusPending,
+	)
+	if err != nil {
+		return nil, translateInvoiceError(err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if affected == 0 {
+		return nil, service.ErrInvoiceWithdrawUnavailable
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE invoice_request_redeem_codes
+SET released_at = $2
+WHERE invoice_request_id = $1 AND released_at IS NULL`,
+		id,
+		now,
+	)
+	if err != nil {
+		return nil, translateInvoiceError(err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, translateInvoiceError(err)
+	}
+	return r.GetByID(ctx, id)
+}
+
 func (r *invoiceRepository) lockAvailableRecharges(ctx context.Context, tx *sql.Tx, userID int64, ids []int64) ([]service.InvoiceRecharge, error) {
 	rows, err := tx.QueryContext(ctx, `
 SELECT rc.id, rc.code, rc.type, rc.value, rc.used_at, rc.created_at
 FROM redeem_codes rc
-LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id
+LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id AND irc.released_at IS NULL
 WHERE rc.id = ANY($1)
   AND rc.used_by = $2
   AND rc.status = 'used'
@@ -443,6 +519,7 @@ SELECT
 	ir.uploaded_by,
 	ir.issued_at,
 	ir.rejected_at,
+	ir.withdrawn_at,
 	ir.created_at,
 	ir.updated_at
 FROM invoice_requests ir
@@ -463,6 +540,11 @@ func applyInvoiceListFilters(where *[]string, args *[]any, nextArg *int, params 
 			*where = append(*where, fmt.Sprintf("(ir.invoice_title ILIKE $%d OR ir.tax_no ILIKE $%d)", *nextArg, *nextArg))
 		}
 		*args = append(*args, like)
+		(*nextArg)++
+	}
+	if params.MinAgeHours > 0 {
+		*where = append(*where, fmt.Sprintf("ir.created_at <= NOW() - ($%d::integer * INTERVAL '1 hour')", *nextArg))
+		*args = append(*args, params.MinAgeHours)
 		(*nextArg)++
 	}
 }
@@ -491,6 +573,7 @@ func scanInvoiceRequest(scanner rowScanner) (*service.InvoiceRequest, error) {
 	var uploadedBy sql.NullInt64
 	var issuedAt sql.NullTime
 	var rejectedAt sql.NullTime
+	var withdrawnAt sql.NullTime
 	if err := scanner.Scan(
 		&item.ID,
 		&item.UserID,
@@ -508,6 +591,7 @@ func scanInvoiceRequest(scanner rowScanner) (*service.InvoiceRequest, error) {
 		&uploadedBy,
 		&issuedAt,
 		&rejectedAt,
+		&withdrawnAt,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	); err != nil {
@@ -521,6 +605,9 @@ func scanInvoiceRequest(scanner rowScanner) (*service.InvoiceRequest, error) {
 	}
 	if rejectedAt.Valid {
 		item.RejectedAt = &rejectedAt.Time
+	}
+	if withdrawnAt.Valid {
+		item.WithdrawnAt = &withdrawnAt.Time
 	}
 	return &item, nil
 }

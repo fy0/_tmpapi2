@@ -125,6 +125,10 @@ func (r *invoiceRepoStub) ClearIssuedFile(context.Context, int64) (*InvoiceReque
 	return nil, ErrInvoiceNotFound
 }
 
+func (r *invoiceRepoStub) WithdrawRequest(context.Context, int64, int64, time.Time) (*InvoiceRequest, error) {
+	return nil, ErrInvoiceNotFound
+}
+
 func TestInvoiceServiceCreateRequestPassesAmountLimits(t *testing.T) {
 	repo := &invoiceRepoStub{}
 	settings := &invoiceServiceSettingRepoStub{values: map[string]string{

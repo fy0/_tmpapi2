@@ -64,10 +64,10 @@ func TestInvoiceRepositoryCreateRequestUpsertsProfile(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "user_id", "user_email", "status", "invoice_title", "tax_no", "amount", "note",
 			"admin_note", "file_name", "file_path", "content_type", "file_size", "uploaded_by",
-			"issued_at", "rejected_at", "created_at", "updated_at",
+			"issued_at", "rejected_at", "withdrawn_at", "created_at", "updated_at",
 		}).AddRow(
 			int64(99), input.UserID, "user@example.com", service.InvoiceStatusPending, input.InvoiceTitle,
-			input.TaxNo, float64(20), input.Note, "", "", "", "", int64(0), nil, nil, nil, now, now,
+			input.TaxNo, float64(20), input.Note, "", "", "", "", int64(0), nil, nil, nil, nil, now, now,
 		))
 	mock.ExpectQuery(`SELECT\s+irc\.invoice_request_id,\s+rc\.id,\s+rc\.code,\s+rc\.type,\s+irc\.amount,\s+rc\.used_at,\s+rc\.created_at`).
 		WithArgs(sqlmock.AnyArg()).
@@ -80,6 +80,49 @@ func TestInvoiceRepositoryCreateRequestUpsertsProfile(t *testing.T) {
 	require.Equal(t, input.InvoiceTitle, invoice.InvoiceTitle)
 	require.Equal(t, input.TaxNo, invoice.TaxNo)
 	require.Len(t, invoice.Recharges, 1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInvoiceRepositoryWithdrawRequestReleasesRecharges(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	now := time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
+	createdAt := now.Add(-time.Hour)
+	repo := NewInvoiceRepository(db)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT\s+status,\s+created_at\s+FROM invoice_requests`).
+		WithArgs(int64(99), int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"status", "created_at"}).
+			AddRow(service.InvoiceStatusPending, createdAt))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE invoice_requests")).
+		WithArgs(int64(99), int64(7), service.InvoiceStatusWithdrawn, now, service.InvoiceStatusPending).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE invoice_request_redeem_codes")).
+		WithArgs(int64(99), now).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	mock.ExpectQuery(`SELECT\s+ir\.id,`).
+		WithArgs(int64(99)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "user_email", "status", "invoice_title", "tax_no", "amount", "note",
+			"admin_note", "file_name", "file_path", "content_type", "file_size", "uploaded_by",
+			"issued_at", "rejected_at", "withdrawn_at", "created_at", "updated_at",
+		}).AddRow(
+			int64(99), int64(7), "user@example.com", service.InvoiceStatusWithdrawn, "ACME Ltd",
+			"TAX-123", float64(20), "", "", "", "", "", int64(0), nil, nil, nil, now, createdAt, now,
+		))
+	mock.ExpectQuery(`SELECT\s+irc\.invoice_request_id,\s+rc\.id,\s+rc\.code,\s+rc\.type,\s+irc\.amount,\s+rc\.used_at,\s+rc\.created_at`).
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"invoice_request_id", "id", "code", "type", "amount", "used_at", "created_at"}).
+			AddRow(int64(99), int64(11), "redeem-11", "balance", float64(20), now, now))
+
+	invoice, err := repo.WithdrawRequest(context.Background(), 7, 99, now)
+	require.NoError(t, err)
+	require.Equal(t, service.InvoiceStatusWithdrawn, invoice.Status)
+	require.NotNil(t, invoice.WithdrawnAt)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

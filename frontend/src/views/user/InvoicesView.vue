@@ -118,7 +118,7 @@
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[760px] divide-y divide-gray-200 dark:divide-dark-700">
+          <table class="w-full min-w-[820px] divide-y divide-gray-200 dark:divide-dark-700">
             <thead class="bg-gray-50 dark:bg-dark-800">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-dark-400">{{ t('invoice.id') }}</th>
@@ -147,11 +147,17 @@
                   <td class="whitespace-nowrap px-4 py-3"><span :class="statusBadgeClass(invoice.status)">{{ statusLabel(invoice.status) }}</span></td>
                   <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-dark-400">{{ formatDateTime(invoice.created_at) }}</td>
                   <td class="whitespace-nowrap px-4 py-3">
-                    <button v-if="invoice.status === 'issued' && invoice.file_name" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20" @click="downloadInvoice(invoice)">
-                      <Icon name="download" size="sm" />
-                      <span>{{ t('invoice.download') }}</span>
-                    </button>
-                    <span v-else class="text-xs text-gray-400 dark:text-dark-500">-</span>
+                    <div class="flex items-center gap-1">
+                      <button v-if="invoice.status === 'issued' && invoice.file_name" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20" @click="downloadInvoice(invoice)">
+                        <Icon name="download" size="sm" />
+                        <span>{{ t('invoice.download') }}</span>
+                      </button>
+                      <button v-else-if="invoice.status === 'pending' && invoice.can_withdraw" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" @click="confirmWithdraw(invoice)">
+                        <Icon name="ban" size="sm" />
+                        <span>{{ t('invoice.withdraw') }}</span>
+                      </button>
+                      <span v-else class="text-xs text-gray-400 dark:text-dark-500">-</span>
+                    </div>
                   </td>
                 </tr>
               </template>
@@ -170,6 +176,16 @@
         />
       </div>
     </div>
+
+    <ConfirmDialog
+      :show="!!withdrawTarget"
+      :title="t('invoice.withdrawConfirmTitle')"
+      :message="withdrawTarget ? t('invoice.withdrawConfirmMessage', { id: withdrawTarget.id }) : ''"
+      :confirm-text="withdrawing ? t('common.processing') : t('invoice.withdraw')"
+      :danger="true"
+      @confirm="withdrawInvoice"
+      @cancel="withdrawTarget = null"
+    />
   </AppLayout>
 </template>
 
@@ -181,6 +197,7 @@ import invoicesAPI, { type InvoiceRecharge, type InvoiceRequest, type InvoiceSta
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { formatDateTime } from '@/utils/format'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -195,6 +212,8 @@ const selectedIDs = ref<Set<number>>(new Set())
 const loadingRecharges = ref(false)
 const loadingInvoices = ref(false)
 const submitting = ref(false)
+const withdrawing = ref(false)
+const withdrawTarget = ref<InvoiceRequest | null>(null)
 const filters = reactive({ status: '' })
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
 const form = reactive({ invoice_title: '', tax_no: '', note: '' })
@@ -204,6 +223,7 @@ const statusOptions = computed(() => [
   { value: 'pending', label: t('invoice.statuses.pending') },
   { value: 'issued', label: t('invoice.statuses.issued') },
   { value: 'rejected', label: t('invoice.statuses.rejected') },
+  { value: 'withdrawn', label: t('invoice.statuses.withdrawn') },
 ])
 
 const selectedAmount = computed(() => {
@@ -313,6 +333,26 @@ async function downloadInvoice(invoice: InvoiceRequest) {
   }
 }
 
+function confirmWithdraw(invoice: InvoiceRequest) {
+  withdrawTarget.value = invoice
+}
+
+async function withdrawInvoice() {
+  if (!withdrawTarget.value || withdrawing.value) return
+  const invoice = withdrawTarget.value
+  withdrawing.value = true
+  try {
+    await invoicesAPI.withdraw(invoice.id)
+    appStore.showSuccess(t('invoice.withdrawSuccess'))
+    withdrawTarget.value = null
+    await Promise.all([loadSummary(), loadRecharges(), loadInvoices()])
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  } finally {
+    withdrawing.value = false
+  }
+}
+
 function saveBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -343,6 +383,7 @@ function statusBadgeClass(status: InvoiceStatus): string {
   const base = 'inline-flex rounded-full px-2 py-0.5 text-xs font-medium'
   if (status === 'issued') return `${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300`
   if (status === 'rejected') return `${base} bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300`
+  if (status === 'withdrawn') return `${base} bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-300`
   return `${base} bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300`
 }
 
