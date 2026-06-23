@@ -341,15 +341,15 @@ func sanitizeInvoiceFileName(name string) string {
 	for _, r := range name {
 		switch {
 		case r >= 'a' && r <= 'z':
-			b.WriteRune(r)
+			_, _ = b.WriteRune(r)
 		case r >= 'A' && r <= 'Z':
-			b.WriteRune(r)
+			_, _ = b.WriteRune(r)
 		case r >= '0' && r <= '9':
-			b.WriteRune(r)
+			_, _ = b.WriteRune(r)
 		case r == '.', r == '-', r == '_', r == ' ', r == '(', r == ')':
-			b.WriteRune(r)
+			_, _ = b.WriteRune(r)
 		default:
-			b.WriteByte('_')
+			_ = b.WriteByte('_')
 		}
 	}
 	out := strings.TrimSpace(b.String())

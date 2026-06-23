@@ -66,7 +66,7 @@ ORDER BY rc.used_at DESC NULLS LAST, rc.id DESC`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []service.InvoiceRecharge
 	for rows.Next() {
@@ -218,7 +218,7 @@ FOR UPDATE OF rc`,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]service.InvoiceRecharge, 0, len(ids))
 	for rows.Next() {
@@ -257,7 +257,7 @@ func (r *invoiceRepository) listInvoices(ctx context.Context, where []string, ar
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	items := make([]service.InvoiceRequest, 0, pageSize)
 	for rows.Next() {
@@ -314,7 +314,7 @@ ORDER BY rc.used_at DESC NULLS LAST, rc.id DESC`,
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var invoiceID int64

@@ -67,7 +67,7 @@ func (h *InvoiceHandler) Upload(c *gin.Context) {
 		response.BadRequest(c, "invalid invoice file")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	invoice, err := h.invoiceService.UploadIssuedFile(c.Request.Context(), service.UploadInvoiceFileInput{
 		InvoiceID:   id,
