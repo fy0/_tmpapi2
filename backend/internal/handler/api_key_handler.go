@@ -46,20 +46,26 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest represents the update API key request payload
 type UpdateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      string   `json:"status" binding:"omitempty,oneof=active inactive"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
-	Quota       *float64 `json:"quota"`        // 配额限制 (USD), 0=无限制
-	ExpiresAt   *string  `json:"expires_at"`   // 过期时间 (ISO 8601)
-	ResetQuota  *bool    `json:"reset_quota"`  // 重置已用配额
+	Name        string    `json:"name"`
+	GroupID     *int64    `json:"group_id"`
+	Status      string    `json:"status" binding:"omitempty,oneof=active inactive"`
+	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单
+	IsImageKey  *bool     `json:"is_image_key"` // 设为 [img-key] 绘图用密钥
+	Quota       *float64  `json:"quota"`        // 配额限制 (USD), 0=无限制
+	ExpiresAt   *string   `json:"expires_at"`   // 过期时间 (ISO 8601)
+	ResetQuota  *bool     `json:"reset_quota"`  // 重置已用配额
 
 	// Rate limit fields (nil = no change, 0 = unlimited)
 	RateLimit5h         *float64 `json:"rate_limit_5h"`
 	RateLimit1d         *float64 `json:"rate_limit_1d"`
 	RateLimit7d         *float64 `json:"rate_limit_7d"`
 	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // 重置限速用量
+}
+
+type ImageKeyResponse struct {
+	Key    *string     `json:"key"`
+	APIKey *dto.APIKey `json:"api_key,omitempty"`
 }
 
 // List handles listing user's API keys with pagination
@@ -138,6 +144,32 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
 	response.Success(c, dto.APIKeyFromService(key))
 }
 
+// GetImageKey returns the current user's effective [img-key] API key.
+// GET /api/v1/keys/img-key
+func (h *APIKeyHandler) GetImageKey(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	key, err := h.apiKeyService.ResolveImageKey(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if key == nil {
+		response.Success(c, ImageKeyResponse{Key: nil})
+		return
+	}
+
+	keyValue := key.Key
+	response.Success(c, ImageKeyResponse{
+		Key:    &keyValue,
+		APIKey: dto.APIKeyFromService(key),
+	})
+}
+
 // Create handles creating a new API key
 // POST /api/v1/api-keys
 func (h *APIKeyHandler) Create(c *gin.Context) {
@@ -205,17 +237,24 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	}
 
 	svcReq := service.UpdateAPIKeyRequest{
-		IPWhitelist:         req.IPWhitelist,
-		IPBlacklist:         req.IPBlacklist,
 		Quota:               req.Quota,
 		ResetQuota:          req.ResetQuota,
 		RateLimit5h:         req.RateLimit5h,
 		RateLimit1d:         req.RateLimit1d,
 		RateLimit7d:         req.RateLimit7d,
 		ResetRateLimitUsage: req.ResetRateLimitUsage,
+		IsImageKey:          req.IsImageKey,
 	}
 	if req.Name != "" {
 		svcReq.Name = &req.Name
+	}
+	if req.IPWhitelist != nil {
+		svcReq.IPWhitelist = *req.IPWhitelist
+		svcReq.IPWhitelistSet = true
+	}
+	if req.IPBlacklist != nil {
+		svcReq.IPBlacklist = *req.IPBlacklist
+		svcReq.IPBlacklistSet = true
 	}
 	svcReq.GroupID = req.GroupID
 	if req.Status != "" {

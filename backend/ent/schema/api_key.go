@@ -47,6 +47,9 @@ func (APIKey) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
+		field.Bool("is_image_key").
+			Default(false).
+			Comment("Whether this user API key is selected for [img-key] image generation placeholder"),
 		field.Time("last_used_at").
 			Optional().
 			Nillable().
@@ -137,6 +140,7 @@ func (APIKey) Indexes() []ent.Index {
 	return []ent.Index{
 		// key 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("user_id"),
+		index.Fields("user_id", "is_image_key"),
 		index.Fields("group_id"),
 		index.Fields("status"),
 		index.Fields("deleted_at"),

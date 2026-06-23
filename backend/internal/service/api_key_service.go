@@ -21,13 +21,17 @@ import (
 )
 
 var (
-	ErrAPIKeyNotFound     = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
-	ErrGroupNotAllowed    = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
-	ErrAPIKeyExists       = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
-	ErrAPIKeyTooShort     = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
-	ErrAPIKeyInvalidChars = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
-	ErrAPIKeyRateLimited  = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
-	ErrInvalidIPPattern   = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrAPIKeyNotFound           = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+	ErrGroupNotAllowed          = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
+	ErrAPIKeyExists             = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
+	ErrAPIKeyTooShort           = infraerrors.BadRequest("API_KEY_TOO_SHORT", "api key must be at least 16 characters")
+	ErrAPIKeyInvalidChars       = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
+	ErrAPIKeyRateLimited        = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
+	ErrInvalidIPPattern         = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrAPIKeyImageKeyIneligible = infraerrors.BadRequest(
+		"API_KEY_IMAGE_KEY_INELIGIBLE",
+		"api key does not support image generation",
+	)
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -80,6 +84,11 @@ type APIKeyRepository interface {
 	IncrementRateLimitUsage(ctx context.Context, id int64, cost float64) error
 	ResetRateLimitWindows(ctx context.Context, id int64) error
 	GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error)
+}
+
+type apiKeyImageRepository interface {
+	GetImageKeyCandidate(ctx context.Context, userID int64) (*APIKey, error)
+	SetImageKey(ctx context.Context, userID, apiKeyID int64) error
 }
 
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
@@ -170,11 +179,14 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string  `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      *string  `json:"status"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	Name           *string  `json:"name"`
+	GroupID        *int64   `json:"group_id"`
+	Status         *string  `json:"status"`
+	IPWhitelist    []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
+	IPBlacklist    []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	IPWhitelistSet bool     `json:"-"`
+	IPBlacklistSet bool     `json:"-"`
+	IsImageKey     *bool    `json:"is_image_key"` // 设为 [img-key] 绘图用密钥
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -328,6 +340,30 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
+func apiKeyImageGroupEligible(group *Group) bool {
+	return group != nil &&
+		group.ID > 0 &&
+		group.Status == StatusActive &&
+		group.Platform == PlatformOpenAI &&
+		group.AllowImageGeneration
+}
+
+func apiKeyEligibleForImageKey(apiKey *APIKey) bool {
+	return apiKey != nil &&
+		apiKey.UserID > 0 &&
+		apiKey.Status == StatusActive &&
+		!apiKey.IsExpired() &&
+		apiKey.GroupID != nil &&
+		apiKeyImageGroupEligible(apiKey.Group)
+}
+
+func (s *APIKeyService) imageRepo() apiKeyImageRepository {
+	if repo, ok := s.apiKeyRepo.(apiKeyImageRepository); ok {
+		return repo
+	}
+	return nil
+}
+
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
 	// 验证用户存在
@@ -350,6 +386,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 
+	var boundGroup *Group
 	// 验证分组权限（如果指定了分组）
 	if req.GroupID != nil {
 		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
@@ -361,6 +398,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		if !s.canUserBindGroup(ctx, user, group) {
 			return nil, ErrGroupNotAllowed
 		}
+		boundGroup = group
 	}
 
 	var key string
@@ -412,6 +450,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		RateLimit5h: req.RateLimit5h,
 		RateLimit1d: req.RateLimit1d,
 		RateLimit7d: req.RateLimit7d,
+		Group:       boundGroup,
 	}
 
 	// Set expiration time if specified
@@ -420,8 +459,25 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		apiKey.ExpiresAt = &expiresAt
 	}
 
+	imageEligible := apiKeyEligibleForImageKey(apiKey)
+
 	if err := s.apiKeyRepo.Create(ctx, apiKey); err != nil {
 		return nil, fmt.Errorf("create api key: %w", err)
+	}
+
+	if imageEligible {
+		if repo := s.imageRepo(); repo != nil {
+			candidate, err := repo.GetImageKeyCandidate(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get image api key candidate: %w", err)
+			}
+			if candidate != nil && candidate.ID == apiKey.ID {
+				if err := repo.SetImageKey(ctx, userID, apiKey.ID); err != nil {
+					return nil, fmt.Errorf("set image api key: %w", err)
+				}
+				apiKey.IsImageKey = true
+			}
+		}
 	}
 
 	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
@@ -561,6 +617,7 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		}
 
 		apiKey.GroupID = req.GroupID
+		apiKey.Group = group
 	}
 
 	if req.Status != nil {
@@ -600,9 +657,13 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		}
 	}
 
-	// 更新 IP 限制（空数组会清空设置）
-	apiKey.IPWhitelist = req.IPWhitelist
-	apiKey.IPBlacklist = req.IPBlacklist
+	// 更新 IP 限制（空数组会清空设置；未提供字段则保持原值）
+	if req.IPWhitelistSet {
+		apiKey.IPWhitelist = req.IPWhitelist
+	}
+	if req.IPBlacklistSet {
+		apiKey.IPBlacklist = req.IPBlacklist
+	}
 
 	// Update rate limit configuration
 	if req.RateLimit5h != nil {
@@ -624,8 +685,33 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		apiKey.Window7dStart = nil
 	}
 
+	setAsImageKey := req.IsImageKey != nil && *req.IsImageKey
+	if req.IsImageKey != nil && !*req.IsImageKey {
+		apiKey.IsImageKey = false
+	}
+	if (setAsImageKey || apiKey.IsImageKey) && !apiKeyEligibleForImageKey(apiKey) {
+		if setAsImageKey {
+			return nil, ErrAPIKeyImageKeyIneligible
+		}
+		apiKey.IsImageKey = false
+	}
+
 	if err := s.apiKeyRepo.Update(ctx, apiKey); err != nil {
 		return nil, fmt.Errorf("update api key: %w", err)
+	}
+
+	if setAsImageKey {
+		repo := s.imageRepo()
+		if repo == nil {
+			return nil, fmt.Errorf("api key image repository is not configured")
+		}
+		if err := repo.SetImageKey(ctx, userID, id); err != nil {
+			return nil, fmt.Errorf("set image api key: %w", err)
+		}
+		apiKey, err = s.apiKeyRepo.GetByID(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("get api key: %w", err)
+		}
 	}
 
 	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
@@ -636,6 +722,24 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		_ = s.rateLimitCacheInvalid.InvalidateAPIKeyRateLimit(ctx, apiKey.ID)
 	}
 
+	return apiKey, nil
+}
+
+// ResolveImageKey returns the current user's effective [img-key] API key.
+// If the selected key is no longer eligible, the repository falls back to the
+// first eligible image-capable user key.
+func (s *APIKeyService) ResolveImageKey(ctx context.Context, userID int64) (*APIKey, error) {
+	repo := s.imageRepo()
+	if repo == nil {
+		return nil, fmt.Errorf("api key image repository is not configured")
+	}
+	apiKey, err := repo.GetImageKeyCandidate(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get image api key candidate: %w", err)
+	}
+	if apiKey != nil {
+		s.compileAPIKeyIPRules(apiKey)
+	}
 	return apiKey, nil
 }
 

@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client'
-import type { ApiKey, CreateApiKeyRequest, UpdateApiKeyRequest, PaginatedResponse } from '@/types'
+import type { ApiKey, CreateApiKeyRequest, UpdateApiKeyRequest, PaginatedResponse, ImageKeyResponse } from '@/types'
 
 /**
  * List all API keys for current user
@@ -42,6 +42,14 @@ export async function list(
  */
 export async function getById(id: number): Promise<ApiKey> {
   const { data } = await apiClient.get<ApiKey>(`/keys/${id}`)
+  return data
+}
+
+/**
+ * Resolve current user's effective image-generation API key for [img-key].
+ */
+export async function getImageKey(): Promise<ImageKeyResponse> {
+  const { data } = await apiClient.get<ImageKeyResponse>('/keys/img-key')
   return data
 }
 
@@ -134,6 +142,7 @@ export async function toggleStatus(id: number, status: 'active' | 'inactive'): P
 export const keysAPI = {
   list,
   getById,
+  getImageKey,
   create,
   update,
   delete: deleteKey,

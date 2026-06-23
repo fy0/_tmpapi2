@@ -113,6 +113,20 @@ func (_c *APIKeyCreate) SetNillableStatus(v *string) *APIKeyCreate {
 	return _c
 }
 
+// SetIsImageKey sets the "is_image_key" field.
+func (_c *APIKeyCreate) SetIsImageKey(v bool) *APIKeyCreate {
+	_c.mutation.SetIsImageKey(v)
+	return _c
+}
+
+// SetNillableIsImageKey sets the "is_image_key" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableIsImageKey(v *bool) *APIKeyCreate {
+	if v != nil {
+		_c.SetIsImageKey(*v)
+	}
+	return _c
+}
+
 // SetLastUsedAt sets the "last_used_at" field.
 func (_c *APIKeyCreate) SetLastUsedAt(v time.Time) *APIKeyCreate {
 	_c.mutation.SetLastUsedAt(v)
@@ -387,6 +401,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.IsImageKey(); !ok {
+		v := apikey.DefaultIsImageKey
+		_c.mutation.SetIsImageKey(v)
+	}
 	if _, ok := _c.mutation.Quota(); !ok {
 		v := apikey.DefaultQuota
 		_c.mutation.SetQuota(v)
@@ -456,6 +474,9 @@ func (_c *APIKeyCreate) check() error {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.IsImageKey(); !ok {
+		return &ValidationError{Name: "is_image_key", err: errors.New(`ent: missing required field "APIKey.is_image_key"`)}
 	}
 	if _, ok := _c.mutation.Quota(); !ok {
 		return &ValidationError{Name: "quota", err: errors.New(`ent: missing required field "APIKey.quota"`)}
@@ -534,6 +555,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.IsImageKey(); ok {
+		_spec.SetField(apikey.FieldIsImageKey, field.TypeBool, value)
+		_node.IsImageKey = value
 	}
 	if value, ok := _c.mutation.LastUsedAt(); ok {
 		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)
@@ -790,6 +815,18 @@ func (u *APIKeyUpsert) SetStatus(v string) *APIKeyUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *APIKeyUpsert) UpdateStatus() *APIKeyUpsert {
 	u.SetExcluded(apikey.FieldStatus)
+	return u
+}
+
+// SetIsImageKey sets the "is_image_key" field.
+func (u *APIKeyUpsert) SetIsImageKey(v bool) *APIKeyUpsert {
+	u.Set(apikey.FieldIsImageKey, v)
+	return u
+}
+
+// UpdateIsImageKey sets the "is_image_key" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateIsImageKey() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldIsImageKey)
 	return u
 }
 
@@ -1217,6 +1254,20 @@ func (u *APIKeyUpsertOne) SetStatus(v string) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateStatus() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetIsImageKey sets the "is_image_key" field.
+func (u *APIKeyUpsertOne) SetIsImageKey(v bool) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetIsImageKey(v)
+	})
+}
+
+// UpdateIsImageKey sets the "is_image_key" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateIsImageKey() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateIsImageKey()
 	})
 }
 
@@ -1855,6 +1906,20 @@ func (u *APIKeyUpsertBulk) SetStatus(v string) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateStatus() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetIsImageKey sets the "is_image_key" field.
+func (u *APIKeyUpsertBulk) SetIsImageKey(v bool) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetIsImageKey(v)
+	})
+}
+
+// UpdateIsImageKey sets the "is_image_key" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateIsImageKey() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateIsImageKey()
 	})
 }
 

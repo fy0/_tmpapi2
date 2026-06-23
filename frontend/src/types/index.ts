@@ -569,6 +569,7 @@ export interface ApiKey {
   name: string
   group_id: number | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
+  is_image_key: boolean
   ip_whitelist: string[]
   ip_blacklist: string[]
   last_used_at: string | null
@@ -609,6 +610,7 @@ export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
   status?: 'active' | 'inactive'
+  is_image_key?: boolean
   ip_whitelist?: string[]
   ip_blacklist?: string[]
   quota?: number // Quota limit in USD (null = no change, 0 = unlimited)
@@ -618,6 +620,11 @@ export interface UpdateApiKeyRequest {
   rate_limit_1d?: number
   rate_limit_7d?: number
   reset_rate_limit_usage?: boolean
+}
+
+export interface ImageKeyResponse {
+  key: string | null
+  api_key?: ApiKey
 }
 
 export interface CreateGroupRequest {

@@ -319,6 +319,29 @@
                 <Icon name="terminal" size="sm" />
                 <span class="text-xs">{{ t('keys.useKey') }}</span>
               </button>
+              <!-- Image Key Button -->
+              <button
+                @click="setImageKey(row)"
+                :disabled="row.is_image_key || !isImageKeyEligible(row)"
+                :class="[
+                  'flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-colors',
+                  row.is_image_key
+                    ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-300'
+                    : isImageKeyEligible(row)
+                      ? 'text-gray-500 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-300'
+                      : 'cursor-not-allowed text-gray-300 dark:text-dark-500'
+                ]"
+                :title="
+                  row.is_image_key
+                    ? t('keys.imageKeyCurrent', { token: '[img-key]' })
+                    : isImageKeyEligible(row)
+                      ? t('keys.setImageKey')
+                      : t('keys.imageKeyIneligible')
+                "
+              >
+                <Icon name="sparkles" size="sm" />
+                <span class="text-xs">{{ t('keys.imageKey') }}</span>
+              </button>
               <!-- Import to CC Switch Button -->
               <button
                 v-if="!publicSettings?.hide_ccs_import_button"
@@ -1362,6 +1385,34 @@ const loadPublicSettings = async () => {
 const openUseKeyModal = (key: ApiKey) => {
   selectedKey.value = key
   showUseKeyModal.value = true
+}
+
+const isKeyExpired = (expiresAt: string | null | undefined) => {
+  return !!expiresAt && new Date(expiresAt).getTime() <= now.value.getTime()
+}
+
+const isImageKeyEligible = (key: ApiKey) => {
+  return key.status === 'active' &&
+    !isKeyExpired(key.expires_at) &&
+    key.group?.platform === 'openai' &&
+    key.group?.status === 'active' &&
+    key.group?.allow_image_generation === true
+}
+
+const setImageKey = async (key: ApiKey) => {
+  if (key.is_image_key) return
+  if (!isImageKeyEligible(key)) {
+    appStore.showError(t('keys.imageKeyIneligible'))
+    return
+  }
+  try {
+    await keysAPI.update(key.id, { is_image_key: true })
+    appStore.showSuccess(t('keys.imageKeySetSuccess'))
+    loadApiKeys()
+  } catch (error: any) {
+    const errorMsg = error?.message || error?.response?.data?.detail || t('keys.failedToSetImageKey')
+    appStore.showError(errorMsg)
+  }
 }
 
 const closeUseKeyModal = () => {

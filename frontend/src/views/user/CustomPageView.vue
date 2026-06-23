@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="custom-page-layout">
       <div class="card flex-1 min-h-0 overflow-hidden">
-        <div v-if="loading" class="flex h-full items-center justify-center py-12">
+        <div v-if="loading || imageKeyLoading" class="flex h-full items-center justify-center py-12">
           <div
             class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
           ></div>
@@ -85,10 +85,22 @@
               <Icon name="link" size="lg" class="text-gray-400" />
             </div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('customPage.notConfiguredTitle') }}
+              {{
+                imageKeyMissing
+                  ? t('customPage.imgKeyMissingTitle')
+                  : imageKeyError
+                    ? t('customPage.imgKeyErrorTitle')
+                    : t('customPage.notConfiguredTitle')
+              }}
             </h3>
             <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-              {{ t('customPage.notConfiguredDesc') }}
+              {{
+                imageKeyMissing
+                  ? t('customPage.imgKeyMissingDesc')
+                  : imageKeyError
+                    ? t('customPage.imgKeyErrorDesc', { token: '[img-key]' })
+                    : t('customPage.notConfiguredDesc')
+              }}
             </p>
           </div>
         </div>
@@ -125,6 +137,7 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { buildEmbeddedUrl, detectTheme } from '@/utils/embedded-url'
+import { keysAPI } from '@/api'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -141,6 +154,10 @@ const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 
 const loading = ref(false)
+const imageKeyLoading = ref(false)
+const imageKeyMissing = ref(false)
+const imageKeyError = ref(false)
+const resolvedEmbeddedUrl = ref('')
 const pageTheme = ref<'light' | 'dark'>('light')
 const renderedHtml = ref('')
 const markdownContainer = ref<HTMLElement | null>(null)
@@ -172,22 +189,74 @@ const markdownSlug = computed(() => {
 
 const isMarkdownMode = computed(() => !!markdownSlug.value)
 
-const embeddedUrl = computed(() => {
+const rawEmbeddedUrl = computed(() => {
   if (!menuItem.value || isMarkdownMode.value) return ''
-  return buildEmbeddedUrl(
-    menuItem.value.url,
-    authStore.user?.id,
-    authStore.token,
-    pageTheme.value,
-    locale.value,
-  )
+  return menuItem.value.url || ''
 })
+
+const embeddedUrl = computed(() => resolvedEmbeddedUrl.value)
 
 const isValidUrl = computed(() => {
   if (isMarkdownMode.value) return false
   const url = embeddedUrl.value
   return url.startsWith('http://') || url.startsWith('https://')
 })
+
+const IMG_KEY_PLACEHOLDER = '[img-key]'
+
+let imageKeyResolveSeq = 0
+
+async function resolveEmbeddedUrl() {
+  const seq = ++imageKeyResolveSeq
+  imageKeyMissing.value = false
+  imageKeyError.value = false
+
+  const rawUrl = rawEmbeddedUrl.value
+  if (!rawUrl) {
+    resolvedEmbeddedUrl.value = ''
+    imageKeyLoading.value = false
+    return
+  }
+
+  if (!rawUrl.includes(IMG_KEY_PLACEHOLDER)) {
+    resolvedEmbeddedUrl.value = buildEmbeddedUrl(
+      rawUrl,
+      authStore.user?.id,
+      authStore.token,
+      pageTheme.value,
+      locale.value,
+    )
+    imageKeyLoading.value = false
+    return
+  }
+
+  imageKeyLoading.value = true
+  try {
+    const imageKey = await keysAPI.getImageKey()
+    if (seq !== imageKeyResolveSeq) return
+    if (!imageKey.key) {
+      imageKeyMissing.value = true
+      resolvedEmbeddedUrl.value = ''
+      return
+    }
+    const replacedUrl = rawUrl.split(IMG_KEY_PLACEHOLDER).join(encodeURIComponent(imageKey.key))
+    resolvedEmbeddedUrl.value = buildEmbeddedUrl(
+      replacedUrl,
+      authStore.user?.id,
+      authStore.token,
+      pageTheme.value,
+      locale.value,
+    )
+  } catch {
+    if (seq !== imageKeyResolveSeq) return
+    imageKeyError.value = true
+    resolvedEmbeddedUrl.value = ''
+  } finally {
+    if (seq === imageKeyResolveSeq) {
+      imageKeyLoading.value = false
+    }
+  }
+}
 
 function generateHeadingId(text: string, index: number): string {
   const base = text
@@ -341,6 +410,21 @@ watch(markdownSlug, (slug) => {
     tocItems.value = []
   }
 }, { immediate: true })
+
+watch(
+  [rawEmbeddedUrl, isMarkdownMode, () => authStore.user?.id, () => authStore.token, pageTheme, locale],
+  () => {
+    if (isMarkdownMode.value) {
+      resolvedEmbeddedUrl.value = ''
+      imageKeyLoading.value = false
+      imageKeyMissing.value = false
+      imageKeyError.value = false
+      return
+    }
+    void resolveEmbeddedUrl()
+  },
+  { immediate: true }
+)
 
 onMounted(async () => {
   pageTheme.value = detectTheme()

@@ -850,6 +850,12 @@ export default {
     quota: 'Quota',
     lastUsedAt: 'Last Used',
     useKey: 'Use Key',
+    imageKey: 'Image Key',
+    setImageKey: 'Use for images',
+    imageKeyCurrent: 'Current image key used for {token}',
+    imageKeyIneligible: 'Only active, unexpired keys in image-enabled OpenAI groups can be used for images',
+    imageKeySetSuccess: 'Image key selected',
+    failedToSetImageKey: 'Failed to set image key',
     useKeyModal: {
       title: 'Use API Key',
       description:
@@ -5983,7 +5989,7 @@ export default {
         name: 'Menu Name',
         namePlaceholder: 'e.g. Help Center',
         url: 'Page URL',
-        urlPlaceholder: 'https://example.com/page',
+        urlPlaceholder: 'https://example.com/page?key={token}',
         iconSvg: 'SVG Icon',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: 'Icon Preview',
@@ -6776,6 +6782,10 @@ export default {
     notFoundDesc: 'This custom page does not exist or has been removed.',
     notConfiguredTitle: 'Page URL not configured',
     notConfiguredDesc: 'The URL for this custom page has not been properly configured.',
+    imgKeyMissingTitle: 'No image key available',
+    imgKeyMissingDesc: 'Create or select an API key in an image-enabled OpenAI group first.',
+    imgKeyErrorTitle: 'Failed to load image key',
+    imgKeyErrorDesc: 'Unable to resolve {token}. Please try again later.',
   },
 
   // Announcements Page

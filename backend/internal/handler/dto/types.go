@@ -55,6 +55,7 @@ type APIKey struct {
 	Name        string     `json:"name"`
 	GroupID     *int64     `json:"group_id"`
 	Status      string     `json:"status"`
+	IsImageKey  bool       `json:"is_image_key"`
 	IPWhitelist []string   `json:"ip_whitelist"`
 	IPBlacklist []string   `json:"ip_blacklist"`
 	LastUsedAt  *time.Time `json:"last_used_at"`

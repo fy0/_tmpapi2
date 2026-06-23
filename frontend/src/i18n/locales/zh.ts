@@ -849,6 +849,12 @@ export default {
     quota: '额度',
     lastUsedAt: '上次使用时间',
     useKey: '使用密钥',
+    imageKey: '绘图用',
+    setImageKey: '设为绘图用',
+    imageKeyCurrent: '当前用于 {token} 的绘图密钥',
+    imageKeyIneligible: '仅活跃、未过期、绑定允许生图的 OpenAI 分组的密钥可设为绘图用',
+    imageKeySetSuccess: '已设为绘图用密钥',
+    failedToSetImageKey: '设置绘图用密钥失败',
     useKeyModal: {
       title: '使用 API 密钥',
       description: '将以下环境变量添加到您的终端配置文件或直接在终端中运行。',
@@ -6139,7 +6145,7 @@ export default {
         name: '菜单名称',
         namePlaceholder: '如：帮助中心',
         url: '页面 URL',
-        urlPlaceholder: 'https://example.com/page',
+        urlPlaceholder: 'https://example.com/page?key={token}',
         iconSvg: 'SVG 图标',
         iconSvgPlaceholder: '<svg>...</svg>',
         iconPreview: '图标预览',
@@ -6930,6 +6936,10 @@ export default {
     notFoundDesc: '该自定义页面不存在或已被删除。',
     notConfiguredTitle: '页面链接未配置',
     notConfiguredDesc: '该自定义页面的 URL 未正确配置。',
+    imgKeyMissingTitle: '暂无可用绘图密钥',
+    imgKeyMissingDesc: '请先在 API 密钥页面创建或选择一个支持生图的 OpenAI 分组密钥。',
+    imgKeyErrorTitle: '绘图密钥加载失败',
+    imgKeyErrorDesc: '无法解析 {token}，请稍后重试。',
   },
 
   // Announcements Page
