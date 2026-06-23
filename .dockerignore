@@ -40,7 +40,15 @@ backend/vendor/
 
 # Test files
 *_test.go
+frontend/**/__tests__/
+frontend/**/*.spec.js
+frontend/**/*.spec.jsx
+frontend/**/*.spec.ts
+frontend/**/*.spec.tsx
 **/*.test.js
+frontend/**/*.test.jsx
+frontend/**/*.test.ts
+frontend/**/*.test.tsx
 coverage/
 .nyc_output/
 
