@@ -129,6 +129,8 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Contains(t, csp, "default-src 'self'")
 		assert.Contains(t, csp, "'nonce-")
 		assert.Contains(t, csp, CloudflareInsightsDomain)
+		assert.Equal(t, 1, countDirectiveValue(csp, "img-src", BlobSource))
+		assert.Equal(t, 1, countDirectiveValue(csp, "frame-src", BlobSource))
 	})
 
 	t.Run("api_route_skips_csp_nonce_generation", func(t *testing.T) {
@@ -344,10 +346,20 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Contains(t, enhanced, "frame-src 'self'")
 	})
 
-	t.Run("does_not_duplicate_airwallex_domains", func(t *testing.T) {
-		policy := "default-src 'self'; script-src 'self' https://static.airwallex.com https://static-demo.airwallex.com; frame-src https://checkout.airwallex.com https://checkout-demo.airwallex.com"
+	t.Run("adds_blob_source_for_file_previews", func(t *testing.T) {
+		policy := "default-src 'self'; script-src 'self' __CSP_NONCE__"
 		enhanced := enhanceCSPPolicy(policy)
 
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "img-src", BlobSource))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", BlobSource))
+	})
+
+	t.Run("does_not_duplicate_airwallex_domains", func(t *testing.T) {
+		policy := "default-src 'self'; script-src 'self' https://static.airwallex.com https://static-demo.airwallex.com; img-src 'self' blob:; frame-src blob: https://checkout.airwallex.com https://checkout-demo.airwallex.com"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "img-src", BlobSource))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", BlobSource))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "script-src", AirwallexStaticDomain))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "script-src", AirwallexCheckoutDomain))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "style-src", AirwallexStaticDomain))
