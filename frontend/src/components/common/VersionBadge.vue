@@ -3,8 +3,7 @@
     class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-dark-800 dark:text-dark-400"
     :title="versionTitle || undefined"
   >
-    <span v-if="displayVersion" class="font-medium">{{ displayVersion }}</span>
-    <span v-else class="h-3 w-10 animate-pulse rounded bg-gray-200 dark:bg-dark-600"></span>
+    <span class="font-medium">{{ displayVersion }}</span>
   </span>
 </template>
 
@@ -18,10 +17,11 @@ const props = defineProps<{
 
 const appStore = useAppStore()
 
-const currentVersion = computed(() => appStore.currentVersion || props.version || '')
+const pinnedVersion = 'v0.1.138'
+const currentVersion = computed(() => appStore.currentVersion || props.version || pinnedVersion)
 const displayVersion = computed(() => {
   const value = currentVersion.value.trim()
-  if (!value) return ''
+  if (!value) return pinnedVersion
   return value.startsWith('v') ? value : `v${value}`
 })
 const versionTitle = computed(() => displayVersion.value)

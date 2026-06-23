@@ -22,6 +22,13 @@ describe('VersionBadge', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
+  it('renders the pinned version before settings load', () => {
+    const wrapper = mount(VersionBadge)
+
+    expect(wrapper.text()).toBe('v0.1.138')
+    expect(wrapper.find('.animate-pulse').exists()).toBe(false)
+  })
+
   it('normalizes versions without duplicating the v prefix', () => {
     const wrapper = mount(VersionBadge, {
       props: {
