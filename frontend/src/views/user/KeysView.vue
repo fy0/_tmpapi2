@@ -3,6 +3,14 @@
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col gap-3">
+          <div
+            v-if="apiKeyPageNotice"
+            class="rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] leading-5 text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100"
+          >
+            <p class="truncate">
+              {{ apiKeyPageNotice }}
+            </p>
+          </div>
           <div class="flex flex-wrap items-center gap-3">
             <SearchInput
               v-model="filterSearch"
@@ -1172,6 +1180,9 @@ const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
+const apiKeyPageNotice = computed(
+  () => publicSettings.value?.api_key_page_notice?.trim() || ''
+)
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
