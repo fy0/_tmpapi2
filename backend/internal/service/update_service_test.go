@@ -28,31 +28,38 @@ func (s *updateServiceCacheStub) SetUpdateInfo(_ context.Context, data string, _
 }
 
 type updateServiceGitHubClientStub struct {
-	release *GitHubRelease
+	release            *GitHubRelease
+	fetchLatestCalls   int
+	downloadFileCalls  int
+	fetchChecksumCalls int
 }
 
 func (s *updateServiceGitHubClientStub) FetchLatestRelease(context.Context, string) (*GitHubRelease, error) {
+	s.fetchLatestCalls++
 	return s.release, nil
 }
 
 func (s *updateServiceGitHubClientStub) DownloadFile(context.Context, string, string, int64) error {
-	panic("DownloadFile should not be called when no update is available")
+	s.downloadFileCalls++
+	panic("DownloadFile should not be called when updates are disabled")
 }
 
 func (s *updateServiceGitHubClientStub) FetchChecksumFile(context.Context, string) ([]byte, error) {
-	panic("FetchChecksumFile should not be called when no update is available")
+	s.fetchChecksumCalls++
+	panic("FetchChecksumFile should not be called when updates are disabled")
 }
 
 func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
+	githubClient := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{
+			TagName: "v9.9.9",
+			Name:    "v9.9.9",
+		},
+	}
 	svc := NewUpdateService(
 		&updateServiceCacheStub{},
-		&updateServiceGitHubClientStub{
-			release: &GitHubRelease{
-				TagName: "v0.1.132",
-				Name:    "v0.1.132",
-			},
-		},
-		"0.1.132",
+		githubClient,
+		"9.9.9",
 		"release",
 	)
 
@@ -61,4 +68,33 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoUpdateAvailable))
 	require.ErrorIs(t, err, ErrNoUpdateAvailable)
+	require.Zero(t, githubClient.fetchLatestCalls)
+	require.Zero(t, githubClient.downloadFileCalls)
+	require.Zero(t, githubClient.fetchChecksumCalls)
+}
+
+func TestUpdateServiceCheckUpdatePinnedAndOffline(t *testing.T) {
+	githubClient := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{
+			TagName: "v9.9.9",
+			Name:    "v9.9.9",
+		},
+	}
+	svc := NewUpdateService(
+		&updateServiceCacheStub{},
+		githubClient,
+		"9.9.9",
+		"release",
+	)
+
+	info, err := svc.CheckUpdate(context.Background(), true)
+
+	require.NoError(t, err)
+	require.Equal(t, "v0.1.138", info.CurrentVersion)
+	require.Equal(t, "v0.1.138", info.LatestVersion)
+	require.False(t, info.HasUpdate)
+	require.Nil(t, info.ReleaseInfo)
+	require.False(t, info.Cached)
+	require.Equal(t, "release", info.BuildType)
+	require.Zero(t, githubClient.fetchLatestCalls)
 }

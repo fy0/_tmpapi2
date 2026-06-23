@@ -29,6 +29,13 @@ func (s *systemHandlerUpdateServiceStub) CheckUpdate(_ context.Context, force bo
 	return s.updateInfo, s.checkErr
 }
 
+func (s *systemHandlerUpdateServiceStub) CurrentVersion() string {
+	if s.updateInfo == nil {
+		return ""
+	}
+	return s.updateInfo.CurrentVersion
+}
+
 func (s *systemHandlerUpdateServiceStub) PerformUpdate(context.Context) error {
 	s.performCall++
 	return s.performErr
@@ -70,6 +77,7 @@ func newSystemHandlerTestRouter(t *testing.T, updateSvc *systemHandlerUpdateServ
 	handler := NewSystemHandler(updateSvc, lockSvc)
 
 	router := gin.New()
+	router.GET("/api/v1/admin/system/version", handler.GetVersion)
 	router.POST("/api/v1/admin/system/update", handler.PerformUpdate)
 	return router
 }
@@ -118,6 +126,34 @@ func TestSystemHandlerPerformUpdateAlreadyUpToDateReturnsOK(t *testing.T) {
 	require.Equal(t, "0.1.132", body.Data.CurrentVersion)
 	require.Equal(t, "0.1.132", body.Data.LatestVersion)
 	require.NotEmpty(t, body.Data.OperationID)
+}
+
+func TestSystemHandlerGetVersionDoesNotCheckUpdates(t *testing.T) {
+	updateSvc := &systemHandlerUpdateServiceStub{
+		updateInfo: &service.UpdateInfo{
+			CurrentVersion: "v0.1.138",
+			LatestVersion:  "v0.1.138",
+			HasUpdate:      false,
+		},
+	}
+	repo := newMemoryIdempotencyRepoStub()
+	router := newSystemHandlerTestRouter(t, updateSvc, repo)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/system/version", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Empty(t, updateSvc.checkForces)
+
+	var body struct {
+		Code int `json:"code"`
+		Data struct {
+			Version string `json:"version"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Equal(t, "v0.1.138", body.Data.Version)
 }
 
 func TestSystemHandlerPerformUpdateFailureStillReturnsInternalError(t *testing.T) {

@@ -29,6 +29,7 @@ const (
 	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
 	githubRepo     = "Wei-Shaw/sub2api"
+	pinnedVersion  = "v0.1.138"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"
@@ -64,9 +65,14 @@ func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, versi
 	return &UpdateService{
 		cache:          cache,
 		githubClient:   githubClient,
-		currentVersion: version,
+		currentVersion: pinnedVersion,
 		buildType:      buildType,
 	}
+}
+
+// CurrentVersion returns the pinned runtime version exposed to the admin UI.
+func (s *UpdateService) CurrentVersion() string {
+	return s.currentVersion
 }
 
 // UpdateInfo contains update information
@@ -114,33 +120,13 @@ type GitHubAsset struct {
 
 // CheckUpdate checks for available updates
 func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, error) {
-	// Try cache first
-	if !force {
-		if cached, err := s.getFromCache(ctx); err == nil && cached != nil {
-			return cached, nil
-		}
-	}
-
-	// Fetch from GitHub
-	info, err := s.fetchLatestRelease(ctx)
-	if err != nil {
-		// Return cached on error
-		if cached, cacheErr := s.getFromCache(ctx); cacheErr == nil && cached != nil {
-			cached.Warning = "Using cached data: " + err.Error()
-			return cached, nil
-		}
-		return &UpdateInfo{
-			CurrentVersion: s.currentVersion,
-			LatestVersion:  s.currentVersion,
-			HasUpdate:      false,
-			Warning:        err.Error(),
-			BuildType:      s.buildType,
-		}, nil
-	}
-
-	// Cache result
-	s.saveToCache(ctx, info)
-	return info, nil
+	return &UpdateInfo{
+		CurrentVersion: s.currentVersion,
+		LatestVersion:  s.currentVersion,
+		HasUpdate:      false,
+		Cached:         false,
+		BuildType:      s.buildType,
+	}, nil
 }
 
 // PerformUpdate downloads and applies the update
