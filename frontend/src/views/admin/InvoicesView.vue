@@ -2,11 +2,37 @@
   <AppLayout>
     <div class="space-y-4">
       <div class="card p-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="flex-1 sm:max-w-xs">
+            <label class="input-label">{{ t('invoice.minInvoiceAmount') }}</label>
+            <input
+              :value="settingsForm.min_invoice_amount || ''"
+              type="number"
+              min="0"
+              step="0.01"
+              class="input mt-1"
+              :placeholder="formatMoney(0)"
+              @input="settingsForm.min_invoice_amount = Number(($event.target as HTMLInputElement).value) || 0"
+            />
+          </div>
+          <button class="btn btn-primary" :disabled="savingSettings" @click="saveSettings">
+            <Icon name="check" size="sm" />
+            <span>{{ savingSettings ? t('common.processing') : t('invoice.saveSettings') }}</span>
+          </button>
+          <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('invoice.minInvoiceAmountHint') }}</p>
+        </div>
+      </div>
+
+      <div class="card p-4">
         <div class="flex flex-wrap items-center gap-3">
           <div class="flex-1 sm:max-w-72">
             <input v-model.trim="filters.keyword" class="input" :placeholder="t('invoice.searchPlaceholder')" @keyup.enter="reloadInvoices" />
           </div>
           <Select v-model="filters.status" :options="statusOptions" class="w-36" @change="reloadInvoices" />
+          <button class="btn btn-secondary" :disabled="exporting" @click="exportPendingInvoices">
+            <Icon name="download" size="sm" />
+            <span>{{ exporting ? t('common.processing') : t('invoice.exportPendingCsv') }}</span>
+          </button>
           <button class="btn btn-secondary" :disabled="loading" :title="t('common.refresh')" @click="loadInvoices">
             <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
           </button>
@@ -15,7 +41,7 @@
 
       <div class="card p-4">
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[1040px] divide-y divide-gray-200 dark:divide-dark-700">
+          <table class="w-full min-w-[1180px] divide-y divide-gray-200 dark:divide-dark-700">
             <thead class="bg-gray-50 dark:bg-dark-800">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-dark-400">{{ t('invoice.id') }}</th>
@@ -67,6 +93,14 @@
                       <button v-if="invoice.status === 'issued' && invoice.file_name" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20" @click="downloadInvoice(invoice)">
                         <Icon name="download" size="sm" />
                         <span>{{ t('invoice.download') }}</span>
+                      </button>
+                      <button v-if="invoice.status === 'issued' && invoice.file_name" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/20" @click="openPreview(invoice)">
+                        <Icon name="document" size="sm" />
+                        <span>{{ t('invoice.viewFile') }}</span>
+                      </button>
+                      <button v-if="invoice.file_name" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" @click="confirmDeleteFile(invoice)">
+                        <Icon name="trash" size="sm" />
+                        <span>{{ t('invoice.deleteFile') }}</span>
                       </button>
                     </div>
                   </td>
@@ -160,14 +194,70 @@
             <Icon name="upload" size="sm" />
             <span>{{ t('invoice.uploadInvoice') }}</span>
           </button>
+          <button v-if="selectedInvoice?.status === 'issued' && selectedInvoice.file_name" class="btn btn-secondary" @click="openPreview(selectedInvoice)">
+            <Icon name="document" size="sm" />
+            <span>{{ t('invoice.viewFile') }}</span>
+          </button>
+          <button v-if="selectedInvoice?.file_name" class="btn btn-secondary text-red-600 dark:text-red-400" @click="confirmDeleteFile(selectedInvoice)">
+            <Icon name="trash" size="sm" />
+            <span>{{ t('invoice.deleteFile') }}</span>
+          </button>
         </div>
       </template>
     </BaseDialog>
+
+    <BaseDialog :show="!!previewInvoice" :title="t('invoice.preview')" width="wide" @close="closePreview">
+      <div v-if="previewInvoice" class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
+          <div class="min-w-0">
+            <p class="break-all text-sm font-medium text-gray-900 dark:text-white">{{ previewInvoice.file_name }}</p>
+            <p class="text-xs text-gray-500 dark:text-dark-400">{{ formatFileSize(previewInvoice.file_size) }}</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" @click="downloadInvoice(previewInvoice)">
+            <Icon name="download" size="sm" />
+            <span>{{ t('invoice.download') }}</span>
+          </button>
+        </div>
+        <div class="min-h-[520px] overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
+          <div v-if="previewLoading" class="flex h-[520px] items-center justify-center text-sm text-gray-500 dark:text-dark-400">
+            {{ t('common.loading') }}
+          </div>
+          <img v-else-if="previewURL && previewKind === 'image'" :src="previewURL" class="mx-auto max-h-[720px] w-auto max-w-full object-contain" />
+          <iframe v-else-if="previewURL && previewKind === 'pdf'" :src="previewURL" class="h-[720px] w-full border-0"></iframe>
+          <div v-else class="flex h-[520px] items-center justify-center px-6 text-center text-sm text-gray-500 dark:text-dark-400">
+            {{ t('invoice.previewUnavailable') }}
+          </div>
+        </div>
+      </div>
+    </BaseDialog>
+
+    <ConfirmDialog
+      :show="!!pendingUpload"
+      :title="t('invoice.uploadConfirmTitle')"
+      :message="pendingUpload ? t('invoice.uploadConfirmMessage', { id: pendingUpload.invoice.id, file: pendingUpload.file.name }) : ''"
+      :confirm-text="t('invoice.uploadInvoice')"
+      @confirm="confirmUpload"
+      @cancel="cancelUpload"
+    >
+      <div v-if="pendingUpload" class="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-dark-800 dark:text-dark-300">
+        {{ formatFileSize(pendingUpload.file.size) }}
+      </div>
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      :show="!!deleteTarget"
+      :title="t('invoice.deleteFileConfirmTitle')"
+      :message="deleteTarget ? t('invoice.deleteFileConfirmMessage', { id: deleteTarget.id }) : ''"
+      :confirm-text="t('invoice.deleteFile')"
+      :danger="true"
+      @confirm="deleteInvoiceFile"
+      @cancel="deleteTarget = null"
+    />
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import adminInvoicesAPI from '@/api/admin/invoices'
@@ -176,6 +266,7 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import { formatBytes, formatCurrency, formatDateTime } from '@/utils/format'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -185,12 +276,22 @@ const appStore = useAppStore()
 
 const loading = ref(false)
 const uploading = ref(false)
+const exporting = ref(false)
+const savingSettings = ref(false)
+const deletingFile = ref(false)
 const invoices = ref<InvoiceRequest[]>([])
 const selectedInvoice = ref<InvoiceRequest | null>(null)
 const uploadTarget = ref<InvoiceRequest | null>(null)
+const pendingUpload = ref<{ invoice: InvoiceRequest; file: File } | null>(null)
+const deleteTarget = ref<InvoiceRequest | null>(null)
+const previewInvoice = ref<InvoiceRequest | null>(null)
+const previewURL = ref('')
+const previewKind = ref<'image' | 'pdf' | 'other'>('other')
+const previewLoading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const filters = reactive({ status: '', keyword: '' })
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
+const settingsForm = reactive({ min_invoice_amount: 0 })
 
 const statusOptions = computed(() => [
   { value: '', label: t('common.all') },
@@ -230,6 +331,30 @@ function reloadInvoices() {
   loadInvoices()
 }
 
+async function loadSettings() {
+  try {
+    const res = await adminInvoicesAPI.getSettings()
+    settingsForm.min_invoice_amount = res.data.min_invoice_amount || 0
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  }
+}
+
+async function saveSettings() {
+  savingSettings.value = true
+  try {
+    const res = await adminInvoicesAPI.updateSettings({
+      min_invoice_amount: Math.max(0, Number(settingsForm.min_invoice_amount) || 0),
+    })
+    settingsForm.min_invoice_amount = res.data.min_invoice_amount || 0
+    appStore.showSuccess(t('invoice.settingsSaved'))
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  } finally {
+    savingSettings.value = false
+  }
+}
+
 async function openDetail(invoice: InvoiceRequest) {
   try {
     const res = await adminInvoicesAPI.get(invoice.id)
@@ -251,19 +376,31 @@ async function handleFileSelected(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file || !uploadTarget.value || uploading.value) return
+  pendingUpload.value = { invoice: uploadTarget.value, file }
+  uploadTarget.value = null
+  target.value = ''
+}
+
+async function confirmUpload() {
+  if (!pendingUpload.value || uploading.value) return
+  const { invoice, file } = pendingUpload.value
   uploading.value = true
   try {
-    const res = await adminInvoicesAPI.upload(uploadTarget.value.id, file)
+    const res = await adminInvoicesAPI.upload(invoice.id, file)
     appStore.showSuccess(t('invoice.uploadSuccess'))
     selectedInvoice.value = selectedInvoice.value?.id === res.data.id ? res.data : selectedInvoice.value
+    if (previewInvoice.value?.id === res.data.id) closePreview()
+    pendingUpload.value = null
     await loadInvoices()
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
   } finally {
     uploading.value = false
-    uploadTarget.value = null
-    target.value = ''
   }
+}
+
+function cancelUpload() {
+  pendingUpload.value = null
 }
 
 async function downloadInvoice(invoice: InvoiceRequest) {
@@ -272,6 +409,76 @@ async function downloadInvoice(invoice: InvoiceRequest) {
     saveBlob(res.data, invoice.file_name || `invoice-${invoice.id}`)
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  }
+}
+
+async function exportPendingInvoices() {
+  exporting.value = true
+  try {
+    const res = await adminInvoicesAPI.exportPending({
+      keyword: filters.keyword || undefined,
+    })
+    saveBlob(res.data, `pending-invoices-${new Date().toISOString().slice(0, 10)}.csv`)
+    appStore.showSuccess(t('invoice.exportSuccess'))
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  } finally {
+    exporting.value = false
+  }
+}
+
+async function openPreview(invoice: InvoiceRequest) {
+  closePreview()
+  previewInvoice.value = invoice
+  previewLoading.value = true
+  previewKind.value = previewKindFromInvoice(invoice)
+  try {
+    const res = await adminInvoicesAPI.preview(invoice.id)
+    previewURL.value = URL.createObjectURL(res.data)
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+    previewInvoice.value = null
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+function closePreview() {
+  if (previewURL.value) {
+    URL.revokeObjectURL(previewURL.value)
+  }
+  previewURL.value = ''
+  previewInvoice.value = null
+  previewKind.value = 'other'
+  previewLoading.value = false
+}
+
+function previewKindFromInvoice(invoice: InvoiceRequest): 'image' | 'pdf' | 'other' {
+  const contentType = (invoice.content_type || '').toLowerCase()
+  const fileName = (invoice.file_name || '').toLowerCase()
+  if (contentType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(fileName)) return 'image'
+  if (contentType.includes('pdf') || fileName.endsWith('.pdf')) return 'pdf'
+  return 'other'
+}
+
+function confirmDeleteFile(invoice: InvoiceRequest) {
+  deleteTarget.value = invoice
+}
+
+async function deleteInvoiceFile() {
+  if (!deleteTarget.value || deletingFile.value) return
+  deletingFile.value = true
+  try {
+    const res = await adminInvoicesAPI.deleteFile(deleteTarget.value.id)
+    appStore.showSuccess(t('invoice.deleteFileSuccess'))
+    selectedInvoice.value = selectedInvoice.value?.id === res.data.id ? res.data : selectedInvoice.value
+    if (previewInvoice.value?.id === res.data.id) closePreview()
+    deleteTarget.value = null
+    await loadInvoices()
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  } finally {
+    deletingFile.value = false
   }
 }
 
@@ -308,5 +515,9 @@ function statusBadgeClass(status: InvoiceStatus): string {
   return `${base} bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300`
 }
 
-onMounted(() => loadInvoices())
+onMounted(async () => {
+  await Promise.all([loadSettings(), loadInvoices()])
+})
+
+onBeforeUnmount(() => closePreview())
 </script>

@@ -1,7 +1,11 @@
 package admin
 
 import (
+	"bytes"
+	"encoding/csv"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -97,7 +101,119 @@ func (h *InvoiceHandler) Download(c *gin.Context) {
 	if file.ContentType != "" {
 		c.Header("Content-Type", file.ContentType)
 	}
+	if c.Query("inline") == "1" {
+		c.Header("Content-Disposition", fmt.Sprintf("inline; filename=%q", file.FileName))
+		c.File(file.FilePath)
+		return
+	}
 	c.FileAttachment(file.FilePath, file.FileName)
+}
+
+func (h *InvoiceHandler) DeleteFile(c *gin.Context) {
+	id, ok := parseInvoiceID(c)
+	if !ok {
+		return
+	}
+	invoice, err := h.invoiceService.DeleteIssuedFile(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, invoice)
+}
+
+func (h *InvoiceHandler) GetSettings(c *gin.Context) {
+	settings, err := h.invoiceService.GetInvoiceSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, settings)
+}
+
+type updateInvoiceSettingsRequest struct {
+	MinInvoiceAmount float64 `json:"min_invoice_amount"`
+}
+
+func (h *InvoiceHandler) UpdateSettings(c *gin.Context) {
+	var req updateInvoiceSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	settings, err := h.invoiceService.UpdateInvoiceSettings(c.Request.Context(), service.InvoiceSettings{
+		MinInvoiceAmount: req.MinInvoiceAmount,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, settings)
+}
+
+func (h *InvoiceHandler) ExportPending(c *gin.Context) {
+	keyword := strings.TrimSpace(c.Query("keyword"))
+	if len(keyword) > 100 {
+		keyword = keyword[:100]
+	}
+	items, err := h.invoiceService.ListPendingInvoicesForExport(c.Request.Context(), keyword)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+	if err := writer.Write([]string{
+		"id",
+		"user_id",
+		"user_email",
+		"invoice_title",
+		"tax_no",
+		"amount",
+		"note",
+		"recharge_count",
+		"recharge_codes",
+		"recharge_amounts",
+		"created_at",
+	}); err != nil {
+		response.InternalError(c, "Failed to export invoices: "+err.Error())
+		return
+	}
+
+	for _, invoice := range items {
+		codes := make([]string, 0, len(invoice.Recharges))
+		amounts := make([]string, 0, len(invoice.Recharges))
+		for _, recharge := range invoice.Recharges {
+			codes = append(codes, recharge.Code)
+			amounts = append(amounts, fmt.Sprintf("%.2f", recharge.Value))
+		}
+		if err := writer.Write([]string{
+			fmt.Sprintf("%d", invoice.ID),
+			fmt.Sprintf("%d", invoice.UserID),
+			invoice.UserEmail,
+			invoice.InvoiceTitle,
+			invoice.TaxNo,
+			fmt.Sprintf("%.2f", invoice.Amount),
+			invoice.Note,
+			fmt.Sprintf("%d", len(invoice.Recharges)),
+			strings.Join(codes, ";"),
+			strings.Join(amounts, ";"),
+			invoice.CreatedAt.Format("2006-01-02 15:04:05"),
+		}); err != nil {
+			response.InternalError(c, "Failed to export invoices: "+err.Error())
+			return
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		response.InternalError(c, "Failed to export invoices: "+err.Error())
+		return
+	}
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", "attachment; filename=pending_invoices.csv")
+	c.Data(200, "text/csv", buf.Bytes())
 }
 
 func parseInvoiceID(c *gin.Context) (int64, bool) {

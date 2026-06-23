@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +22,7 @@ const (
 
 	defaultInvoiceStorageDir = "data/invoices"
 	maxInvoiceUploadBytes    = 20 << 20
+	SettingMinInvoiceAmount  = "MIN_INVOICE_AMOUNT"
 )
 
 var (
@@ -26,6 +30,7 @@ var (
 	ErrInvoiceRechargeUnavailable = infraerrors.Conflict("INVOICE_RECHARGE_UNAVAILABLE", "selected recharge is not available for invoice")
 	ErrInvoiceFileUnavailable     = infraerrors.NotFound("INVOICE_FILE_UNAVAILABLE", "invoice file is not available")
 	ErrInvoiceFileTooLarge        = infraerrors.BadRequest("INVOICE_FILE_TOO_LARGE", "invoice file is too large")
+	ErrInvoiceAmountBelowMinimum  = infraerrors.BadRequest("INVOICE_AMOUNT_BELOW_MINIMUM", "invoice amount is below the minimum")
 )
 
 type InvoiceRepository interface {
@@ -37,24 +42,28 @@ type InvoiceRepository interface {
 	GetByID(ctx context.Context, id int64) (*InvoiceRequest, error)
 	GetByIDForUser(ctx context.Context, userID, id int64) (*InvoiceRequest, error)
 	UpdateIssuedFile(ctx context.Context, id, adminID int64, file InvoiceStoredFile) (*InvoiceRequest, error)
+	ClearIssuedFile(ctx context.Context, id int64) (*InvoiceRequest, error)
 }
 
 type InvoiceService struct {
-	repo       InvoiceRepository
-	storageDir string
+	repo        InvoiceRepository
+	settingRepo SettingRepository
+	storageDir  string
 }
 
-func NewInvoiceService(repo InvoiceRepository) *InvoiceService {
+func NewInvoiceService(repo InvoiceRepository, settingRepo SettingRepository) *InvoiceService {
 	return &InvoiceService{
-		repo:       repo,
-		storageDir: defaultInvoiceStorageDir,
+		repo:        repo,
+		settingRepo: settingRepo,
+		storageDir:  defaultInvoiceStorageDir,
 	}
 }
 
 type InvoiceSummary struct {
-	AvailableAmount float64 `json:"available_amount"`
-	PendingAmount   float64 `json:"pending_amount"`
-	IssuedAmount    float64 `json:"issued_amount"`
+	AvailableAmount  float64 `json:"available_amount"`
+	PendingAmount    float64 `json:"pending_amount"`
+	IssuedAmount     float64 `json:"issued_amount"`
+	MinInvoiceAmount float64 `json:"min_invoice_amount"`
 }
 
 type InvoiceRecharge struct {
@@ -94,6 +103,7 @@ type CreateInvoiceRequestInput struct {
 	TaxNo         string
 	Note          string
 	RedeemCodeIDs []int64
+	MinAmount     float64
 }
 
 type InvoiceListParams struct {
@@ -127,7 +137,16 @@ type InvoiceFile struct {
 }
 
 func (s *InvoiceService) GetSummary(ctx context.Context, userID int64) (*InvoiceSummary, error) {
-	return s.repo.GetSummary(ctx, userID)
+	summary, err := s.repo.GetSummary(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	minAmount, err := s.GetMinInvoiceAmount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	summary.MinInvoiceAmount = minAmount
+	return summary, nil
 }
 
 func (s *InvoiceService) ListAvailableRecharges(ctx context.Context, userID int64) ([]InvoiceRecharge, error) {
@@ -166,6 +185,11 @@ func (s *InvoiceService) CreateRequest(ctx context.Context, input CreateInvoiceR
 		return nil, infraerrors.BadRequest("INVOICE_RECHARGES_REQUIRED", "at least one recharge is required")
 	}
 
+	minAmount, err := s.GetMinInvoiceAmount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	input.MinAmount = minAmount
 	return s.repo.CreateRequest(ctx, input)
 }
 
@@ -237,7 +261,8 @@ func (s *InvoiceService) UploadIssuedFile(ctx context.Context, input UploadInvoi
 		return nil, ErrInvoiceFileTooLarge
 	}
 
-	if _, err := s.repo.GetByID(ctx, input.InvoiceID); err != nil {
+	existing, err := s.repo.GetByID(ctx, input.InvoiceID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -265,7 +290,111 @@ func (s *InvoiceService) UploadIssuedFile(ctx context.Context, input UploadInvoi
 		_ = os.Remove(targetPath)
 		return nil, err
 	}
+	if oldPath := strings.TrimSpace(existing.FilePath); oldPath != "" && oldPath != targetPath {
+		if err := os.Remove(oldPath); err != nil && !os.IsNotExist(err) {
+			slog.Warn("delete replaced invoice file failed", "invoice_id", input.InvoiceID, "error", err)
+		}
+	}
 	return updated, nil
+}
+
+func (s *InvoiceService) DeleteIssuedFile(ctx context.Context, id int64) (*InvoiceRequest, error) {
+	if id <= 0 {
+		return nil, ErrInvoiceNotFound
+	}
+	invoice, err := s.GetAdminInvoice(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(invoice.FileName) == "" || strings.TrimSpace(invoice.FilePath) == "" {
+		return nil, ErrInvoiceFileUnavailable
+	}
+
+	filePath := invoice.FilePath
+	updated, err := s.repo.ClearIssuedFile(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		slog.Warn("delete invoice file failed after database rollback", "invoice_id", id, "error", err)
+	}
+	return updated, nil
+}
+
+func (s *InvoiceService) GetInvoiceSettings(ctx context.Context) (*InvoiceSettings, error) {
+	minAmount, err := s.GetMinInvoiceAmount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &InvoiceSettings{MinInvoiceAmount: minAmount}, nil
+}
+
+func (s *InvoiceService) UpdateInvoiceSettings(ctx context.Context, settings InvoiceSettings) (*InvoiceSettings, error) {
+	if math.IsNaN(settings.MinInvoiceAmount) || math.IsInf(settings.MinInvoiceAmount, 0) || settings.MinInvoiceAmount < 0 {
+		return nil, infraerrors.BadRequest("INVOICE_MIN_AMOUNT_INVALID", "minimum invoice amount must be greater than or equal to zero")
+	}
+	if s.settingRepo == nil {
+		return &InvoiceSettings{MinInvoiceAmount: normalizeMoney(settings.MinInvoiceAmount)}, nil
+	}
+	minAmount := normalizeMoney(settings.MinInvoiceAmount)
+	if err := s.settingRepo.Set(ctx, SettingMinInvoiceAmount, strconv.FormatFloat(minAmount, 'f', -1, 64)); err != nil {
+		return nil, err
+	}
+	return &InvoiceSettings{MinInvoiceAmount: minAmount}, nil
+}
+
+func (s *InvoiceService) GetMinInvoiceAmount(ctx context.Context) (float64, error) {
+	if s.settingRepo == nil {
+		return 0, nil
+	}
+	raw, err := s.settingRepo.GetValue(ctx, SettingMinInvoiceAmount)
+	if err != nil {
+		if infraerrors.IsNotFound(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		slog.Warn("invalid min invoice amount setting ignored", "value", raw)
+		return 0, nil
+	}
+	return normalizeMoney(value), nil
+}
+
+func (s *InvoiceService) ListPendingInvoicesForExport(ctx context.Context, keyword string) ([]InvoiceRequest, error) {
+	const pageSize = 1000
+	var all []InvoiceRequest
+	for page := 1; ; page++ {
+		items, total, err := s.ListAdminInvoices(ctx, InvoiceListParams{
+			Page:     page,
+			PageSize: pageSize,
+			Status:   InvoiceStatusPending,
+			Keyword:  keyword,
+		})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, items...)
+		if len(items) < pageSize || int64(len(all)) >= total {
+			break
+		}
+	}
+	if all == nil {
+		all = []InvoiceRequest{}
+	}
+	return all, nil
+}
+
+type InvoiceSettings struct {
+	MinInvoiceAmount float64 `json:"min_invoice_amount"`
+}
+
+func normalizeMoney(value float64) float64 {
+	if value <= 0 {
+		return 0
+	}
+	return math.Round(value*100) / 100
 }
 
 func normalizeInvoiceRedeemIDs(ids []int64) []int64 {

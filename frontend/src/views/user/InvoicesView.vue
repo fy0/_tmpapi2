@@ -62,6 +62,9 @@
         <div class="card p-4">
           <h2 class="mb-4 text-base font-semibold text-gray-900 dark:text-white">{{ t('invoice.createRequest') }}</h2>
           <div class="space-y-4">
+            <div v-if="summary.min_invoice_amount > 0" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+              {{ t('invoice.minInvoiceAmountNotice', { amount: formatMoney(summary.min_invoice_amount) }) }}
+            </div>
             <div>
               <label class="input-label">{{ t('invoice.invoiceTitle') }}</label>
               <input v-model.trim="form.invoice_title" class="input mt-1" maxlength="200" />
@@ -83,6 +86,9 @@
                 <span class="text-gray-500 dark:text-dark-400">{{ t('invoice.selectedAmount') }}</span>
                 <span class="font-semibold text-gray-900 dark:text-white">{{ formatMoney(selectedAmount) }}</span>
               </div>
+              <p v-if="selectedBelowMinimum" class="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                {{ t('invoice.belowMinInvoiceAmount', { amount: formatMoney(summary.min_invoice_amount) }) }}
+              </p>
             </div>
             <button class="btn btn-primary w-full" :disabled="submitting || !canSubmit" @click="submitInvoice">
               <Icon name="plus" size="sm" />
@@ -174,7 +180,7 @@ import Icon from '@/components/icons/Icon.vue'
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const summary = reactive({ available_amount: 0, pending_amount: 0, issued_amount: 0 })
+const summary = reactive({ available_amount: 0, pending_amount: 0, issued_amount: 0, min_invoice_amount: 0 })
 const recharges = ref<InvoiceRecharge[]>([])
 const invoices = ref<InvoiceRequest[]>([])
 const selectedIDs = ref<Set<number>>(new Set())
@@ -196,7 +202,14 @@ const selectedAmount = computed(() => {
   return recharges.value.reduce((sum, item) => selectedIDs.value.has(item.id) ? sum + item.value : sum, 0)
 })
 
-const canSubmit = computed(() => form.invoice_title.trim() !== '' && selectedIDs.value.size > 0 && selectedAmount.value > 0)
+const selectedBelowMinimum = computed(() => summary.min_invoice_amount > 0 && selectedAmount.value > 0 && selectedAmount.value < summary.min_invoice_amount)
+
+const canSubmit = computed(() => (
+  form.invoice_title.trim() !== '' &&
+  selectedIDs.value.size > 0 &&
+  selectedAmount.value > 0 &&
+  !selectedBelowMinimum.value
+))
 
 function formatMoney(amount: number): string {
   return formatCurrency(amount || 0, 'USD')

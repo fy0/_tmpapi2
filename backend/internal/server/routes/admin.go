@@ -428,9 +428,13 @@ func registerInvoiceRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	invoices := admin.Group("/invoices")
 	{
 		invoices.GET("", h.Admin.Invoice.List)
+		invoices.GET("/export", h.Admin.Invoice.ExportPending)
+		invoices.GET("/settings", h.Admin.Invoice.GetSettings)
+		invoices.PUT("/settings", h.Admin.Invoice.UpdateSettings)
 		invoices.GET("/:id", h.Admin.Invoice.GetByID)
 		invoices.POST("/:id/upload", h.Admin.Invoice.Upload)
 		invoices.GET("/:id/download", h.Admin.Invoice.Download)
+		invoices.DELETE("/:id/file", h.Admin.Invoice.DeleteFile)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -105,6 +106,12 @@ func (r *invoiceRepository) CreateRequest(ctx context.Context, input service.Cre
 	if amount <= 0 {
 		return nil, service.ErrInvoiceRechargeUnavailable
 	}
+	if input.MinAmount > 0 && amount < input.MinAmount {
+		return nil, service.ErrInvoiceAmountBelowMinimum.WithMetadata(map[string]string{
+			"minimum": strconv.FormatFloat(input.MinAmount, 'f', -1, 64),
+			"amount":  strconv.FormatFloat(amount, 'f', -1, 64),
+		})
+	}
 
 	var requestID int64
 	err = tx.QueryRowContext(ctx, `
@@ -195,6 +202,37 @@ WHERE id = $1`,
 	}
 	if affected == 0 {
 		return nil, service.ErrInvoiceNotFound
+	}
+	return r.GetByID(ctx, id)
+}
+
+func (r *invoiceRepository) ClearIssuedFile(ctx context.Context, id int64) (*service.InvoiceRequest, error) {
+	res, err := r.db.ExecContext(ctx, `
+UPDATE invoice_requests
+SET status = $2,
+    file_name = '',
+    file_path = '',
+    content_type = '',
+    file_size = 0,
+    uploaded_by = NULL,
+    issued_at = NULL,
+    rejected_at = NULL,
+    updated_at = NOW()
+WHERE id = $1
+  AND file_name <> ''
+  AND file_path <> ''`,
+		id,
+		service.InvoiceStatusPending,
+	)
+	if err != nil {
+		return nil, translateInvoiceError(err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if affected == 0 {
+		return nil, service.ErrInvoiceFileUnavailable
 	}
 	return r.GetByID(ctx, id)
 }
