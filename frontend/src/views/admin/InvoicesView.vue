@@ -263,7 +263,7 @@ import { useAppStore } from '@/stores/app'
 import adminInvoicesAPI from '@/api/admin/invoices'
 import type { InvoiceRequest, InvoiceStatus } from '@/api/invoices'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import { formatBytes, formatCurrency, formatDateTime } from '@/utils/format'
+import { formatBytes, formatDateTime } from '@/utils/format'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -301,7 +301,7 @@ const statusOptions = computed(() => [
 ])
 
 function formatMoney(amount: number): string {
-  return formatCurrency(amount || 0, 'USD')
+  return (Number(amount) || 0).toFixed(2)
 }
 
 function formatFileSize(size?: number): string {

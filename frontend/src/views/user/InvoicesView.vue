@@ -171,7 +171,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import invoicesAPI, { type InvoiceRecharge, type InvoiceRequest, type InvoiceStatus } from '@/api/invoices'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import { formatCurrency, formatDateTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
@@ -212,7 +212,7 @@ const canSubmit = computed(() => (
 ))
 
 function formatMoney(amount: number): string {
-  return formatCurrency(amount || 0, 'USD')
+  return (Number(amount) || 0).toFixed(2)
 }
 
 function toggleRecharge(id: number) {
@@ -245,6 +245,16 @@ async function loadRecharges() {
   }
 }
 
+async function loadProfile() {
+  try {
+    const res = await invoicesAPI.getProfile()
+    form.invoice_title = res.data.invoice_title || ''
+    form.tax_no = res.data.tax_no || ''
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
+  }
+}
+
 async function loadInvoices() {
   loadingInvoices.value = true
   try {
@@ -273,8 +283,6 @@ async function submitInvoice() {
       redeem_code_ids: [...selectedIDs.value],
     })
     appStore.showSuccess(t('invoice.createSuccess'))
-    form.invoice_title = ''
-    form.tax_no = ''
     form.note = ''
     selectedIDs.value = new Set()
     pagination.page = 1
@@ -329,6 +337,6 @@ function statusBadgeClass(status: InvoiceStatus): string {
 }
 
 onMounted(async () => {
-  await Promise.all([loadSummary(), loadRecharges(), loadInvoices()])
+  await Promise.all([loadSummary(), loadProfile(), loadRecharges(), loadInvoices()])
 })
 </script>

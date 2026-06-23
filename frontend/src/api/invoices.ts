@@ -19,6 +19,12 @@ export interface InvoiceRecharge {
   created_at: string
 }
 
+export interface InvoiceProfile {
+  invoice_title: string
+  tax_no: string
+  updated_at?: string | null
+}
+
 export interface InvoiceRequest {
   id: number
   user_id: number
@@ -61,6 +67,10 @@ export const invoicesAPI = {
 
   getRecharges() {
     return apiClient.get<{ items: InvoiceRecharge[] }>('/invoices/recharges')
+  },
+
+  getProfile() {
+    return apiClient.get<InvoiceProfile>('/invoices/profile')
   },
 
   list(params?: InvoiceListParams) {

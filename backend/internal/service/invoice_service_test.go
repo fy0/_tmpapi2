@@ -67,6 +67,7 @@ func (s *invoiceServiceSettingRepoStub) Delete(_ context.Context, key string) er
 
 type invoiceRepoStub struct {
 	createInput CreateInvoiceRequestInput
+	profile     *InvoiceProfile
 	summary     *InvoiceSummary
 }
 
@@ -75,6 +76,10 @@ func (r *invoiceRepoStub) GetSummary(context.Context, int64) (*InvoiceSummary, e
 		return r.summary, nil
 	}
 	return &InvoiceSummary{}, nil
+}
+
+func (r *invoiceRepoStub) GetProfile(context.Context, int64) (*InvoiceProfile, error) {
+	return r.profile, nil
 }
 
 func (r *invoiceRepoStub) ListAvailableRecharges(context.Context, int64) ([]InvoiceRecharge, error) {
@@ -147,6 +152,18 @@ func TestInvoiceServiceGetSummaryIncludesMinimumAmount(t *testing.T) {
 	}
 	if summary.MinInvoiceAmount != 30 {
 		t.Fatalf("MinInvoiceAmount = %v, want 30", summary.MinInvoiceAmount)
+	}
+}
+
+func TestInvoiceServiceGetProfileReturnsEmptyProfileWhenMissing(t *testing.T) {
+	svc := NewInvoiceService(&invoiceRepoStub{}, nil)
+
+	profile, err := svc.GetProfile(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("GetProfile returned error: %v", err)
+	}
+	if profile.InvoiceTitle != "" || profile.TaxNo != "" || profile.UpdatedAt != nil {
+		t.Fatalf("profile = %#v, want empty profile", profile)
 	}
 }
 

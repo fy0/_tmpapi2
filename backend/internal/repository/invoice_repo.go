@@ -51,6 +51,26 @@ SELECT
 	return &summary, nil
 }
 
+func (r *invoiceRepository) GetProfile(ctx context.Context, userID int64) (*service.InvoiceProfile, error) {
+	const query = `
+SELECT invoice_title, tax_no, updated_at
+FROM invoice_profiles
+WHERE user_id = $1`
+
+	var profile service.InvoiceProfile
+	var updatedAt sql.NullTime
+	if err := r.db.QueryRowContext(ctx, query, userID).Scan(&profile.InvoiceTitle, &profile.TaxNo, &updatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if updatedAt.Valid {
+		profile.UpdatedAt = &updatedAt.Time
+	}
+	return &profile, nil
+}
+
 func (r *invoiceRepository) ListAvailableRecharges(ctx context.Context, userID int64) ([]service.InvoiceRecharge, error) {
 	const query = `
 SELECT rc.id, rc.code, rc.type, rc.value, rc.used_at, rc.created_at
@@ -129,6 +149,10 @@ RETURNING id`,
 		return nil, translateInvoiceError(err)
 	}
 
+	if err := r.upsertInvoiceProfile(ctx, tx, input.UserID, input.InvoiceTitle, input.TaxNo); err != nil {
+		return nil, translateInvoiceError(err)
+	}
+
 	for _, recharge := range recharges {
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO invoice_request_redeem_codes (invoice_request_id, redeem_code_id, amount)
@@ -146,6 +170,21 @@ VALUES ($1, $2, $3)`,
 		return nil, translateInvoiceError(err)
 	}
 	return r.GetByID(ctx, requestID)
+}
+
+func (r *invoiceRepository) upsertInvoiceProfile(ctx context.Context, tx *sql.Tx, userID int64, invoiceTitle, taxNo string) error {
+	_, err := tx.ExecContext(ctx, `
+INSERT INTO invoice_profiles (user_id, invoice_title, tax_no)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE
+SET invoice_title = EXCLUDED.invoice_title,
+    tax_no = EXCLUDED.tax_no,
+    updated_at = NOW()`,
+		userID,
+		invoiceTitle,
+		taxNo,
+	)
+	return err
 }
 
 func (r *invoiceRepository) ListUserInvoices(ctx context.Context, userID int64, params service.InvoiceListParams) ([]service.InvoiceRequest, int64, error) {

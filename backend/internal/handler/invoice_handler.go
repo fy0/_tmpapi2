@@ -54,6 +54,21 @@ func (h *InvoiceHandler) ListRecharges(c *gin.Context) {
 	response.Success(c, gin.H{"items": items})
 }
 
+func (h *InvoiceHandler) GetProfile(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	profile, err := h.invoiceService.GetProfile(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, profile)
+}
+
 func (h *InvoiceHandler) List(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {

@@ -35,6 +35,7 @@ var (
 
 type InvoiceRepository interface {
 	GetSummary(ctx context.Context, userID int64) (*InvoiceSummary, error)
+	GetProfile(ctx context.Context, userID int64) (*InvoiceProfile, error)
 	ListAvailableRecharges(ctx context.Context, userID int64) ([]InvoiceRecharge, error)
 	CreateRequest(ctx context.Context, input CreateInvoiceRequestInput) (*InvoiceRequest, error)
 	ListUserInvoices(ctx context.Context, userID int64, params InvoiceListParams) ([]InvoiceRequest, int64, error)
@@ -73,6 +74,12 @@ type InvoiceRecharge struct {
 	Value     float64    `json:"value"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
+}
+
+type InvoiceProfile struct {
+	InvoiceTitle string     `json:"invoice_title"`
+	TaxNo        string     `json:"tax_no"`
+	UpdatedAt    *time.Time `json:"updated_at"`
 }
 
 type InvoiceRequest struct {
@@ -158,6 +165,20 @@ func (s *InvoiceService) ListAvailableRecharges(ctx context.Context, userID int6
 		return []InvoiceRecharge{}, nil
 	}
 	return items, nil
+}
+
+func (s *InvoiceService) GetProfile(ctx context.Context, userID int64) (*InvoiceProfile, error) {
+	if userID <= 0 {
+		return nil, infraerrors.BadRequest("INVOICE_USER_INVALID", "user is required")
+	}
+	profile, err := s.repo.GetProfile(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if profile == nil {
+		return emptyInvoiceProfile(), nil
+	}
+	return profile, nil
 }
 
 func (s *InvoiceService) CreateRequest(ctx context.Context, input CreateInvoiceRequestInput) (*InvoiceRequest, error) {
@@ -388,6 +409,14 @@ func (s *InvoiceService) ListPendingInvoicesForExport(ctx context.Context, keywo
 
 type InvoiceSettings struct {
 	MinInvoiceAmount float64 `json:"min_invoice_amount"`
+}
+
+func emptyInvoiceProfile() *InvoiceProfile {
+	return &InvoiceProfile{
+		InvoiceTitle: "",
+		TaxNo:        "",
+		UpdatedAt:    nil,
+	}
 }
 
 func normalizeMoney(value float64) float64 {
