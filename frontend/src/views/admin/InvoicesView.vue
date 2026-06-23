@@ -15,11 +15,23 @@
               @input="settingsForm.min_invoice_amount = Number(($event.target as HTMLInputElement).value) || 0"
             />
           </div>
+          <div class="flex-1 sm:max-w-xs">
+            <label class="input-label">{{ t('invoice.maxInvoiceAmount') }}</label>
+            <input
+              :value="settingsForm.max_invoice_amount || ''"
+              type="number"
+              min="0"
+              step="0.01"
+              class="input mt-1"
+              :placeholder="formatMoney(0)"
+              @input="settingsForm.max_invoice_amount = Number(($event.target as HTMLInputElement).value) || 0"
+            />
+          </div>
           <button class="btn btn-primary" :disabled="savingSettings" @click="saveSettings">
             <Icon name="check" size="sm" />
             <span>{{ savingSettings ? t('common.processing') : t('invoice.saveSettings') }}</span>
           </button>
-          <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('invoice.minInvoiceAmountHint') }}</p>
+          <p class="basis-full text-sm text-gray-500 dark:text-dark-400">{{ t('invoice.invoiceAmountLimitHint') }}</p>
         </div>
       </div>
 
@@ -291,7 +303,7 @@ const previewLoading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const filters = reactive({ status: '', keyword: '' })
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
-const settingsForm = reactive({ min_invoice_amount: 0 })
+const settingsForm = reactive({ min_invoice_amount: 0, max_invoice_amount: 0 })
 
 const statusOptions = computed(() => [
   { value: '', label: t('common.all') },
@@ -335,6 +347,7 @@ async function loadSettings() {
   try {
     const res = await adminInvoicesAPI.getSettings()
     settingsForm.min_invoice_amount = res.data.min_invoice_amount || 0
+    settingsForm.max_invoice_amount = res.data.max_invoice_amount || 0
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))
   }
@@ -345,8 +358,10 @@ async function saveSettings() {
   try {
     const res = await adminInvoicesAPI.updateSettings({
       min_invoice_amount: Math.max(0, Number(settingsForm.min_invoice_amount) || 0),
+      max_invoice_amount: Math.max(0, Number(settingsForm.max_invoice_amount) || 0),
     })
     settingsForm.min_invoice_amount = res.data.min_invoice_amount || 0
+    settingsForm.max_invoice_amount = res.data.max_invoice_amount || 0
     appStore.showSuccess(t('invoice.settingsSaved'))
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'invoice.errors', t('common.error')))

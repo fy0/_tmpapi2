@@ -62,8 +62,13 @@
         <div class="card p-4">
           <h2 class="mb-4 text-base font-semibold text-gray-900 dark:text-white">{{ t('invoice.createRequest') }}</h2>
           <div class="space-y-4">
-            <div v-if="summary.min_invoice_amount > 0" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-              {{ t('invoice.minInvoiceAmountNotice', { amount: formatMoney(summary.min_invoice_amount) }) }}
+            <div v-if="summary.min_invoice_amount > 0 || summary.max_invoice_amount > 0" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+              <p v-if="summary.min_invoice_amount > 0">
+                {{ t('invoice.minInvoiceAmountNotice', { amount: formatMoney(summary.min_invoice_amount) }) }}
+              </p>
+              <p v-if="summary.max_invoice_amount > 0">
+                {{ t('invoice.maxInvoiceAmountNotice', { amount: formatMoney(summary.max_invoice_amount) }) }}
+              </p>
             </div>
             <div>
               <label class="input-label">{{ t('invoice.invoiceTitle') }}</label>
@@ -88,6 +93,9 @@
               </div>
               <p v-if="selectedBelowMinimum" class="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
                 {{ t('invoice.belowMinInvoiceAmount', { amount: formatMoney(summary.min_invoice_amount) }) }}
+              </p>
+              <p v-if="selectedAboveMaximum" class="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                {{ t('invoice.aboveMaxInvoiceAmount', { amount: formatMoney(summary.max_invoice_amount) }) }}
               </p>
             </div>
             <button class="btn btn-primary w-full" :disabled="submitting || !canSubmit" @click="submitInvoice">
@@ -180,7 +188,7 @@ import Icon from '@/components/icons/Icon.vue'
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const summary = reactive({ available_amount: 0, pending_amount: 0, issued_amount: 0, min_invoice_amount: 0 })
+const summary = reactive({ available_amount: 0, pending_amount: 0, issued_amount: 0, min_invoice_amount: 0, max_invoice_amount: 0 })
 const recharges = ref<InvoiceRecharge[]>([])
 const invoices = ref<InvoiceRequest[]>([])
 const selectedIDs = ref<Set<number>>(new Set())
@@ -203,12 +211,14 @@ const selectedAmount = computed(() => {
 })
 
 const selectedBelowMinimum = computed(() => summary.min_invoice_amount > 0 && selectedAmount.value > 0 && selectedAmount.value < summary.min_invoice_amount)
+const selectedAboveMaximum = computed(() => summary.max_invoice_amount > 0 && selectedAmount.value > summary.max_invoice_amount)
 
 const canSubmit = computed(() => (
   form.invoice_title.trim() !== '' &&
   selectedIDs.value.size > 0 &&
   selectedAmount.value > 0 &&
-  !selectedBelowMinimum.value
+  !selectedBelowMinimum.value &&
+  !selectedAboveMaximum.value
 ))
 
 function formatMoney(amount: number): string {

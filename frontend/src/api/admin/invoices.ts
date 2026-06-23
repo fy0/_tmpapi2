@@ -4,6 +4,7 @@ import type { InvoiceListParams, InvoiceRequest } from '@/api/invoices'
 
 export interface InvoiceSettings {
   min_invoice_amount: number
+  max_invoice_amount: number
 }
 
 export const adminInvoicesAPI = {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
@@ -79,5 +80,35 @@ func TestInvoiceRepositoryCreateRequestUpsertsProfile(t *testing.T) {
 	require.Equal(t, input.InvoiceTitle, invoice.InvoiceTitle)
 	require.Equal(t, input.TaxNo, invoice.TaxNo)
 	require.Len(t, invoice.Recharges, 1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInvoiceRepositoryCreateRequestRejectsAboveMaximum(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	now := time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
+	repo := NewInvoiceRepository(db)
+	input := service.CreateInvoiceRequestInput{
+		UserID:        7,
+		InvoiceTitle:  "ACME Ltd",
+		RedeemCodeIDs: []int64{11},
+		MaxAmount:     10,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT\s+rc\.id,\s+rc\.code,\s+rc\.type,\s+rc\.value,\s+rc\.used_at,\s+rc\.created_at`).
+		WithArgs(sqlmock.AnyArg(), input.UserID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "type", "value", "used_at", "created_at"}).
+			AddRow(int64(11), "redeem-11", "balance", float64(20), now, now))
+	mock.ExpectRollback()
+
+	invoice, err := repo.CreateRequest(context.Background(), input)
+	require.Nil(t, invoice)
+	require.Equal(t, "INVOICE_AMOUNT_ABOVE_MAXIMUM", infraerrors.Reason(err))
+	appErr := infraerrors.FromError(err)
+	require.Equal(t, "10", appErr.Metadata["maximum"])
+	require.Equal(t, "20", appErr.Metadata["amount"])
 	require.NoError(t, mock.ExpectationsWereMet())
 }

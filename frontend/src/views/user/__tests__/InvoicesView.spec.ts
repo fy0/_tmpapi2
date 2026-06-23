@@ -73,6 +73,7 @@ describe('user InvoicesView', () => {
         pending_amount: 0,
         issued_amount: 0,
         min_invoice_amount: 0,
+        max_invoice_amount: 0,
       },
     })
     getProfile.mockResolvedValue({

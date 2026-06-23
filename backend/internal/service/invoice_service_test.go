@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 type invoiceServiceSettingRepoStub struct {
@@ -123,9 +125,12 @@ func (r *invoiceRepoStub) ClearIssuedFile(context.Context, int64) (*InvoiceReque
 	return nil, ErrInvoiceNotFound
 }
 
-func TestInvoiceServiceCreateRequestPassesMinimumAmount(t *testing.T) {
+func TestInvoiceServiceCreateRequestPassesAmountLimits(t *testing.T) {
 	repo := &invoiceRepoStub{}
-	settings := &invoiceServiceSettingRepoStub{values: map[string]string{SettingMinInvoiceAmount: "25.5"}}
+	settings := &invoiceServiceSettingRepoStub{values: map[string]string{
+		SettingMinInvoiceAmount: "25.5",
+		SettingMaxInvoiceAmount: "200.5",
+	}}
 	svc := NewInvoiceService(repo, settings)
 
 	_, err := svc.CreateRequest(context.Background(), CreateInvoiceRequestInput{
@@ -139,11 +144,17 @@ func TestInvoiceServiceCreateRequestPassesMinimumAmount(t *testing.T) {
 	if repo.createInput.MinAmount != 25.5 {
 		t.Fatalf("MinAmount = %v, want 25.5", repo.createInput.MinAmount)
 	}
+	if repo.createInput.MaxAmount != 200.5 {
+		t.Fatalf("MaxAmount = %v, want 200.5", repo.createInput.MaxAmount)
+	}
 }
 
-func TestInvoiceServiceGetSummaryIncludesMinimumAmount(t *testing.T) {
+func TestInvoiceServiceGetSummaryIncludesAmountLimits(t *testing.T) {
 	repo := &invoiceRepoStub{summary: &InvoiceSummary{AvailableAmount: 10}}
-	settings := &invoiceServiceSettingRepoStub{values: map[string]string{SettingMinInvoiceAmount: "30"}}
+	settings := &invoiceServiceSettingRepoStub{values: map[string]string{
+		SettingMinInvoiceAmount: "30",
+		SettingMaxInvoiceAmount: "300",
+	}}
 	svc := NewInvoiceService(repo, settings)
 
 	summary, err := svc.GetSummary(context.Background(), 7)
@@ -152,6 +163,9 @@ func TestInvoiceServiceGetSummaryIncludesMinimumAmount(t *testing.T) {
 	}
 	if summary.MinInvoiceAmount != 30 {
 		t.Fatalf("MinInvoiceAmount = %v, want 30", summary.MinInvoiceAmount)
+	}
+	if summary.MaxInvoiceAmount != 300 {
+		t.Fatalf("MaxInvoiceAmount = %v, want 300", summary.MaxInvoiceAmount)
 	}
 }
 
@@ -171,7 +185,10 @@ func TestInvoiceServiceUpdateInvoiceSettings(t *testing.T) {
 	settings := &invoiceServiceSettingRepoStub{values: map[string]string{}}
 	svc := NewInvoiceService(&invoiceRepoStub{}, settings)
 
-	updated, err := svc.UpdateInvoiceSettings(context.Background(), InvoiceSettings{MinInvoiceAmount: 12.345})
+	updated, err := svc.UpdateInvoiceSettings(context.Background(), InvoiceSettings{
+		MinInvoiceAmount: 12.345,
+		MaxInvoiceAmount: 99.999,
+	})
 	if err != nil {
 		t.Fatalf("UpdateInvoiceSettings returned error: %v", err)
 	}
@@ -181,8 +198,20 @@ func TestInvoiceServiceUpdateInvoiceSettings(t *testing.T) {
 	if settings.values[SettingMinInvoiceAmount] != "12.35" {
 		t.Fatalf("stored setting = %q, want 12.35", settings.values[SettingMinInvoiceAmount])
 	}
+	if updated.MaxInvoiceAmount != 100 {
+		t.Fatalf("MaxInvoiceAmount = %v, want 100", updated.MaxInvoiceAmount)
+	}
+	if settings.values[SettingMaxInvoiceAmount] != "100" {
+		t.Fatalf("stored max setting = %q, want 100", settings.values[SettingMaxInvoiceAmount])
+	}
 
 	if _, err := svc.UpdateInvoiceSettings(context.Background(), InvoiceSettings{MinInvoiceAmount: -1}); err == nil {
 		t.Fatal("UpdateInvoiceSettings with negative amount should fail")
+	}
+	if _, err := svc.UpdateInvoiceSettings(context.Background(), InvoiceSettings{MaxInvoiceAmount: -1}); err == nil {
+		t.Fatal("UpdateInvoiceSettings with negative max amount should fail")
+	}
+	if _, err := svc.UpdateInvoiceSettings(context.Background(), InvoiceSettings{MinInvoiceAmount: 50, MaxInvoiceAmount: 10}); infraerrors.Reason(err) != "INVOICE_AMOUNT_RANGE_INVALID" {
+		t.Fatalf("UpdateInvoiceSettings invalid range reason = %q, want INVOICE_AMOUNT_RANGE_INVALID", infraerrors.Reason(err))
 	}
 }

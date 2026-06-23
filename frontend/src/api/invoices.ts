@@ -8,6 +8,7 @@ export interface InvoiceSummary {
   pending_amount: number
   issued_amount: number
   min_invoice_amount: number
+  max_invoice_amount: number
 }
 
 export interface InvoiceRecharge {

@@ -23,6 +23,7 @@ const (
 	defaultInvoiceStorageDir = "data/invoices"
 	maxInvoiceUploadBytes    = 20 << 20
 	SettingMinInvoiceAmount  = "MIN_INVOICE_AMOUNT"
+	SettingMaxInvoiceAmount  = "MAX_INVOICE_AMOUNT"
 )
 
 var (
@@ -31,6 +32,7 @@ var (
 	ErrInvoiceFileUnavailable     = infraerrors.NotFound("INVOICE_FILE_UNAVAILABLE", "invoice file is not available")
 	ErrInvoiceFileTooLarge        = infraerrors.BadRequest("INVOICE_FILE_TOO_LARGE", "invoice file is too large")
 	ErrInvoiceAmountBelowMinimum  = infraerrors.BadRequest("INVOICE_AMOUNT_BELOW_MINIMUM", "invoice amount is below the minimum")
+	ErrInvoiceAmountAboveMaximum  = infraerrors.BadRequest("INVOICE_AMOUNT_ABOVE_MAXIMUM", "invoice amount is above the maximum")
 )
 
 type InvoiceRepository interface {
@@ -65,6 +67,7 @@ type InvoiceSummary struct {
 	PendingAmount    float64 `json:"pending_amount"`
 	IssuedAmount     float64 `json:"issued_amount"`
 	MinInvoiceAmount float64 `json:"min_invoice_amount"`
+	MaxInvoiceAmount float64 `json:"max_invoice_amount"`
 }
 
 type InvoiceRecharge struct {
@@ -111,6 +114,7 @@ type CreateInvoiceRequestInput struct {
 	Note          string
 	RedeemCodeIDs []int64
 	MinAmount     float64
+	MaxAmount     float64
 }
 
 type InvoiceListParams struct {
@@ -148,11 +152,12 @@ func (s *InvoiceService) GetSummary(ctx context.Context, userID int64) (*Invoice
 	if err != nil {
 		return nil, err
 	}
-	minAmount, err := s.GetMinInvoiceAmount(ctx)
+	settings, err := s.GetInvoiceSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
-	summary.MinInvoiceAmount = minAmount
+	summary.MinInvoiceAmount = settings.MinInvoiceAmount
+	summary.MaxInvoiceAmount = settings.MaxInvoiceAmount
 	return summary, nil
 }
 
@@ -206,11 +211,12 @@ func (s *InvoiceService) CreateRequest(ctx context.Context, input CreateInvoiceR
 		return nil, infraerrors.BadRequest("INVOICE_RECHARGES_REQUIRED", "at least one recharge is required")
 	}
 
-	minAmount, err := s.GetMinInvoiceAmount(ctx)
+	settings, err := s.GetInvoiceSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
-	input.MinAmount = minAmount
+	input.MinAmount = settings.MinInvoiceAmount
+	input.MaxAmount = settings.MaxInvoiceAmount
 	return s.repo.CreateRequest(ctx, input)
 }
 
@@ -347,28 +353,50 @@ func (s *InvoiceService) GetInvoiceSettings(ctx context.Context) (*InvoiceSettin
 	if err != nil {
 		return nil, err
 	}
-	return &InvoiceSettings{MinInvoiceAmount: minAmount}, nil
+	maxAmount, err := s.GetMaxInvoiceAmount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &InvoiceSettings{MinInvoiceAmount: minAmount, MaxInvoiceAmount: maxAmount}, nil
 }
 
 func (s *InvoiceService) UpdateInvoiceSettings(ctx context.Context, settings InvoiceSettings) (*InvoiceSettings, error) {
 	if math.IsNaN(settings.MinInvoiceAmount) || math.IsInf(settings.MinInvoiceAmount, 0) || settings.MinInvoiceAmount < 0 {
 		return nil, infraerrors.BadRequest("INVOICE_MIN_AMOUNT_INVALID", "minimum invoice amount must be greater than or equal to zero")
 	}
-	if s.settingRepo == nil {
-		return &InvoiceSettings{MinInvoiceAmount: normalizeMoney(settings.MinInvoiceAmount)}, nil
+	if math.IsNaN(settings.MaxInvoiceAmount) || math.IsInf(settings.MaxInvoiceAmount, 0) || settings.MaxInvoiceAmount < 0 {
+		return nil, infraerrors.BadRequest("INVOICE_MAX_AMOUNT_INVALID", "maximum invoice amount must be greater than or equal to zero")
 	}
 	minAmount := normalizeMoney(settings.MinInvoiceAmount)
-	if err := s.settingRepo.Set(ctx, SettingMinInvoiceAmount, strconv.FormatFloat(minAmount, 'f', -1, 64)); err != nil {
+	maxAmount := normalizeMoney(settings.MaxInvoiceAmount)
+	if maxAmount > 0 && minAmount > maxAmount {
+		return nil, infraerrors.BadRequest("INVOICE_AMOUNT_RANGE_INVALID", "maximum invoice amount must be greater than or equal to minimum invoice amount")
+	}
+	if s.settingRepo == nil {
+		return &InvoiceSettings{MinInvoiceAmount: minAmount, MaxInvoiceAmount: maxAmount}, nil
+	}
+	if err := s.settingRepo.SetMultiple(ctx, map[string]string{
+		SettingMinInvoiceAmount: strconv.FormatFloat(minAmount, 'f', -1, 64),
+		SettingMaxInvoiceAmount: strconv.FormatFloat(maxAmount, 'f', -1, 64),
+	}); err != nil {
 		return nil, err
 	}
-	return &InvoiceSettings{MinInvoiceAmount: minAmount}, nil
+	return &InvoiceSettings{MinInvoiceAmount: minAmount, MaxInvoiceAmount: maxAmount}, nil
 }
 
 func (s *InvoiceService) GetMinInvoiceAmount(ctx context.Context) (float64, error) {
+	return s.getInvoiceAmountSetting(ctx, SettingMinInvoiceAmount, "min invoice amount")
+}
+
+func (s *InvoiceService) GetMaxInvoiceAmount(ctx context.Context) (float64, error) {
+	return s.getInvoiceAmountSetting(ctx, SettingMaxInvoiceAmount, "max invoice amount")
+}
+
+func (s *InvoiceService) getInvoiceAmountSetting(ctx context.Context, key, label string) (float64, error) {
 	if s.settingRepo == nil {
 		return 0, nil
 	}
-	raw, err := s.settingRepo.GetValue(ctx, SettingMinInvoiceAmount)
+	raw, err := s.settingRepo.GetValue(ctx, key)
 	if err != nil {
 		if infraerrors.IsNotFound(err) {
 			return 0, nil
@@ -377,7 +405,7 @@ func (s *InvoiceService) GetMinInvoiceAmount(ctx context.Context) (float64, erro
 	}
 	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
-		slog.Warn("invalid min invoice amount setting ignored", "value", raw)
+		slog.Warn("invalid invoice amount setting ignored", "setting", label, "value", raw)
 		return 0, nil
 	}
 	return normalizeMoney(value), nil
@@ -409,6 +437,7 @@ func (s *InvoiceService) ListPendingInvoicesForExport(ctx context.Context, keywo
 
 type InvoiceSettings struct {
 	MinInvoiceAmount float64 `json:"min_invoice_amount"`
+	MaxInvoiceAmount float64 `json:"max_invoice_amount"`
 }
 
 func emptyInvoiceProfile() *InvoiceProfile {

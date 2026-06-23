@@ -132,6 +132,12 @@ func (r *invoiceRepository) CreateRequest(ctx context.Context, input service.Cre
 			"amount":  strconv.FormatFloat(amount, 'f', -1, 64),
 		})
 	}
+	if input.MaxAmount > 0 && amount > input.MaxAmount {
+		return nil, service.ErrInvoiceAmountAboveMaximum.WithMetadata(map[string]string{
+			"maximum": strconv.FormatFloat(input.MaxAmount, 'f', -1, 64),
+			"amount":  strconv.FormatFloat(amount, 'f', -1, 64),
+		})
+	}
 
 	var requestID int64
 	err = tx.QueryRowContext(ctx, `

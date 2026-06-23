@@ -133,6 +133,7 @@ func (h *InvoiceHandler) GetSettings(c *gin.Context) {
 
 type updateInvoiceSettingsRequest struct {
 	MinInvoiceAmount float64 `json:"min_invoice_amount"`
+	MaxInvoiceAmount float64 `json:"max_invoice_amount"`
 }
 
 func (h *InvoiceHandler) UpdateSettings(c *gin.Context) {
@@ -143,6 +144,7 @@ func (h *InvoiceHandler) UpdateSettings(c *gin.Context) {
 	}
 	settings, err := h.invoiceService.UpdateInvoiceSettings(c.Request.Context(), service.InvoiceSettings{
 		MinInvoiceAmount: req.MinInvoiceAmount,
+		MaxInvoiceAmount: req.MaxInvoiceAmount,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
