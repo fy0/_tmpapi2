@@ -376,6 +376,8 @@ export default {
   nav: {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
+    supportTickets: 'Support',
+    ticketManagement: 'Tickets',
     apiKeys: 'API Keys',
     usage: 'Usage',
     redeem: 'Redeem',
@@ -418,6 +420,65 @@ export default {
     channelMonitor: 'Channel Monitor',
     channelStatus: 'Channel Status',
     riskControl: 'Risk Control',
+  },
+
+  supportTickets: {
+    title: 'Support',
+    description: 'Submit issues, feedback, or service requests and review replies',
+    create: 'New Ticket',
+    view: 'View Ticket',
+    detail: 'Ticket Detail',
+    reply: 'Reply',
+    sendReply: 'Send Reply',
+    searchPlaceholder: 'Search tickets...',
+    empty: 'No tickets',
+    emptyDescription: 'Your issues and feedback will appear here after submission.',
+    created: 'Ticket created',
+    replied: 'Reply sent',
+    failedToLoad: 'Failed to load tickets',
+    failedToLoadDetail: 'Failed to load ticket detail',
+    failedToCreate: 'Failed to create ticket',
+    failedToReply: 'Failed to send reply',
+    filters: {
+      allStatus: 'All Status',
+      allCategories: 'All Categories'
+    },
+    columns: {
+      title: 'Title',
+      category: 'Category',
+      status: 'Status',
+      priority: 'Priority',
+      lastMessageAt: 'Last Message'
+    },
+    form: {
+      title: 'Title',
+      category: 'Category',
+      priority: 'Priority',
+      status: 'Status',
+      content: 'Content'
+    },
+    status: {
+      open: 'Open',
+      pending: 'Pending',
+      resolved: 'Resolved',
+      closed: 'Closed'
+    },
+    priority: {
+      low: 'Low',
+      normal: 'Normal',
+      high: 'High'
+    },
+    category: {
+      feedback: 'Feedback',
+      bug: 'Bug',
+      billing: 'Billing',
+      account: 'Account',
+      other: 'Other'
+    },
+    role: {
+      user: 'User',
+      admin: 'Admin'
+    }
   },
 
   invoice: {
@@ -4630,6 +4691,25 @@ export default {
       deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.'
     },
 
+    supportTickets: {
+      title: 'Ticket Management',
+      description: 'Review user tickets, reply, and update handling status',
+      create: 'Create User Ticket',
+      edit: 'Update Ticket',
+      view: 'View Ticket',
+      user: 'User',
+      userId: 'User ID',
+      searchPlaceholder: 'Search title, email, or username...',
+      empty: 'No tickets',
+      emptyDescription: 'User-submitted tickets will appear here.',
+      created: 'Ticket created',
+      updated: 'Ticket updated',
+      failedToLoad: 'Failed to load tickets',
+      failedToLoadDetail: 'Failed to load ticket detail',
+      failedToCreate: 'Failed to create ticket',
+      failedToUpdate: 'Failed to update ticket'
+    },
+
     // Promo Codes
     promo: {
       title: 'Promo Code Management',
@@ -5912,6 +5992,10 @@ export default {
         backendMode: 'Backend Mode',
         backendModeDescription:
           'Disables user registration, public site, and self-service features. Only admin can log in and manage the platform.',
+        supportTicketEntryVisibility: 'Support Entry Visibility',
+        supportTicketEntryVisibilityHint: 'When set to all users, the support entry appears in the user sidebar. When set to admin only, only the admin ticket management entry remains visible.',
+        supportTicketEntryVisibilityAll: 'All Users',
+        supportTicketEntryVisibilityAdmin: 'Admin Only',
         siteName: 'Site Name',
         siteNamePlaceholder: 'Sub2API',
         siteNameHint: 'Displayed in emails and page titles',

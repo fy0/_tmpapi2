@@ -439,6 +439,7 @@ export interface SystemSettings {
   backend_mode_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
   custom_endpoints: CustomEndpoint[];
+  ticket_entry_visibility: "all" | "admin" | string;
   // SMTP settings
   smtp_host: string;
   smtp_port: number;
@@ -706,6 +707,7 @@ export interface UpdateSettingsRequest {
   backend_mode_enabled?: boolean;
   custom_menu_items?: CustomMenuItem[];
   custom_endpoints?: CustomEndpoint[];
+  ticket_entry_visibility?: "all" | "admin" | string;
   smtp_host?: string;
   smtp_port?: number;
   smtp_username?: string;

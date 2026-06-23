@@ -4691,6 +4691,20 @@
 	                <Toggle v-model="form.backend_mode_enabled" />
 	              </div>
 
+              <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t("admin.settings.site.supportTicketEntryVisibility") }}
+                </label>
+                <Select
+                  v-model="form.ticket_entry_visibility"
+                  :options="supportTicketEntryVisibilityOptions"
+                  class="max-w-sm"
+                />
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.site.supportTicketEntryVisibilityHint") }}
+                </p>
+              </div>
+
 	              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                   <label
@@ -7049,6 +7063,11 @@ const paymentMethodsHref = computed(() =>
     : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
 );
 
+const supportTicketEntryVisibilityOptions = computed(() => [
+  { value: "all", label: t("admin.settings.site.supportTicketEntryVisibilityAll") },
+  { value: "admin", label: t("admin.settings.site.supportTicketEntryVisibilityAdmin") },
+]);
+
 type SettingsTab =
   | "general"
   | "agreement"
@@ -7718,6 +7737,7 @@ const form = reactive<SettingsForm>({
   payment_alipay_force_qrcode: false,
   table_default_page_size: tablePageSizeDefault,
   table_page_size_options: [10, 20, 50, 100],
+  ticket_entry_visibility: "all",
   custom_menu_items: [] as Array<{
     id: string;
     label: string;
@@ -8861,6 +8881,7 @@ async function saveSettings() {
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,
       table_page_size_options: form.table_page_size_options,
+      ticket_entry_visibility: form.ticket_entry_visibility,
       custom_menu_items: form.custom_menu_items,
       custom_endpoints: form.custom_endpoints,
       frontend_url: form.frontend_url,

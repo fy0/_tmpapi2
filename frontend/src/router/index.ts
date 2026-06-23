@@ -315,6 +315,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/support-tickets',
+    name: 'SupportTickets',
+    component: () => import('@/views/user/SupportTicketsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Support Tickets',
+      titleKey: 'supportTickets.title',
+      descriptionKey: 'supportTickets.description',
+      requiresSupportTickets: true
+    }
+  },
+  {
     path: '/payment/qrcode',
     name: 'PaymentQRCode',
     component: () => import('@/views/user/PaymentQRCodeView.vue'),
@@ -511,6 +524,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Announcements',
       titleKey: 'admin.announcements.title',
       descriptionKey: 'admin.announcements.description'
+    }
+  },
+  {
+    path: '/admin/support-tickets',
+    name: 'AdminSupportTickets',
+    component: () => import('@/views/admin/SupportTicketsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Support Ticket Management',
+      titleKey: 'admin.supportTickets.title',
+      descriptionKey: 'admin.supportTickets.description'
     }
   },
   {
@@ -850,6 +875,14 @@ router.beforeEach(async (to, _from, next) => {
     const riskControlEnabled = appStore.cachedPublicSettings?.risk_control_enabled === true
     if (!riskControlEnabled) {
       next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+      return
+    }
+  }
+
+  if (to.meta.requiresSupportTickets) {
+    const ticketEntryVisibility = appStore.cachedPublicSettings?.ticket_entry_visibility ?? 'all'
+    if (ticketEntryVisibility === 'admin') {
+      next(authStore.isAdmin ? '/admin/support-tickets' : '/dashboard')
       return
     }
   }

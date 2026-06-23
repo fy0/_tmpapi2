@@ -216,6 +216,7 @@ export interface PublicSettings {
   table_page_size_options: number[]
   custom_menu_items: CustomMenuItem[]
   custom_endpoints: CustomEndpoint[]
+  ticket_entry_visibility: 'all' | 'admin' | string
   linuxdo_oauth_enabled: boolean
   dingtalk_oauth_enabled?: boolean
   wechat_oauth_enabled: boolean
@@ -360,6 +361,65 @@ export interface AnnouncementUserReadStatus {
   balance: number
   eligible: boolean
   read_at?: string
+}
+
+// ==================== Support Ticket Types ====================
+
+export type SupportTicketStatus = 'open' | 'pending' | 'resolved' | 'closed'
+export type SupportTicketPriority = 'low' | 'normal' | 'high'
+export type SupportTicketCategory = 'feedback' | 'bug' | 'billing' | 'account' | 'other'
+export type SupportTicketAuthorRole = 'user' | 'admin'
+
+export interface SupportTicketMessage {
+  id: number
+  ticket_id: number
+  author_id?: number
+  author_role: SupportTicketAuthorRole
+  author_email: string
+  author_name: string
+  content: string
+  created_at: number
+}
+
+export interface SupportTicket {
+  id: number
+  user_id: number
+  user_email: string
+  user_name: string
+  title: string
+  category: SupportTicketCategory
+  status: SupportTicketStatus
+  priority: SupportTicketPriority
+  created_by?: number
+  updated_by?: number
+  last_message_at: number
+  created_at: number
+  updated_at: number
+  messages?: SupportTicketMessage[]
+}
+
+export interface CreateSupportTicketRequest {
+  title: string
+  category?: SupportTicketCategory | string
+  priority?: SupportTicketPriority | string
+  content: string
+}
+
+export interface AdminCreateSupportTicketRequest extends CreateSupportTicketRequest {
+  user_id: number
+}
+
+export interface AddSupportTicketMessageRequest {
+  content: string
+}
+
+export interface AdminAddSupportTicketMessageRequest extends AddSupportTicketMessageRequest {
+  status?: SupportTicketStatus | string
+}
+
+export interface UpdateSupportTicketRequest {
+  status?: SupportTicketStatus | string
+  priority?: SupportTicketPriority | string
 }
 
 // ==================== Proxy Node Types ====================

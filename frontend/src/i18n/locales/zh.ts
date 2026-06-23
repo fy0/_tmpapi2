@@ -376,6 +376,8 @@ export default {
   nav: {
     dashboard: '仪表盘',
     announcements: '公告',
+    supportTickets: '工单/意见',
+    ticketManagement: '工单管理',
     apiKeys: 'API 密钥',
     usage: '使用记录',
     redeem: '兑换',
@@ -418,6 +420,65 @@ export default {
     channelMonitor: '渠道监控',
     channelStatus: '渠道状态',
     riskControl: '风控中心',
+  },
+
+  supportTickets: {
+    title: '工单/意见',
+    description: '提交问题、意见或服务请求并查看回复',
+    create: '新建工单',
+    view: '查看工单',
+    detail: '工单详情',
+    reply: '回复',
+    sendReply: '发送回复',
+    searchPlaceholder: '搜索工单...',
+    empty: '暂无工单',
+    emptyDescription: '提交问题或建议后会显示在这里。',
+    created: '工单已创建',
+    replied: '回复已发送',
+    failedToLoad: '加载工单失败',
+    failedToLoadDetail: '加载工单详情失败',
+    failedToCreate: '创建工单失败',
+    failedToReply: '发送回复失败',
+    filters: {
+      allStatus: '全部状态',
+      allCategories: '全部分类'
+    },
+    columns: {
+      title: '标题',
+      category: '分类',
+      status: '状态',
+      priority: '优先级',
+      lastMessageAt: '最后消息'
+    },
+    form: {
+      title: '标题',
+      category: '分类',
+      priority: '优先级',
+      status: '状态',
+      content: '内容'
+    },
+    status: {
+      open: '待处理',
+      pending: '处理中',
+      resolved: '已解决',
+      closed: '已关闭'
+    },
+    priority: {
+      low: '低',
+      normal: '普通',
+      high: '高'
+    },
+    category: {
+      feedback: '意见反馈',
+      bug: '问题反馈',
+      billing: '计费/充值',
+      account: '账号',
+      other: '其他'
+    },
+    role: {
+      user: '用户',
+      admin: '管理员'
+    }
   },
 
   invoice: {
@@ -4783,6 +4844,25 @@ export default {
       deleteConfirm: '确定要删除该公告吗？此操作无法撤销。'
     },
 
+    supportTickets: {
+      title: '工单管理',
+      description: '查看用户工单、回复并更新处理状态',
+      create: '新建用户工单',
+      edit: '更新工单',
+      view: '查看工单',
+      user: '用户',
+      userId: '用户 ID',
+      searchPlaceholder: '搜索标题、邮箱或用户名...',
+      empty: '暂无工单',
+      emptyDescription: '用户提交工单后会显示在这里。',
+      created: '工单已创建',
+      updated: '工单已更新',
+      failedToLoad: '加载工单失败',
+      failedToLoadDetail: '加载工单详情失败',
+      failedToCreate: '创建工单失败',
+      failedToUpdate: '更新工单失败'
+    },
+
     // Promo Codes
     promo: {
       title: '优惠码管理',
@@ -6066,6 +6146,10 @@ export default {
         backendMode: 'Backend 模式',
         backendModeDescription:
           '禁用用户注册、公开页面和自助服务功能。仅管理员可以登录和管理平台。',
+        supportTicketEntryVisibility: '工单/意见入口可见性',
+        supportTicketEntryVisibilityHint: '选择“全部用户可见”时，用户侧边栏会显示工单入口；选择“仅管理员可见”时，仅保留后台工单管理入口。',
+        supportTicketEntryVisibilityAll: '全部用户可见',
+        supportTicketEntryVisibilityAdmin: '仅管理员可见',
         siteName: '站点名称',
         siteNameHint: '显示在邮件和页面标题中',
         siteNamePlaceholder: 'Sub2API',
