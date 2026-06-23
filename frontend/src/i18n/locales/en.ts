@@ -5923,8 +5923,8 @@ export default {
         apiBaseUrlHint:
           'Used for "Use Key" and "Import to CC Switch" features. Leave empty to use current site URL.',
         apiKeyPageNotice: 'API Keys Page Notice',
-        apiKeyPageNoticePlaceholder: 'e.g., Prefer hk.taffy.work for direct connections',
-        apiKeyPageNoticeHint: 'A one-line notice shown at the top of the API Keys page. Leave empty to hide it.',
+        apiKeyPageNoticePlaceholder: 'e.g., If it feels slow, use [code-us.urpg.net](https://code-us.urpg.net)',
+        apiKeyPageNoticeHint: 'A one-line notice shown at the top of the API Keys page. Supports inline Markdown. Leave empty to hide it.',
         tablePreferencesTitle: 'Global Table Preferences',
         tablePreferencesDescription: 'Configure default pagination behavior for shared table components',
         tableDefaultPageSize: 'Default Rows Per Page',

@@ -3,14 +3,6 @@
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col gap-3">
-          <div
-            v-if="apiKeyPageNotice"
-            class="rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] leading-5 text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100"
-          >
-            <p class="truncate">
-              {{ apiKeyPageNotice }}
-            </p>
-          </div>
           <div class="flex flex-wrap items-center gap-3">
             <SearchInput
               v-model="filterSearch"
@@ -40,20 +32,32 @@
       </template>
 
       <template #actions>
-        <div class="flex justify-end gap-3">
-        <button
-          @click="loadApiKeys"
-          :disabled="loading"
-          class="btn btn-secondary"
-          :title="t('common.refresh')"
-        >
-          <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-        </button>
-        <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
-          <Icon name="plus" size="md" class="mr-2" />
-          {{ t('keys.createKey') }}
-        </button>
-      </div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div
+            v-if="apiKeyPageNotice"
+            class="flex h-8 min-w-0 flex-1 items-center overflow-hidden rounded border border-[#f5c86b] bg-[#fff9e6] px-3 text-xs text-[#4a2c08] dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            <p
+              class="api-key-notice-markdown m-0 truncate"
+              v-html="apiKeyPageNoticeHtml"
+            ></p>
+          </div>
+          <div v-else class="hidden min-w-0 flex-1 sm:block"></div>
+          <div class="flex shrink-0 justify-end gap-3">
+            <button
+              @click="loadApiKeys"
+              :disabled="loading"
+              class="btn btn-secondary"
+              :title="t('common.refresh')"
+            >
+              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
+            </button>
+            <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
+              <Icon name="plus" size="md" class="mr-2" />
+              {{ t('keys.createKey') }}
+            </button>
+          </div>
+        </div>
       </template>
 
       <template #table>
@@ -1078,6 +1082,8 @@
 <script setup lang="ts">
 	import { ref, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 	import { useI18n } from 'vue-i18n'
+	import { marked } from 'marked'
+	import DOMPurify from 'dompurify'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
 	import { useClipboard } from '@/composables/useClipboard'
@@ -1183,6 +1189,18 @@ const publicSettings = ref<PublicSettings | null>(null)
 const apiKeyPageNotice = computed(
   () => publicSettings.value?.api_key_page_notice?.trim() || ''
 )
+const apiKeyPageNoticeHtml = computed(() => {
+  if (!apiKeyPageNotice.value) return ''
+  const html = marked.parseInline(apiKeyPageNotice.value, {
+    breaks: true,
+    gfm: true
+  }) as string
+
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['a', 'strong', 'em', 'code', 'del', 'br'],
+    ALLOWED_ATTR: ['href', 'title']
+  })
+})
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
@@ -1850,3 +1868,17 @@ onUnmounted(() => {
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>
+
+<style scoped>
+.api-key-notice-markdown :deep(a) {
+  @apply font-medium underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-50;
+}
+
+.api-key-notice-markdown :deep(code) {
+  @apply rounded bg-amber-100 px-1 py-0.5 font-mono text-[11px] text-amber-900 dark:bg-amber-900/60 dark:text-amber-100;
+}
+
+.api-key-notice-markdown :deep(strong) {
+  @apply font-semibold;
+}
+</style>
