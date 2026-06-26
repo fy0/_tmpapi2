@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -154,4 +156,81 @@ func TestInvoiceRepositoryCreateRequestRejectsAboveMaximum(t *testing.T) {
 	require.Equal(t, "10", appErr.Metadata["maximum"])
 	require.Equal(t, "20", appErr.Metadata["amount"])
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInvoiceRepositoryGetSummaryExcludesAdminBalance(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(invoiceBalanceOnlyQueryMatcher(t)))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	repo := NewInvoiceRepository(db)
+	mock.ExpectQuery("invoice-balance-only").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"available_amount", "pending_amount", "issued_amount"}).
+			AddRow(float64(20), float64(0), float64(0)))
+
+	summary, err := repo.GetSummary(context.Background(), 7)
+	require.NoError(t, err)
+	require.Equal(t, float64(20), summary.AvailableAmount)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInvoiceRepositoryListAvailableRechargesExcludesAdminBalance(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(invoiceBalanceOnlyQueryMatcher(t)))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	now := time.Date(2026, 6, 26, 12, 0, 0, 0, time.UTC)
+	repo := NewInvoiceRepository(db)
+	mock.ExpectQuery("invoice-balance-only").
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "type", "value", "used_at", "created_at"}).
+			AddRow(int64(11), "redeem-11", "balance", float64(20), now, now))
+
+	recharges, err := repo.ListAvailableRecharges(context.Background(), 7)
+	require.NoError(t, err)
+	require.Len(t, recharges, 1)
+	require.Equal(t, "balance", recharges[0].Type)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInvoiceRepositoryCreateRequestLocksOnlyBalanceRecharges(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(invoiceBalanceOnlyQueryMatcher(t)))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	repo := NewInvoiceRepository(db)
+	input := service.CreateInvoiceRequestInput{
+		UserID:        7,
+		InvoiceTitle:  "ACME Ltd",
+		RedeemCodeIDs: []int64{11},
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("invoice-balance-only").
+		WithArgs(sqlmock.AnyArg(), input.UserID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "type", "value", "used_at", "created_at"}))
+	mock.ExpectRollback()
+
+	invoice, err := repo.CreateRequest(context.Background(), input)
+	require.Nil(t, invoice)
+	require.ErrorIs(t, err, service.ErrInvoiceRechargeUnavailable)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func invoiceBalanceOnlyQueryMatcher(t *testing.T) sqlmock.QueryMatcher {
+	t.Helper()
+	return sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
+		if expectedSQL != "invoice-balance-only" {
+			return sqlmock.QueryMatcherRegexp.Match(expectedSQL, actualSQL)
+		}
+		normalized := strings.Join(strings.Fields(actualSQL), " ")
+		if strings.Contains(normalized, "admin_balance") {
+			return fmt.Errorf("invoice query must not include admin_balance: %s", normalized)
+		}
+		if !strings.Contains(normalized, "rc.type = 'balance'") {
+			return fmt.Errorf("invoice query must filter to rc.type = 'balance': %s", normalized)
+		}
+		return nil
+	})
 }

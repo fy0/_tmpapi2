@@ -31,7 +31,7 @@ SELECT
 		WHERE rc.used_by = $1
 		  AND rc.status = 'used'
 		  AND rc.value > 0
-		  AND rc.type IN ('balance', 'admin_balance')
+		  AND rc.type = 'balance'
 		  AND irc.redeem_code_id IS NULL
 	), 0) AS available_amount,
 	COALESCE((
@@ -80,7 +80,7 @@ LEFT JOIN invoice_request_redeem_codes irc ON irc.redeem_code_id = rc.id AND irc
 WHERE rc.used_by = $1
   AND rc.status = 'used'
   AND rc.value > 0
-  AND rc.type IN ('balance', 'admin_balance')
+  AND rc.type = 'balance'
   AND irc.redeem_code_id IS NULL
 ORDER BY rc.used_at DESC NULLS LAST, rc.id DESC`
 
@@ -367,7 +367,7 @@ WHERE rc.id = ANY($1)
   AND rc.used_by = $2
   AND rc.status = 'used'
   AND rc.value > 0
-  AND rc.type IN ('balance', 'admin_balance')
+  AND rc.type = 'balance'
   AND irc.redeem_code_id IS NULL
 ORDER BY rc.id ASC
 FOR UPDATE OF rc`,
