@@ -51,4 +51,17 @@ describe('VersionBadge', () => {
 
     expect(wrapper.text()).toBe('v0.1.138')
   })
+
+  it('ignores branch names from version sources', () => {
+    const appStore = useAppStore()
+    appStore.currentVersion = 'main'
+
+    const wrapper = mount(VersionBadge, {
+      props: {
+        version: 'main',
+      },
+    })
+
+    expect(wrapper.text()).toBe('v0.1.138')
+  })
 })

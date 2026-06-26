@@ -24,7 +24,8 @@ var (
 )
 
 const (
-	pinnedVersion = "v0.1.138"
+	// PinnedVersion is the fixed version exposed by update and public settings APIs.
+	PinnedVersion = "v0.1.138"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"
@@ -58,7 +59,7 @@ type UpdateService struct {
 func NewUpdateService(_ UpdateCache, githubClient GitHubReleaseClient, version, buildType string) *UpdateService {
 	return &UpdateService{
 		githubClient:   githubClient,
-		currentVersion: pinnedVersion,
+		currentVersion: PinnedVersion,
 		buildType:      buildType,
 	}
 }

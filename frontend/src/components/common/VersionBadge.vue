@@ -18,11 +18,19 @@ const props = defineProps<{
 const appStore = useAppStore()
 
 const pinnedVersion = 'v0.1.138'
-const currentVersion = computed(() => appStore.currentVersion || props.version || pinnedVersion)
+const versionPattern = /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+
 const displayVersion = computed(() => {
-  const value = currentVersion.value.trim()
-  if (!value) return pinnedVersion
-  return value.startsWith('v') ? value : `v${value}`
+  const candidates = [appStore.currentVersion, props.version, pinnedVersion]
+
+  for (const candidate of candidates) {
+    const value = candidate?.trim()
+    if (value && versionPattern.test(value)) {
+      return value.startsWith('v') ? value : `v${value}`
+    }
+  }
+
+  return pinnedVersion
 })
 const versionTitle = computed(() => displayVersion.value)
 </script>

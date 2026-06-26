@@ -58,6 +58,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             COMMIT=${{ github.sha }}
-            VERSION=main
+            VERSION=v0.1.138
           cache-from: type=gha
           cache-to: type=gha,mode=min

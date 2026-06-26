@@ -41,7 +41,7 @@ RUN pnpm run build
 FROM ${GOLANG_IMAGE} AS backend-builder
 
 # Build arguments for version info (set by CI)
-ARG VERSION=docker
+ARG VERSION=v0.1.138
 ARG COMMIT=docker
 ARG DATE
 ARG GOPROXY

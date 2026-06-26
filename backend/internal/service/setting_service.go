@@ -662,6 +662,7 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	return &SettingService{
 		settingRepo: settingRepo,
 		cfg:         cfg,
+		version:     PinnedVersion,
 	}
 }
 
@@ -1204,9 +1205,9 @@ func (s *SettingService) SetOnUpdateCallback(callback func()) {
 	s.onUpdate = callback
 }
 
-// SetVersion sets the application version for injection into public settings
-func (s *SettingService) SetVersion(version string) {
-	s.version = version
+// SetVersion pins the application version exposed to public settings.
+func (s *SettingService) SetVersion(_ string) {
+	s.version = PinnedVersion
 }
 
 // PublicSettingsInjectionPayload is the JSON shape embedded into HTML as
@@ -1333,7 +1334,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GoogleOAuthEnabled:               settings.GoogleOAuthEnabled,
 		BackendModeEnabled:               settings.BackendModeEnabled,
 		PaymentEnabled:                   settings.PaymentEnabled,
-		Version:                          s.version,
+		Version:                          PinnedVersion,
 		BalanceLowNotifyEnabled:          settings.BalanceLowNotifyEnabled,
 		AccountQuotaNotifyEnabled:        settings.AccountQuotaNotifyEnabled,
 		BalanceLowNotifyThreshold:        settings.BalanceLowNotifyThreshold,
