@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/sysutil"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -18,8 +19,9 @@ import (
 
 // SystemHandler handles system-related operations
 type SystemHandler struct {
-	updateSvc systemUpdateService
-	lockSvc   *service.SystemOperationLockService
+	updateSvc            systemUpdateService
+	lockSvc              *service.SystemOperationLockService
+	userIDMaintenanceSvc userIDMaintenanceService
 }
 
 type systemUpdateService interface {
@@ -29,12 +31,22 @@ type systemUpdateService interface {
 	Rollback() error
 }
 
+type userIDMaintenanceService interface {
+	GetStatus(ctx context.Context) (*service.UserIDMaintenanceStatus, error)
+	SetNextUserID(ctx context.Context, nextUserID int64) (*service.SetUserNextIDResult, error)
+	ChangeUserID(ctx context.Context, req service.ChangeUserIDRequest) (*service.ChangeUserIDResult, error)
+}
+
 // NewSystemHandler creates a new SystemHandler
-func NewSystemHandler(updateSvc systemUpdateService, lockSvc *service.SystemOperationLockService) *SystemHandler {
-	return &SystemHandler{
+func NewSystemHandler(updateSvc systemUpdateService, lockSvc *service.SystemOperationLockService, maintenanceSvc ...userIDMaintenanceService) *SystemHandler {
+	h := &SystemHandler{
 		updateSvc: updateSvc,
 		lockSvc:   lockSvc,
 	}
+	if len(maintenanceSvc) > 0 {
+		h.userIDMaintenanceSvc = maintenanceSvc[0]
+	}
+	return h
 }
 
 // GetVersion returns the current version
@@ -158,6 +170,120 @@ func (h *SystemHandler) RestartService(c *gin.Context) {
 		return gin.H{
 			"message":      "Service restart initiated",
 			"operation_id": lock.OperationID(),
+		}, nil
+	})
+}
+
+// GetUserIDMaintenanceStatus returns users.id sequence status.
+// GET /api/v1/admin/system/user-id-maintenance
+func (h *SystemHandler) GetUserIDMaintenanceStatus(c *gin.Context) {
+	if h.userIDMaintenanceSvc == nil {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable("USER_ID_MAINTENANCE_UNAVAILABLE", "user id maintenance is unavailable"))
+		return
+	}
+	status, err := h.userIDMaintenanceSvc.GetStatus(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, status)
+}
+
+type setUserNextIDRequest struct {
+	NextUserID int64 `json:"next_user_id"`
+}
+
+// SetUserNextID advances the users.id sequence.
+// POST /api/v1/admin/system/user-id-maintenance/next-id
+func (h *SystemHandler) SetUserNextID(c *gin.Context) {
+	if h.userIDMaintenanceSvc == nil {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable("USER_ID_MAINTENANCE_UNAVAILABLE", "user id maintenance is unavailable"))
+		return
+	}
+	var req setUserNextIDRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_REQUEST", err.Error()))
+		return
+	}
+
+	operationID := buildSystemOperationID(c, "set-user-next-id")
+	payload := gin.H{"operation_id": operationID, "next_user_id": req.NextUserID}
+	executeAdminIdempotentJSON(c, "admin.system.user_id_maintenance.set_next_id", payload, service.DefaultSystemOperationIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		lock, release, err := h.acquireSystemLock(ctx, operationID)
+		if err != nil {
+			return nil, err
+		}
+		succeeded := false
+		defer func() {
+			release("", succeeded)
+		}()
+
+		result, err := h.userIDMaintenanceSvc.SetNextUserID(ctx, req.NextUserID)
+		if err != nil {
+			return nil, err
+		}
+		succeeded = true
+		return gin.H{
+			"operation_id": lock.OperationID(),
+			"result":       result,
+		}, nil
+	})
+}
+
+type changeUserIDRequest struct {
+	OldUserID    int64  `json:"old_user_id"`
+	NewUserID    int64  `json:"new_user_id"`
+	Confirmation string `json:"confirmation"`
+}
+
+// ChangeUserID changes a real users.id primary key.
+// POST /api/v1/admin/system/user-id-maintenance/change-user-id
+func (h *SystemHandler) ChangeUserID(c *gin.Context) {
+	if h.userIDMaintenanceSvc == nil {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable("USER_ID_MAINTENANCE_UNAVAILABLE", "user id maintenance is unavailable"))
+		return
+	}
+	var req changeUserIDRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_REQUEST", err.Error()))
+		return
+	}
+
+	var operatorUserID int64
+	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
+		operatorUserID = subject.UserID
+	}
+	operationID := buildSystemOperationID(c, "change-user-id")
+	payload := gin.H{
+		"operation_id":     operationID,
+		"old_user_id":      req.OldUserID,
+		"new_user_id":      req.NewUserID,
+		"operator_user_id": operatorUserID,
+		"confirmation":     req.Confirmation,
+	}
+	executeAdminIdempotentJSON(c, "admin.system.user_id_maintenance.change_user_id", payload, service.DefaultSystemOperationIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		lock, release, err := h.acquireSystemLock(ctx, operationID)
+		if err != nil {
+			return nil, err
+		}
+		succeeded := false
+		defer func() {
+			release("", succeeded)
+		}()
+
+		result, err := h.userIDMaintenanceSvc.ChangeUserID(ctx, service.ChangeUserIDRequest{
+			OldUserID:      req.OldUserID,
+			NewUserID:      req.NewUserID,
+			OperatorUserID: operatorUserID,
+			Confirmation:   req.Confirmation,
+		})
+		if err != nil {
+			return nil, err
+		}
+		succeeded = true
+		return gin.H{
+			"operation_id": lock.OperationID(),
+			"result":       result,
 		}, nil
 	})
 }

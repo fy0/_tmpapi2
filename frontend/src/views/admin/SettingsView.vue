@@ -3056,6 +3056,198 @@
 
         <!-- Tab: Users -->
         <div v-show="activeTab === 'users'" class="space-y-6">
+          <!-- User ID Maintenance -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ t("admin.settings.userIdMaintenance.title") }}
+                  </h2>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.userIdMaintenance.description") }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+                  :disabled="userIDMaintenanceLoading"
+                  @click="loadUserIDMaintenanceStatus(true)"
+                >
+                  <Icon name="refresh" size="sm" />
+                  {{ t("common.refresh") }}
+                </button>
+              </div>
+            </div>
+            <div class="space-y-6 p-6">
+              <div
+                class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"
+              >
+                <div class="flex items-start gap-3">
+                  <Icon
+                    name="exclamationTriangle"
+                    size="md"
+                    class="mt-0.5 flex-shrink-0 text-amber-500"
+                  />
+                  <p class="text-sm text-amber-800 dark:text-amber-200">
+                    {{ t("admin.settings.userIdMaintenance.warning") }}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3"
+                :aria-busy="userIDMaintenanceLoading"
+              >
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                  <div class="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.userIdMaintenance.maxUserId") }}
+                  </div>
+                  <div class="mt-2 font-mono text-xl font-semibold text-gray-900 dark:text-white">
+                    {{ formatUserIDMaintenanceNumber(userIDMaintenanceStatus?.max_user_id) }}
+                  </div>
+                </div>
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                  <div class="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.userIdMaintenance.nextUserId") }}
+                  </div>
+                  <div class="mt-2 font-mono text-xl font-semibold text-gray-900 dark:text-white">
+                    {{ formatUserIDMaintenanceNumber(userIDMaintenanceStatus?.next_user_id) }}
+                  </div>
+                </div>
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                  <div class="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.userIdMaintenance.sequenceName") }}
+                  </div>
+                  <div class="mt-2 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
+                    {{ userIDMaintenanceStatus?.sequence_name || "-" }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                  <div class="mb-4">
+                    <h3 class="font-medium text-gray-900 dark:text-white">
+                      {{ t("admin.settings.userIdMaintenance.setNextTitle") }}
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.userIdMaintenance.setNextHint") }}
+                    </p>
+                  </div>
+                  <div class="space-y-3">
+                    <div>
+                      <label class="input-label">
+                        {{ t("admin.settings.userIdMaintenance.newNextUserId") }}
+                      </label>
+                      <input
+                        v-model.number="setNextUserIDValue"
+                        type="number"
+                        min="1"
+                        step="1"
+                        class="input"
+                        :placeholder="userIDMaintenanceNextPlaceholder"
+                      />
+                      <p
+                        v-if="setNextUserIDValue !== null && !canSetNextUserID"
+                        class="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
+                      >
+                        {{ t("admin.settings.userIdMaintenance.setNextValidation") }}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+                      :disabled="setNextUserIDSubmitting || !canSetNextUserID"
+                      @click="submitSetNextUserID"
+                    >
+                      <Icon name="arrowUp" size="sm" />
+                      {{
+                        setNextUserIDSubmitting
+                          ? t("admin.settings.userIdMaintenance.submitting")
+                          : t("admin.settings.userIdMaintenance.setNextButton")
+                      }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="rounded-lg border border-red-200 p-4 dark:border-red-900/60">
+                  <div class="mb-4">
+                    <h3 class="font-medium text-gray-900 dark:text-white">
+                      {{ t("admin.settings.userIdMaintenance.changeTitle") }}
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.userIdMaintenance.changeHint") }}
+                    </p>
+                  </div>
+                  <div class="space-y-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.userIdMaintenance.oldUserId") }}
+                        </label>
+                        <input
+                          v-model.number="changeUserIDForm.old_user_id"
+                          type="number"
+                          min="1"
+                          step="1"
+                          class="input"
+                        />
+                      </div>
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.userIdMaintenance.newUserId") }}
+                        </label>
+                        <input
+                          v-model.number="changeUserIDForm.new_user_id"
+                          type="number"
+                          min="1"
+                          step="1"
+                          class="input"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="input-label">
+                        {{ t("admin.settings.userIdMaintenance.confirmation") }}
+                      </label>
+                      <input
+                        v-model.trim="changeUserIDForm.confirmation"
+                        type="text"
+                        class="input font-mono"
+                        autocomplete="off"
+                        spellcheck="false"
+                        :placeholder="userIDMaintenanceConfirmationText"
+                      />
+                      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t("admin.settings.userIdMaintenance.confirmationHint", {
+                            text: userIDMaintenanceConfirmationText,
+                          })
+                        }}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm inline-flex items-center gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400"
+                      :disabled="changeUserIDSubmitting || !canChangeUserID"
+                      @click="submitChangeUserID"
+                    >
+                      <Icon name="swap" size="sm" />
+                      {{
+                        changeUserIDSubmitting
+                          ? t("admin.settings.userIdMaintenance.submitting")
+                          : t("admin.settings.userIdMaintenance.changeButton")
+                      }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Default Settings -->
           <div class="card">
             <div
@@ -6986,6 +7178,7 @@
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
+import type { UserIDMaintenanceStatus } from "@/api/admin/system";
 import {
   appendAuthSourceDefaultsToUpdateRequest,
   buildAuthSourceDefaultsState,
@@ -7102,6 +7295,9 @@ const settingsTabKeyboardActions = {
 
 function selectSettingsTab(tab: SettingsTab): void {
   activeTab.value = tab;
+  if (tab === "users" && !userIDMaintenanceStatus.value) {
+    void loadUserIDMaintenanceStatus(true);
+  }
 }
 
 function focusSettingsTab(tab: SettingsTab): void {
@@ -7161,6 +7357,58 @@ const adminApiKeyMasked = ref("");
 const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionGroups = ref<AdminGroup[]>([]);
+
+const userIDMaintenanceConfirmationText = "CHANGE_USER_ID";
+const userIDMaintenanceStatus = ref<UserIDMaintenanceStatus | null>(null);
+const userIDMaintenanceLoading = ref(false);
+const setNextUserIDValue = ref<number | string | null>(null);
+const setNextUserIDSubmitting = ref(false);
+const changeUserIDSubmitting = ref(false);
+const changeUserIDForm = reactive<{
+  old_user_id: number | string | null;
+  new_user_id: number | string | null;
+  confirmation: string;
+}>({
+  old_user_id: null,
+  new_user_id: null,
+  confirmation: "",
+});
+
+function positiveIntegerOrNull(value: unknown): number | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
+const userIDMaintenanceNextPlaceholder = computed(() => {
+  const status = userIDMaintenanceStatus.value;
+  if (!status) {
+    return "";
+  }
+  return String(Math.max(status.next_user_id, status.max_user_id) + 1);
+});
+
+const canSetNextUserID = computed(() => {
+  const status = userIDMaintenanceStatus.value;
+  const nextUserID = positiveIntegerOrNull(setNextUserIDValue.value);
+  if (!status || nextUserID === null) {
+    return false;
+  }
+  return nextUserID > status.next_user_id && nextUserID > status.max_user_id;
+});
+
+const canChangeUserID = computed(() => {
+  const oldUserID = positiveIntegerOrNull(changeUserIDForm.old_user_id);
+  const newUserID = positiveIntegerOrNull(changeUserIDForm.new_user_id);
+  return (
+    oldUserID !== null &&
+    newUserID !== null &&
+    oldUserID !== newUserID &&
+    changeUserIDForm.confirmation === userIDMaintenanceConfirmationText
+  );
+});
 
 // Overload Cooldown (529) 状态
 const overloadCooldownLoading = ref(true);
@@ -8625,6 +8873,105 @@ async function loadSettings() {
     );
   } finally {
     loading.value = false;
+  }
+}
+
+function createAdminOperationKey(scope: string): string {
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === "function") {
+    return `${scope}-${cryptoObj.randomUUID()}`;
+  }
+  return `${scope}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
+function formatUserIDMaintenanceNumber(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toLocaleString()
+    : "-";
+}
+
+async function loadUserIDMaintenanceStatus(showError = false) {
+  userIDMaintenanceLoading.value = true;
+  try {
+    userIDMaintenanceStatus.value =
+      await adminAPI.system.getUserIDMaintenanceStatus();
+  } catch (error: unknown) {
+    if (showError) {
+      appStore.showError(extractApiErrorMessage(error, t("common.error")));
+    }
+  } finally {
+    userIDMaintenanceLoading.value = false;
+  }
+}
+
+async function submitSetNextUserID() {
+  const nextUserID = positiveIntegerOrNull(setNextUserIDValue.value);
+  if (nextUserID === null || !canSetNextUserID.value) {
+    appStore.showError(
+      t("admin.settings.userIdMaintenance.setNextValidation"),
+    );
+    return;
+  }
+
+  setNextUserIDSubmitting.value = true;
+  try {
+    const response = await adminAPI.system.setUserNextID(
+      { next_user_id: nextUserID },
+      createAdminOperationKey("set-user-next-id"),
+    );
+    userIDMaintenanceStatus.value = {
+      max_user_id: response.result.max_user_id,
+      next_user_id: response.result.next_user_id,
+      sequence_name: userIDMaintenanceStatus.value?.sequence_name || "",
+    };
+    setNextUserIDValue.value = null;
+    await loadUserIDMaintenanceStatus(false);
+    appStore.showSuccess(t("admin.settings.userIdMaintenance.setNextSuccess"));
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    setNextUserIDSubmitting.value = false;
+  }
+}
+
+async function submitChangeUserID() {
+  const oldUserID = positiveIntegerOrNull(changeUserIDForm.old_user_id);
+  const newUserID = positiveIntegerOrNull(changeUserIDForm.new_user_id);
+  if (
+    oldUserID === null ||
+    newUserID === null ||
+    oldUserID === newUserID ||
+    changeUserIDForm.confirmation !== userIDMaintenanceConfirmationText
+  ) {
+    appStore.showError(t("admin.settings.userIdMaintenance.changeValidation"));
+    return;
+  }
+
+  if (!confirm(t("admin.settings.userIdMaintenance.changeConfirm"))) {
+    return;
+  }
+
+  changeUserIDSubmitting.value = true;
+  try {
+    await adminAPI.system.changeUserID(
+      {
+        old_user_id: oldUserID,
+        new_user_id: newUserID,
+        confirmation: changeUserIDForm.confirmation,
+      },
+      createAdminOperationKey("change-user-id"),
+    );
+    changeUserIDForm.old_user_id = null;
+    changeUserIDForm.new_user_id = null;
+    changeUserIDForm.confirmation = "";
+    await loadUserIDMaintenanceStatus(false);
+    appStore.showSuccess(t("admin.settings.userIdMaintenance.changeSuccess"));
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    changeUserIDSubmitting.value = false;
   }
 }
 

@@ -576,6 +576,7 @@ var ProviderSet = wire.NewSet(
 	NewIdentityService,
 	NewCRSSyncService,
 	ProvideUpdateService,
+	NewUserIDMaintenanceService,
 	ProvideTokenRefreshService,
 	ProvideAccountExpiryService,
 	ProvideProxyExpiryService,

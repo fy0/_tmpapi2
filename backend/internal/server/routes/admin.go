@@ -558,6 +558,9 @@ func registerSystemRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		system.POST("/update", h.Admin.System.PerformUpdate)
 		system.POST("/rollback", h.Admin.System.Rollback)
 		system.POST("/restart", h.Admin.System.RestartService)
+		system.GET("/user-id-maintenance", h.Admin.System.GetUserIDMaintenanceStatus)
+		system.POST("/user-id-maintenance/next-id", h.Admin.System.SetUserNextID)
+		system.POST("/user-id-maintenance/change-user-id", h.Admin.System.ChangeUserID)
 	}
 }
 
