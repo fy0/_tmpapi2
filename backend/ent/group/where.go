@@ -155,6 +155,11 @@ func ImagePrice4k(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldImagePrice4k, v))
 }
 
+// ResponsesImageGenerationRedirectGroupID applies equality check predicate on the "responses_image_generation_redirect_group_id" field. It's identical to ResponsesImageGenerationRedirectGroupIDEQ.
+func ResponsesImageGenerationRedirectGroupID(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
 // ClaudeCodeOnly applies equality check predicate on the "claude_code_only" field. It's identical to ClaudeCodeOnlyEQ.
 func ClaudeCodeOnly(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldClaudeCodeOnly, v))
@@ -1123,6 +1128,56 @@ func ImagePrice4kIsNil() predicate.Group {
 // ImagePrice4kNotNil applies the NotNil predicate on the "image_price_4k" field.
 func ImagePrice4kNotNil() predicate.Group {
 	return predicate.Group(sql.FieldNotNull(FieldImagePrice4k))
+}
+
+// ResponsesImageGenerationRedirectGroupIDEQ applies the EQ predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
+// ResponsesImageGenerationRedirectGroupIDNEQ applies the NEQ predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDNEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
+// ResponsesImageGenerationRedirectGroupIDIn applies the In predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldResponsesImageGenerationRedirectGroupID, vs...))
+}
+
+// ResponsesImageGenerationRedirectGroupIDNotIn applies the NotIn predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDNotIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldResponsesImageGenerationRedirectGroupID, vs...))
+}
+
+// ResponsesImageGenerationRedirectGroupIDGT applies the GT predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDGT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
+// ResponsesImageGenerationRedirectGroupIDGTE applies the GTE predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDGTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
+// ResponsesImageGenerationRedirectGroupIDLT applies the LT predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDLT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
+// ResponsesImageGenerationRedirectGroupIDLTE applies the LTE predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDLTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldResponsesImageGenerationRedirectGroupID, v))
+}
+
+// ResponsesImageGenerationRedirectGroupIDIsNil applies the IsNil predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldResponsesImageGenerationRedirectGroupID))
+}
+
+// ResponsesImageGenerationRedirectGroupIDNotNil applies the NotNil predicate on the "responses_image_generation_redirect_group_id" field.
+func ResponsesImageGenerationRedirectGroupIDNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldResponsesImageGenerationRedirectGroupID))
 }
 
 // ClaudeCodeOnlyEQ applies the EQ predicate on the "claude_code_only" field.

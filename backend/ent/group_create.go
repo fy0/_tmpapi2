@@ -301,6 +301,20 @@ func (_c *GroupCreate) SetNillableImagePrice4k(v *float64) *GroupCreate {
 	return _c
 }
 
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (_c *GroupCreate) SetResponsesImageGenerationRedirectGroupID(v int64) *GroupCreate {
+	_c.mutation.SetResponsesImageGenerationRedirectGroupID(v)
+	return _c
+}
+
+// SetNillableResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableResponsesImageGenerationRedirectGroupID(v *int64) *GroupCreate {
+	if v != nil {
+		_c.SetResponsesImageGenerationRedirectGroupID(*v)
+	}
+	return _c
+}
+
 // SetClaudeCodeOnly sets the "claude_code_only" field.
 func (_c *GroupCreate) SetClaudeCodeOnly(v bool) *GroupCreate {
 	_c.mutation.SetClaudeCodeOnly(v)
@@ -929,6 +943,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 		_spec.SetField(group.FieldImagePrice4k, field.TypeFloat64, value)
 		_node.ImagePrice4k = &value
 	}
+	if value, ok := _c.mutation.ResponsesImageGenerationRedirectGroupID(); ok {
+		_spec.SetField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64, value)
+		_node.ResponsesImageGenerationRedirectGroupID = &value
+	}
 	if value, ok := _c.mutation.ClaudeCodeOnly(); ok {
 		_spec.SetField(group.FieldClaudeCodeOnly, field.TypeBool, value)
 		_node.ClaudeCodeOnly = value
@@ -1472,6 +1490,30 @@ func (u *GroupUpsert) AddImagePrice4k(v float64) *GroupUpsert {
 // ClearImagePrice4k clears the value of the "image_price_4k" field.
 func (u *GroupUpsert) ClearImagePrice4k() *GroupUpsert {
 	u.SetNull(group.FieldImagePrice4k)
+	return u
+}
+
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsert) SetResponsesImageGenerationRedirectGroupID(v int64) *GroupUpsert {
+	u.Set(group.FieldResponsesImageGenerationRedirectGroupID, v)
+	return u
+}
+
+// UpdateResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateResponsesImageGenerationRedirectGroupID() *GroupUpsert {
+	u.SetExcluded(group.FieldResponsesImageGenerationRedirectGroupID)
+	return u
+}
+
+// AddResponsesImageGenerationRedirectGroupID adds v to the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsert) AddResponsesImageGenerationRedirectGroupID(v int64) *GroupUpsert {
+	u.Add(group.FieldResponsesImageGenerationRedirectGroupID, v)
+	return u
+}
+
+// ClearResponsesImageGenerationRedirectGroupID clears the value of the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsert) ClearResponsesImageGenerationRedirectGroupID() *GroupUpsert {
+	u.SetNull(group.FieldResponsesImageGenerationRedirectGroupID)
 	return u
 }
 
@@ -2124,6 +2166,34 @@ func (u *GroupUpsertOne) UpdateImagePrice4k() *GroupUpsertOne {
 func (u *GroupUpsertOne) ClearImagePrice4k() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearImagePrice4k()
+	})
+}
+
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsertOne) SetResponsesImageGenerationRedirectGroupID(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetResponsesImageGenerationRedirectGroupID(v)
+	})
+}
+
+// AddResponsesImageGenerationRedirectGroupID adds v to the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsertOne) AddResponsesImageGenerationRedirectGroupID(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddResponsesImageGenerationRedirectGroupID(v)
+	})
+}
+
+// UpdateResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateResponsesImageGenerationRedirectGroupID() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateResponsesImageGenerationRedirectGroupID()
+	})
+}
+
+// ClearResponsesImageGenerationRedirectGroupID clears the value of the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsertOne) ClearResponsesImageGenerationRedirectGroupID() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearResponsesImageGenerationRedirectGroupID()
 	})
 }
 
@@ -2979,6 +3049,34 @@ func (u *GroupUpsertBulk) UpdateImagePrice4k() *GroupUpsertBulk {
 func (u *GroupUpsertBulk) ClearImagePrice4k() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearImagePrice4k()
+	})
+}
+
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsertBulk) SetResponsesImageGenerationRedirectGroupID(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetResponsesImageGenerationRedirectGroupID(v)
+	})
+}
+
+// AddResponsesImageGenerationRedirectGroupID adds v to the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsertBulk) AddResponsesImageGenerationRedirectGroupID(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddResponsesImageGenerationRedirectGroupID(v)
+	})
+}
+
+// UpdateResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateResponsesImageGenerationRedirectGroupID() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateResponsesImageGenerationRedirectGroupID()
+	})
+}
+
+// ClearResponsesImageGenerationRedirectGroupID clears the value of the "responses_image_generation_redirect_group_id" field.
+func (u *GroupUpsertBulk) ClearResponsesImageGenerationRedirectGroupID() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearResponsesImageGenerationRedirectGroupID()
 	})
 }
 

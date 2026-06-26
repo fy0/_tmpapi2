@@ -15104,80 +15104,82 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
 	config
-	op                                      Op
-	typ                                     string
-	id                                      *int64
-	created_at                              *time.Time
-	updated_at                              *time.Time
-	deleted_at                              *time.Time
-	name                                    *string
-	description                             *string
-	rate_multiplier                         *float64
-	addrate_multiplier                      *float64
-	is_exclusive                            *bool
-	status                                  *string
-	platform                                *string
-	subscription_type                       *string
-	daily_limit_usd                         *float64
-	adddaily_limit_usd                      *float64
-	weekly_limit_usd                        *float64
-	addweekly_limit_usd                     *float64
-	monthly_limit_usd                       *float64
-	addmonthly_limit_usd                    *float64
-	default_validity_days                   *int
-	adddefault_validity_days                *int
-	allow_image_generation                  *bool
-	image_rate_independent                  *bool
-	image_rate_multiplier                   *float64
-	addimage_rate_multiplier                *float64
-	image_price_1k                          *float64
-	addimage_price_1k                       *float64
-	image_price_2k                          *float64
-	addimage_price_2k                       *float64
-	image_price_4k                          *float64
-	addimage_price_4k                       *float64
-	claude_code_only                        *bool
-	fallback_group_id                       *int64
-	addfallback_group_id                    *int64
-	fallback_group_id_on_invalid_request    *int64
-	addfallback_group_id_on_invalid_request *int64
-	model_routing                           *map[string][]int64
-	model_routing_enabled                   *bool
-	mcp_xml_inject                          *bool
-	supported_model_scopes                  *[]string
-	appendsupported_model_scopes            []string
-	sort_order                              *int
-	addsort_order                           *int
-	allow_messages_dispatch                 *bool
-	require_oauth_only                      *bool
-	require_privacy_set                     *bool
-	default_mapped_model                    *string
-	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
-	models_list_config                      *domain.GroupModelsListConfig
-	rpm_limit                               *int
-	addrpm_limit                            *int
-	clearedFields                           map[string]struct{}
-	api_keys                                map[int64]struct{}
-	removedapi_keys                         map[int64]struct{}
-	clearedapi_keys                         bool
-	redeem_codes                            map[int64]struct{}
-	removedredeem_codes                     map[int64]struct{}
-	clearedredeem_codes                     bool
-	subscriptions                           map[int64]struct{}
-	removedsubscriptions                    map[int64]struct{}
-	clearedsubscriptions                    bool
-	usage_logs                              map[int64]struct{}
-	removedusage_logs                       map[int64]struct{}
-	clearedusage_logs                       bool
-	accounts                                map[int64]struct{}
-	removedaccounts                         map[int64]struct{}
-	clearedaccounts                         bool
-	allowed_users                           map[int64]struct{}
-	removedallowed_users                    map[int64]struct{}
-	clearedallowed_users                    bool
-	done                                    bool
-	oldValue                                func(context.Context) (*Group, error)
-	predicates                              []predicate.Group
+	op                                              Op
+	typ                                             string
+	id                                              *int64
+	created_at                                      *time.Time
+	updated_at                                      *time.Time
+	deleted_at                                      *time.Time
+	name                                            *string
+	description                                     *string
+	rate_multiplier                                 *float64
+	addrate_multiplier                              *float64
+	is_exclusive                                    *bool
+	status                                          *string
+	platform                                        *string
+	subscription_type                               *string
+	daily_limit_usd                                 *float64
+	adddaily_limit_usd                              *float64
+	weekly_limit_usd                                *float64
+	addweekly_limit_usd                             *float64
+	monthly_limit_usd                               *float64
+	addmonthly_limit_usd                            *float64
+	default_validity_days                           *int
+	adddefault_validity_days                        *int
+	allow_image_generation                          *bool
+	image_rate_independent                          *bool
+	image_rate_multiplier                           *float64
+	addimage_rate_multiplier                        *float64
+	image_price_1k                                  *float64
+	addimage_price_1k                               *float64
+	image_price_2k                                  *float64
+	addimage_price_2k                               *float64
+	image_price_4k                                  *float64
+	addimage_price_4k                               *float64
+	responses_image_generation_redirect_group_id    *int64
+	addresponses_image_generation_redirect_group_id *int64
+	claude_code_only                                *bool
+	fallback_group_id                               *int64
+	addfallback_group_id                            *int64
+	fallback_group_id_on_invalid_request            *int64
+	addfallback_group_id_on_invalid_request         *int64
+	model_routing                                   *map[string][]int64
+	model_routing_enabled                           *bool
+	mcp_xml_inject                                  *bool
+	supported_model_scopes                          *[]string
+	appendsupported_model_scopes                    []string
+	sort_order                                      *int
+	addsort_order                                   *int
+	allow_messages_dispatch                         *bool
+	require_oauth_only                              *bool
+	require_privacy_set                             *bool
+	default_mapped_model                            *string
+	messages_dispatch_model_config                  *domain.OpenAIMessagesDispatchModelConfig
+	models_list_config                              *domain.GroupModelsListConfig
+	rpm_limit                                       *int
+	addrpm_limit                                    *int
+	clearedFields                                   map[string]struct{}
+	api_keys                                        map[int64]struct{}
+	removedapi_keys                                 map[int64]struct{}
+	clearedapi_keys                                 bool
+	redeem_codes                                    map[int64]struct{}
+	removedredeem_codes                             map[int64]struct{}
+	clearedredeem_codes                             bool
+	subscriptions                                   map[int64]struct{}
+	removedsubscriptions                            map[int64]struct{}
+	clearedsubscriptions                            bool
+	usage_logs                                      map[int64]struct{}
+	removedusage_logs                               map[int64]struct{}
+	clearedusage_logs                               bool
+	accounts                                        map[int64]struct{}
+	removedaccounts                                 map[int64]struct{}
+	clearedaccounts                                 bool
+	allowed_users                                   map[int64]struct{}
+	removedallowed_users                            map[int64]struct{}
+	clearedallowed_users                            bool
+	done                                            bool
+	oldValue                                        func(context.Context) (*Group, error)
+	predicates                                      []predicate.Group
 }
 
 var _ ent.Mutation = (*GroupMutation)(nil)
@@ -16288,6 +16290,76 @@ func (m *GroupMutation) ResetImagePrice4k() {
 	delete(m.clearedFields, group.FieldImagePrice4k)
 }
 
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (m *GroupMutation) SetResponsesImageGenerationRedirectGroupID(i int64) {
+	m.responses_image_generation_redirect_group_id = &i
+	m.addresponses_image_generation_redirect_group_id = nil
+}
+
+// ResponsesImageGenerationRedirectGroupID returns the value of the "responses_image_generation_redirect_group_id" field in the mutation.
+func (m *GroupMutation) ResponsesImageGenerationRedirectGroupID() (r int64, exists bool) {
+	v := m.responses_image_generation_redirect_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResponsesImageGenerationRedirectGroupID returns the old "responses_image_generation_redirect_group_id" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldResponsesImageGenerationRedirectGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResponsesImageGenerationRedirectGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResponsesImageGenerationRedirectGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResponsesImageGenerationRedirectGroupID: %w", err)
+	}
+	return oldValue.ResponsesImageGenerationRedirectGroupID, nil
+}
+
+// AddResponsesImageGenerationRedirectGroupID adds i to the "responses_image_generation_redirect_group_id" field.
+func (m *GroupMutation) AddResponsesImageGenerationRedirectGroupID(i int64) {
+	if m.addresponses_image_generation_redirect_group_id != nil {
+		*m.addresponses_image_generation_redirect_group_id += i
+	} else {
+		m.addresponses_image_generation_redirect_group_id = &i
+	}
+}
+
+// AddedResponsesImageGenerationRedirectGroupID returns the value that was added to the "responses_image_generation_redirect_group_id" field in this mutation.
+func (m *GroupMutation) AddedResponsesImageGenerationRedirectGroupID() (r int64, exists bool) {
+	v := m.addresponses_image_generation_redirect_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearResponsesImageGenerationRedirectGroupID clears the value of the "responses_image_generation_redirect_group_id" field.
+func (m *GroupMutation) ClearResponsesImageGenerationRedirectGroupID() {
+	m.responses_image_generation_redirect_group_id = nil
+	m.addresponses_image_generation_redirect_group_id = nil
+	m.clearedFields[group.FieldResponsesImageGenerationRedirectGroupID] = struct{}{}
+}
+
+// ResponsesImageGenerationRedirectGroupIDCleared returns if the "responses_image_generation_redirect_group_id" field was cleared in this mutation.
+func (m *GroupMutation) ResponsesImageGenerationRedirectGroupIDCleared() bool {
+	_, ok := m.clearedFields[group.FieldResponsesImageGenerationRedirectGroupID]
+	return ok
+}
+
+// ResetResponsesImageGenerationRedirectGroupID resets all changes to the "responses_image_generation_redirect_group_id" field.
+func (m *GroupMutation) ResetResponsesImageGenerationRedirectGroupID() {
+	m.responses_image_generation_redirect_group_id = nil
+	m.addresponses_image_generation_redirect_group_id = nil
+	delete(m.clearedFields, group.FieldResponsesImageGenerationRedirectGroupID)
+}
+
 // SetClaudeCodeOnly sets the "claude_code_only" field.
 func (m *GroupMutation) SetClaudeCodeOnly(b bool) {
 	m.claude_code_only = &b
@@ -17322,7 +17394,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 35)
+	fields := make([]string, 0, 36)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -17382,6 +17454,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.image_price_4k != nil {
 		fields = append(fields, group.FieldImagePrice4k)
+	}
+	if m.responses_image_generation_redirect_group_id != nil {
+		fields = append(fields, group.FieldResponsesImageGenerationRedirectGroupID)
 	}
 	if m.claude_code_only != nil {
 		fields = append(fields, group.FieldClaudeCodeOnly)
@@ -17476,6 +17551,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.ImagePrice2k()
 	case group.FieldImagePrice4k:
 		return m.ImagePrice4k()
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		return m.ResponsesImageGenerationRedirectGroupID()
 	case group.FieldClaudeCodeOnly:
 		return m.ClaudeCodeOnly()
 	case group.FieldFallbackGroupID:
@@ -17555,6 +17632,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldImagePrice2k(ctx)
 	case group.FieldImagePrice4k:
 		return m.OldImagePrice4k(ctx)
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		return m.OldResponsesImageGenerationRedirectGroupID(ctx)
 	case group.FieldClaudeCodeOnly:
 		return m.OldClaudeCodeOnly(ctx)
 	case group.FieldFallbackGroupID:
@@ -17734,6 +17813,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetImagePrice4k(v)
 		return nil
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResponsesImageGenerationRedirectGroupID(v)
+		return nil
 	case group.FieldClaudeCodeOnly:
 		v, ok := value.(bool)
 		if !ok {
@@ -17874,6 +17960,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addimage_price_4k != nil {
 		fields = append(fields, group.FieldImagePrice4k)
 	}
+	if m.addresponses_image_generation_redirect_group_id != nil {
+		fields = append(fields, group.FieldResponsesImageGenerationRedirectGroupID)
+	}
 	if m.addfallback_group_id != nil {
 		fields = append(fields, group.FieldFallbackGroupID)
 	}
@@ -17912,6 +18001,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedImagePrice2k()
 	case group.FieldImagePrice4k:
 		return m.AddedImagePrice4k()
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		return m.AddedResponsesImageGenerationRedirectGroupID()
 	case group.FieldFallbackGroupID:
 		return m.AddedFallbackGroupID()
 	case group.FieldFallbackGroupIDOnInvalidRequest:
@@ -17992,6 +18083,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddImagePrice4k(v)
 		return nil
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddResponsesImageGenerationRedirectGroupID(v)
+		return nil
 	case group.FieldFallbackGroupID:
 		v, ok := value.(int64)
 		if !ok {
@@ -18052,6 +18150,9 @@ func (m *GroupMutation) ClearedFields() []string {
 	if m.FieldCleared(group.FieldImagePrice4k) {
 		fields = append(fields, group.FieldImagePrice4k)
 	}
+	if m.FieldCleared(group.FieldResponsesImageGenerationRedirectGroupID) {
+		fields = append(fields, group.FieldResponsesImageGenerationRedirectGroupID)
+	}
 	if m.FieldCleared(group.FieldFallbackGroupID) {
 		fields = append(fields, group.FieldFallbackGroupID)
 	}
@@ -18098,6 +18199,9 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldImagePrice4k:
 		m.ClearImagePrice4k()
+		return nil
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		m.ClearResponsesImageGenerationRedirectGroupID()
 		return nil
 	case group.FieldFallbackGroupID:
 		m.ClearFallbackGroupID()
@@ -18175,6 +18279,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldImagePrice4k:
 		m.ResetImagePrice4k()
+		return nil
+	case group.FieldResponsesImageGenerationRedirectGroupID:
+		m.ResetResponsesImageGenerationRedirectGroupID()
 		return nil
 	case group.FieldClaudeCodeOnly:
 		m.ResetClaudeCodeOnly()

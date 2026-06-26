@@ -405,6 +405,33 @@ func (_u *GroupUpdate) ClearImagePrice4k() *GroupUpdate {
 	return _u
 }
 
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (_u *GroupUpdate) SetResponsesImageGenerationRedirectGroupID(v int64) *GroupUpdate {
+	_u.mutation.ResetResponsesImageGenerationRedirectGroupID()
+	_u.mutation.SetResponsesImageGenerationRedirectGroupID(v)
+	return _u
+}
+
+// SetNillableResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableResponsesImageGenerationRedirectGroupID(v *int64) *GroupUpdate {
+	if v != nil {
+		_u.SetResponsesImageGenerationRedirectGroupID(*v)
+	}
+	return _u
+}
+
+// AddResponsesImageGenerationRedirectGroupID adds value to the "responses_image_generation_redirect_group_id" field.
+func (_u *GroupUpdate) AddResponsesImageGenerationRedirectGroupID(v int64) *GroupUpdate {
+	_u.mutation.AddResponsesImageGenerationRedirectGroupID(v)
+	return _u
+}
+
+// ClearResponsesImageGenerationRedirectGroupID clears the value of the "responses_image_generation_redirect_group_id" field.
+func (_u *GroupUpdate) ClearResponsesImageGenerationRedirectGroupID() *GroupUpdate {
+	_u.mutation.ClearResponsesImageGenerationRedirectGroupID()
+	return _u
+}
+
 // SetClaudeCodeOnly sets the "claude_code_only" field.
 func (_u *GroupUpdate) SetClaudeCodeOnly(v bool) *GroupUpdate {
 	_u.mutation.SetClaudeCodeOnly(v)
@@ -1063,6 +1090,15 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ImagePrice4kCleared() {
 		_spec.ClearField(group.FieldImagePrice4k, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.ResponsesImageGenerationRedirectGroupID(); ok {
+		_spec.SetField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedResponsesImageGenerationRedirectGroupID(); ok {
+		_spec.AddField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.ResponsesImageGenerationRedirectGroupIDCleared() {
+		_spec.ClearField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ClaudeCodeOnly(); ok {
 		_spec.SetField(group.FieldClaudeCodeOnly, field.TypeBool, value)
@@ -1818,6 +1854,33 @@ func (_u *GroupUpdateOne) ClearImagePrice4k() *GroupUpdateOne {
 	return _u
 }
 
+// SetResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field.
+func (_u *GroupUpdateOne) SetResponsesImageGenerationRedirectGroupID(v int64) *GroupUpdateOne {
+	_u.mutation.ResetResponsesImageGenerationRedirectGroupID()
+	_u.mutation.SetResponsesImageGenerationRedirectGroupID(v)
+	return _u
+}
+
+// SetNillableResponsesImageGenerationRedirectGroupID sets the "responses_image_generation_redirect_group_id" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableResponsesImageGenerationRedirectGroupID(v *int64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetResponsesImageGenerationRedirectGroupID(*v)
+	}
+	return _u
+}
+
+// AddResponsesImageGenerationRedirectGroupID adds value to the "responses_image_generation_redirect_group_id" field.
+func (_u *GroupUpdateOne) AddResponsesImageGenerationRedirectGroupID(v int64) *GroupUpdateOne {
+	_u.mutation.AddResponsesImageGenerationRedirectGroupID(v)
+	return _u
+}
+
+// ClearResponsesImageGenerationRedirectGroupID clears the value of the "responses_image_generation_redirect_group_id" field.
+func (_u *GroupUpdateOne) ClearResponsesImageGenerationRedirectGroupID() *GroupUpdateOne {
+	_u.mutation.ClearResponsesImageGenerationRedirectGroupID()
+	return _u
+}
+
 // SetClaudeCodeOnly sets the "claude_code_only" field.
 func (_u *GroupUpdateOne) SetClaudeCodeOnly(v bool) *GroupUpdateOne {
 	_u.mutation.SetClaudeCodeOnly(v)
@@ -2506,6 +2569,15 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if _u.mutation.ImagePrice4kCleared() {
 		_spec.ClearField(group.FieldImagePrice4k, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.ResponsesImageGenerationRedirectGroupID(); ok {
+		_spec.SetField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedResponsesImageGenerationRedirectGroupID(); ok {
+		_spec.AddField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.ResponsesImageGenerationRedirectGroupIDCleared() {
+		_spec.ClearField(group.FieldResponsesImageGenerationRedirectGroupID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ClaudeCodeOnly(); ok {
 		_spec.SetField(group.FieldClaudeCodeOnly, field.TypeBool, value)

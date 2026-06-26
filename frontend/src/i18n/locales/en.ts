@@ -2404,7 +2404,11 @@ export default {
         imageMultiplier: 'Image multiplier',
         modeHint: 'By default, image billing uses image price × current effective group multiplier. Independent mode uses image price × image multiplier.',
         finalPricePreview: 'Final per-image price preview',
-        notConfigured: 'Not configured'
+        notConfigured: 'Not configured',
+        responsesImageGenerationRedirect: 'Responses image redirect target',
+        responsesImageGenerationRedirectHint: 'Explicit /responses requests with the image_generation tool are forwarded to the selected OpenAI image group. Billing still belongs to the current API key group.',
+        responsesImageGenerationRedirectGroupPlaceholder: 'Select OpenAI image group',
+        noOpenAIImageGroupsAvailable: 'No OpenAI image-generation groups available'
       },
       modelsList: {
         title: 'Custom /v1/models Model List',
@@ -2637,11 +2641,6 @@ export default {
         webSearchEmulationGlobalDisabled: 'Please enable the global switch first in Settings → Gateway → Web Search Emulation',
         codexImageGenerationBridge: 'Codex Image Generation Bridge',
         codexImageGenerationBridgeHint: 'When enabled, Codex /responses text requests in OpenAI groups may be automatically given the image_generation tool. Keep off unless the routed accounts support image generation.',
-        responsesImageGenerationRedirect: 'Responses image redirect',
-        responsesImageGenerationRedirectHint: 'Redirect explicit /responses image_generation tool requests to a dedicated OpenAI image group when the original route cannot handle images.',
-        responsesImageGenerationRedirectGroupPlaceholder: 'Select OpenAI image group',
-        responsesImageGenerationRedirectBillingHint: 'Billing stays on the original API key group, using the converted image model and image size.',
-        noOpenAIImageGroupsAvailable: 'No OpenAI image-generation groups available',
         bedrockCCCompat: 'Bedrock CC Compatibility',
         bedrockCCCompatHint: '⚠️ When enabled, requests to Bedrock accounts in this channel will be transformed for Claude Code compatibility (thinking type conversion, tool_use ID sanitization).',
         basicSettings: 'Basic Settings',

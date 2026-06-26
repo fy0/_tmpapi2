@@ -2487,7 +2487,11 @@ export default {
         imageMultiplier: '生图独立倍率',
         modeHint: '默认关闭独立倍率时，图片费用 = 图片价格 × 当前分组有效倍率；开启独立倍率后，图片费用 = 图片价格 × 生图独立倍率。',
         finalPricePreview: '最终单张价格预览',
-        notConfigured: '未配置'
+        notConfigured: '未配置',
+        responsesImageGenerationRedirect: 'Responses 图片分流目标',
+        responsesImageGenerationRedirectHint: '显式携带 image_generation 工具的 /responses 请求会转发到所选 OpenAI 图片分组；计价仍归属当前 API Key 分组。',
+        responsesImageGenerationRedirectGroupPlaceholder: '选择 OpenAI 图片分组',
+        noOpenAIImageGroupsAvailable: '暂无可用的 OpenAI 图片生成分组'
       },
       modelsList: {
         title: '自定义 /v1/models 模型列表',
@@ -2714,11 +2718,6 @@ export default {
         webSearchEmulationGlobalDisabled: '请先在系统设置 → 网关 → Web Search 模拟中启用全局开关',
         codexImageGenerationBridge: 'Codex 图片生成桥接',
         codexImageGenerationBridgeHint: '开启后，OpenAI 分组的 Codex /responses 文本请求可能会被自动注入 image_generation 工具。仅在路由账号支持图片生成时开启。',
-        responsesImageGenerationRedirect: 'Responses 图片重定向',
-        responsesImageGenerationRedirectHint: '当原路由不支持图片时，将显式携带 image_generation 工具的 /responses 请求分流到指定 OpenAI 图片分组。',
-        responsesImageGenerationRedirectGroupPlaceholder: '选择 OpenAI 图片分组',
-        responsesImageGenerationRedirectBillingHint: '扣费仍归属原 API Key 分组，按转换后的图片模型和图片尺寸计价。',
-        noOpenAIImageGroupsAvailable: '暂无可用的 OpenAI 图片生成分组',
         bedrockCCCompat: 'Bedrock CC 兼容',
         bedrockCCCompatHint: '⚠️ 开启后，该渠道下 Bedrock 账号的请求将进行 Claude Code 兼容处理（thinking 类型转换、tool_use ID 清理）',
         basicSettings: '基础设置',

@@ -341,45 +341,16 @@
 
             <!-- Codex Image Generation Bridge (OpenAI only) -->
             <div v-if="section.platform === 'openai'" class="border-t border-gray-200 pt-3 dark:border-dark-600">
-              <div class="space-y-3">
-                <div class="flex items-center justify-between gap-4">
-                  <div>
-                    <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {{ t('admin.channels.form.codexImageGenerationBridge') }}
-                    </label>
-                    <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                      {{ t('admin.channels.form.codexImageGenerationBridgeHint') }}
-                    </p>
-                  </div>
-                  <Toggle v-model="section.codex_image_generation_bridge" />
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.channels.form.codexImageGenerationBridge') }}
+                  </label>
+                  <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    {{ t('admin.channels.form.codexImageGenerationBridgeHint') }}
+                  </p>
                 </div>
-
-                <div class="border-t border-gray-100 pt-3 dark:border-dark-700">
-                  <div class="flex items-center justify-between gap-4">
-                    <div>
-                      <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {{ t('admin.channels.form.responsesImageGenerationRedirect') }}
-                      </label>
-                      <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                        {{ t('admin.channels.form.responsesImageGenerationRedirectHint') }}
-                      </p>
-                    </div>
-                    <Toggle v-model="section.responses_image_generation_redirect_enabled" />
-                  </div>
-                  <div v-if="section.responses_image_generation_redirect_enabled" class="mt-2">
-                    <Select
-                      v-model="section.responses_image_generation_redirect_group_id"
-                      :options="openAIImageGenerationGroupOptions"
-                      :placeholder="t('admin.channels.form.responsesImageGenerationRedirectGroupPlaceholder')"
-                      :empty-text="t('admin.channels.form.noOpenAIImageGroupsAvailable')"
-                      searchable
-                      clearable
-                    />
-                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                      {{ t('admin.channels.form.responsesImageGenerationRedirectBillingHint') }}
-                    </p>
-                  </div>
-                </div>
+                <Toggle v-model="section.codex_image_generation_bridge" />
               </div>
             </div>
 
@@ -713,8 +684,6 @@ interface PlatformSection {
   model_pricing: PricingFormEntry[]
   web_search_emulation: boolean
   codex_image_generation_bridge: boolean
-  responses_image_generation_redirect_enabled: boolean
-  responses_image_generation_redirect_group_id: number | null
   bedrock_cc_compat: boolean
   account_stats_pricing_rules: FormPricingRule[]
 }
@@ -812,8 +781,6 @@ function addPlatformSection(platform: GroupPlatform) {
     model_pricing: [],
     web_search_emulation: false,
     codex_image_generation_bridge: false,
-    responses_image_generation_redirect_enabled: false,
-    responses_image_generation_redirect_group_id: null,
     bedrock_cc_compat: false,
     account_stats_pricing_rules: [],
   })
@@ -834,12 +801,6 @@ function togglePlatform(platform: GroupPlatform) {
 function getGroupsForPlatform(platform: GroupPlatform): AdminGroup[] {
   return allGroups.value.filter(g => g.platform === platform)
 }
-
-const openAIImageGenerationGroupOptions = computed(() =>
-  allGroups.value
-    .filter(g => g.platform === 'openai' && g.status === 'active' && g.allow_image_generation === true)
-    .map(g => ({ value: g.id, label: `${g.name} #${g.id}` }))
-)
 
 // ── Group helpers ──
 const groupToChannelMap = computed(() => {
@@ -1180,24 +1141,7 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
   } else {
     delete featuresConfig.codex_image_generation_bridge
   }
-
-  const responsesImageGenerationRedirect: Record<string, { enabled: boolean; group_id?: number }> = {}
-  for (const section of form.platforms) {
-    if (!section.enabled) continue
-    if (section.platform === 'openai') {
-      const groupId = Number(section.responses_image_generation_redirect_group_id || 0)
-      if (section.responses_image_generation_redirect_enabled && groupId > 0) {
-        responsesImageGenerationRedirect[section.platform] = { enabled: true, group_id: groupId }
-      } else {
-        responsesImageGenerationRedirect[section.platform] = { enabled: false }
-      }
-    }
-  }
-  if (Object.keys(responsesImageGenerationRedirect).length > 0) {
-    featuresConfig.responses_image_generation_redirect = responsesImageGenerationRedirect
-  } else {
-    delete featuresConfig.responses_image_generation_redirect
-  }
+  delete featuresConfig.responses_image_generation_redirect
 
   const bedrockCCCompat: Record<string, boolean> = {}
   for (const section of form.platforms) {
@@ -1262,11 +1206,6 @@ function apiToForm(channel: Channel): PlatformSection[] {
     const webSearchEnabled = wsEmulation?.[platform] === true
     const codexImageGenerationBridge = fc?.codex_image_generation_bridge as Record<string, boolean> | undefined
     const codexImageGenerationBridgeEnabled = codexImageGenerationBridge?.[platform] === true
-    const responsesImageGenerationRedirect = fc?.responses_image_generation_redirect as
-      | Record<string, { enabled?: boolean; group_id?: number | string }>
-      | undefined
-    const responsesImageGenerationRedirectConfig = responsesImageGenerationRedirect?.[platform]
-    const responsesImageGenerationRedirectGroupID = Number(responsesImageGenerationRedirectConfig?.group_id || 0)
     const bedrockCCCompatEnabled = fc?.bedrock_cc_compat === true
 
     sections.push({
@@ -1278,8 +1217,6 @@ function apiToForm(channel: Channel): PlatformSection[] {
       model_pricing: pricing,
       web_search_emulation: webSearchEnabled,
       codex_image_generation_bridge: codexImageGenerationBridgeEnabled,
-      responses_image_generation_redirect_enabled: responsesImageGenerationRedirectConfig?.enabled === true && responsesImageGenerationRedirectGroupID > 0,
-      responses_image_generation_redirect_group_id: responsesImageGenerationRedirectGroupID > 0 ? responsesImageGenerationRedirectGroupID : null,
       bedrock_cc_compat: bedrockCCCompatEnabled,
       account_stats_pricing_rules: [],
     })

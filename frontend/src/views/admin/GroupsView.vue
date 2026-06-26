@@ -838,6 +838,25 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t("admin.groups.imagePricing.modeHint") }}
           </p>
+          <div
+            v-if="createForm.platform === 'openai'"
+            class="mt-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+          >
+            <label class="input-label">
+              {{ t("admin.groups.imagePricing.responsesImageGenerationRedirect") }}
+            </label>
+            <Select
+              v-model="createForm.responses_image_generation_redirect_group_id"
+              :options="responsesImageRedirectGroupOptions"
+              :placeholder="t('admin.groups.imagePricing.responsesImageGenerationRedirectGroupPlaceholder')"
+              :empty-text="t('admin.groups.imagePricing.noOpenAIImageGroupsAvailable')"
+              searchable
+              clearable
+            />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.groups.imagePricing.responsesImageGenerationRedirectHint") }}
+            </p>
+          </div>
           <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <div class="mb-1 font-medium">
               {{ t("admin.groups.imagePricing.finalPricePreview") }}
@@ -2126,6 +2145,25 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t("admin.groups.imagePricing.modeHint") }}
           </p>
+          <div
+            v-if="editForm.platform === 'openai'"
+            class="mt-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+          >
+            <label class="input-label">
+              {{ t("admin.groups.imagePricing.responsesImageGenerationRedirect") }}
+            </label>
+            <Select
+              v-model="editForm.responses_image_generation_redirect_group_id"
+              :options="responsesImageRedirectGroupOptionsForEdit"
+              :placeholder="t('admin.groups.imagePricing.responsesImageGenerationRedirectGroupPlaceholder')"
+              :empty-text="t('admin.groups.imagePricing.noOpenAIImageGroupsAvailable')"
+              searchable
+              clearable
+            />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.groups.imagePricing.responsesImageGenerationRedirectHint") }}
+            </p>
+          </div>
           <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <div class="mb-1 font-medium">
               {{ t("admin.groups.imagePricing.finalPricePreview") }}
@@ -3294,6 +3332,21 @@ const sortState = reactive({
   sort_order: "asc" as "asc" | "desc",
 });
 
+const buildResponsesImageRedirectGroupOptions = (excludeGroupID?: number) =>
+  groups.value
+    .filter(
+      (g) =>
+        g.platform === "openai" &&
+        g.status === "active" &&
+        g.allow_image_generation === true &&
+        g.id !== excludeGroupID,
+    )
+    .map((g) => ({ value: g.id, label: `${g.name} #${g.id}` }));
+
+const responsesImageRedirectGroupOptions = computed(() =>
+  buildResponsesImageRedirectGroupOptions(),
+);
+
 let abortController: AbortController | null = null;
 
 const showCreateModal = ref(false);
@@ -3323,6 +3376,10 @@ const editModelsListSelectedCount = computed(
   () => editModelsListState.items.filter((item) => item.selected).length,
 );
 
+const responsesImageRedirectGroupOptionsForEdit = computed(() =>
+  buildResponsesImageRedirectGroupOptions(editingGroup.value?.id),
+);
+
 const createForm = reactive({
   name: "",
   description: "",
@@ -3340,6 +3397,7 @@ const createForm = reactive({
   image_price_1k: null as number | null,
   image_price_2k: null as number | null,
   image_price_4k: null as number | null,
+  responses_image_generation_redirect_group_id: null as number | null,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
   fallback_group_id: null as number | null,
@@ -3671,13 +3729,13 @@ const editForm = reactive({
   image_price_1k: null as number | null,
   image_price_2k: null as number | null,
   image_price_4k: null as number | null,
+  responses_image_generation_redirect_group_id: null as number | null,
   // Claude Code 客户端限制（仅 anthropic 平台使用）
   claude_code_only: false,
   fallback_group_id: null as number | null,
   fallback_group_id_on_invalid_request: null as number | null,
   // OpenAI Messages 调度配置（仅 openai 平台使用）
   allow_messages_dispatch: false,
-  default_mapped_model: '',
   opus_mapped_model: editMessagesDispatchDefaults.opus_mapped_model,
   sonnet_mapped_model: editMessagesDispatchDefaults.sonnet_mapped_model,
   haiku_mapped_model: editMessagesDispatchDefaults.haiku_mapped_model,
@@ -3922,6 +3980,7 @@ const closeCreateModal = () => {
   createForm.image_price_1k = null;
   createForm.image_price_2k = null;
   createForm.image_price_4k = null;
+  createForm.responses_image_generation_redirect_group_id = null;
   createForm.claude_code_only = false;
   createForm.fallback_group_id = null;
   createForm.fallback_group_id_on_invalid_request = null;
@@ -3965,6 +4024,19 @@ const normalizeImageRateMultiplier = (
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
 };
 
+const normalizeOptionalPositiveInt = (
+  value: number | string | null | undefined,
+): number | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.trunc(parsed);
+};
+
 const handleCreateGroup = async () => {
   if (!createForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
@@ -3984,6 +4056,10 @@ const handleCreateGroup = async () => {
       monthly_limit_usd: normalizeOptionalLimit(
         createForm.monthly_limit_usd as number | string | null,
       ),
+      responses_image_generation_redirect_group_id:
+        createForm.platform === "openai"
+          ? normalizeOptionalPositiveInt(createForm.responses_image_generation_redirect_group_id)
+          : null,
       model_routing: convertRoutingRulesToApiFormat(
         createModelRoutingRules.value,
       ),
@@ -4048,6 +4124,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.image_price_1k = group.image_price_1k;
   editForm.image_price_2k = group.image_price_2k;
   editForm.image_price_4k = group.image_price_4k;
+  editForm.responses_image_generation_redirect_group_id =
+    group.responses_image_generation_redirect_group_id ?? null;
   editForm.claude_code_only = group.claude_code_only || false;
   editForm.fallback_group_id = group.fallback_group_id;
   editForm.fallback_group_id_on_invalid_request =
@@ -4092,6 +4170,7 @@ const closeEditModal = () => {
   editingGroup.value = null;
   editModelRoutingRules.value = [];
   editForm.copy_accounts_from_group_ids = [];
+  editForm.responses_image_generation_redirect_group_id = null;
   resetMessagesDispatchFormState(editForm);
   resetModelsListState(editModelsListState);
 };
@@ -4123,6 +4202,10 @@ const handleUpdateGroup = async () => {
         editForm.fallback_group_id_on_invalid_request === null
           ? 0
           : editForm.fallback_group_id_on_invalid_request,
+      responses_image_generation_redirect_group_id:
+        editForm.platform === "openai"
+          ? normalizeOptionalPositiveInt(editForm.responses_image_generation_redirect_group_id) ?? 0
+          : 0,
       model_routing: convertRoutingRulesToApiFormat(
         editModelRoutingRules.value,
       ),
@@ -4239,6 +4322,7 @@ watch(
     }
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(createForm);
+      createForm.responses_image_generation_redirect_group_id = null;
     }
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {
       createForm.require_oauth_only = false;
@@ -4257,30 +4341,24 @@ watch(
     }
     if (newVal !== "openai") {
       resetMessagesDispatchFormState(editForm);
+      editForm.responses_image_generation_redirect_group_id = null;
     }
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {
       editForm.require_oauth_only = false;
       editForm.require_privacy_set = false;
     }
-    if (editingGroup.value) {
-      resetModelsListState(editModelsListState, editForm.platform === editingGroup.value.platform ? editingGroup.value.models_list_config : undefined);
-      loadModelsListCandidates("edit", editingGroup.value.id, newVal);
+    const currentGroup = editingGroup.value;
+    if (currentGroup) {
+      resetModelsListState(
+        editModelsListState,
+        editForm.platform === currentGroup.platform
+          ? currentGroup.models_list_config
+          : undefined,
+      );
+      loadModelsListCandidates("edit", currentGroup.id, newVal);
     }
   },
 );
-
-watch(
-  () => editForm.platform,
-  (newVal) => {
-    if (!['anthropic', 'antigravity'].includes(newVal)) {
-      editForm.fallback_group_id_on_invalid_request = null
-    }
-    if (newVal !== 'openai') {
-      editForm.allow_messages_dispatch = false
-      editForm.default_mapped_model = ''
-    }
-  }
-)
 
 // 点击外部关闭账号搜索下拉框
 const handleClickOutside = (event: MouseEvent) => {

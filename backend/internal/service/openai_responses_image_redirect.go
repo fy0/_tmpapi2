@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,8 +14,6 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
-
-const featureKeyResponsesImageGenerationRedirect = "responses_image_generation_redirect"
 
 type ResponsesImageGenerationRedirectConfig struct {
 	Enabled bool
@@ -40,115 +37,25 @@ type OpenAIResponsesImageRedirectResult struct {
 	UpstreamGroupID int64
 }
 
-func (c *Channel) ResponsesImageGenerationRedirectOverride(platform string) *ResponsesImageGenerationRedirectConfig {
-	if c == nil {
-		return nil
-	}
-	return responsesImageGenerationRedirectOverrideFromMap(c.FeaturesConfig, platform)
-}
-
-func (a *Account) ResponsesImageGenerationRedirectOverride() *ResponsesImageGenerationRedirectConfig {
-	if a == nil || a.Platform != PlatformOpenAI || a.Extra == nil {
-		return nil
-	}
-	if override := responsesImageGenerationRedirectConfigFromAny(a.Extra[featureKeyResponsesImageGenerationRedirect]); override != nil {
-		return override
-	}
-	openaiConfig, _ := a.Extra[PlatformOpenAI].(map[string]any)
-	return responsesImageGenerationRedirectConfigFromAny(openaiConfig[featureKeyResponsesImageGenerationRedirect])
-}
-
-func responsesImageGenerationRedirectOverrideFromMap(values map[string]any, platform string) *ResponsesImageGenerationRedirectConfig {
-	if values == nil {
-		return nil
-	}
-	raw := values[featureKeyResponsesImageGenerationRedirect]
-	if cfg := responsesImageGenerationRedirectConfigFromAny(raw); cfg != nil {
-		return cfg
-	}
-	byPlatform, ok := raw.(map[string]any)
-	if !ok {
-		return nil
-	}
-	platform = strings.TrimSpace(platform)
-	if platform == "" {
-		return nil
-	}
-	return responsesImageGenerationRedirectConfigFromAny(byPlatform[platform])
-}
-
-func responsesImageGenerationRedirectConfigFromAny(raw any) *ResponsesImageGenerationRedirectConfig {
-	values, ok := raw.(map[string]any)
-	if !ok || values == nil {
-		return nil
-	}
-	_, hasEnabled := values["enabled"]
-	_, hasGroupID := values["group_id"]
-	if !hasEnabled && !hasGroupID {
-		return nil
-	}
-	enabled, _ := values["enabled"].(bool)
-	groupID := parseAnyInt64(values["group_id"])
-	if !enabled || groupID <= 0 {
-		return &ResponsesImageGenerationRedirectConfig{Enabled: false}
-	}
-	return &ResponsesImageGenerationRedirectConfig{Enabled: true, GroupID: groupID}
-}
-
-func parseAnyInt64(value any) int64 {
-	switch v := value.(type) {
-	case int64:
-		return v
-	case int:
-		return int64(v)
-	case float64:
-		return int64(v)
-	case json.Number:
-		n, _ := v.Int64()
-		return n
-	case string:
-		var n int64
-		_, _ = fmt.Sscanf(strings.TrimSpace(v), "%d", &n)
-		return n
-	default:
-		return 0
-	}
-}
-
 func (s *OpenAIGatewayService) ResolveResponsesImageRedirectTarget(ctx context.Context, apiKey *APIKey, body []byte) (*ResponsesImageRedirectTarget, error) {
 	if !openAIResponsesRequestHasExplicitImageGenerationTool(body) {
 		return nil, nil
 	}
-	if !GroupAllowsImageGeneration(apiKeyGroup(apiKey)) {
+	sourceGroup := apiKeyGroup(apiKey)
+	if sourceGroup == nil || sourceGroup.ResponsesImageGenerationRedirectGroupID == nil {
 		return nil, nil
 	}
-	if cfg := responsesImageRedirectAccountOverride(apiKey); cfg != nil {
-		return s.resolveResponsesImageRedirectTargetGroup(ctx, *cfg)
-	}
-	if s == nil || s.channelService == nil || apiKey == nil || apiKey.GroupID == nil {
+	if sourceGroup.Platform != PlatformOpenAI {
 		return nil, nil
 	}
-	ch, err := s.channelService.GetChannelForGroup(ctx, *apiKey.GroupID)
-	if err != nil {
-		return nil, fmt.Errorf("resolve responses image redirect channel: %w", err)
-	}
-	cfg := ch.ResponsesImageGenerationRedirectOverride(PlatformOpenAI)
-	if cfg == nil {
+	targetGroupID := *sourceGroup.ResponsesImageGenerationRedirectGroupID
+	if targetGroupID <= 0 {
 		return nil, nil
 	}
-	return s.resolveResponsesImageRedirectTargetGroup(ctx, *cfg)
-}
-
-func responsesImageRedirectAccountOverride(apiKey *APIKey) *ResponsesImageGenerationRedirectConfig {
-	if apiKey == nil {
-		return nil
-	}
-	if apiKey.Group == nil {
-		return nil
-	}
-	// The API key group does not carry account extra. This hook is reserved for
-	// direct account-level overrides after an account is selected by other paths.
-	return nil
+	return s.resolveResponsesImageRedirectTargetGroup(ctx, ResponsesImageGenerationRedirectConfig{
+		Enabled: true,
+		GroupID: targetGroupID,
+	})
 }
 
 func (s *OpenAIGatewayService) resolveResponsesImageRedirectTargetGroup(ctx context.Context, cfg ResponsesImageGenerationRedirectConfig) (*ResponsesImageRedirectTarget, error) {

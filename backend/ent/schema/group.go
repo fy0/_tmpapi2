@@ -96,6 +96,10 @@ func (Group) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Int64("responses_image_generation_redirect_group_id").
+			Optional().
+			Nillable().
+			Comment("OpenAI Responses image_generation 请求重定向使用的 OpenAI 图片分组 ID"),
 
 		// Claude Code 客户端限制 (added by migration 029)
 		field.Bool("claude_code_only").

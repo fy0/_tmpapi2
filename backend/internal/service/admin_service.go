@@ -205,14 +205,15 @@ type CreateGroupInput struct {
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
 	// 图片生成计费配置（仅 antigravity 平台使用）
-	AllowImageGeneration bool
-	ImageRateIndependent bool
-	ImageRateMultiplier  *float64
-	ImagePrice1K         *float64
-	ImagePrice2K         *float64
-	ImagePrice4K         *float64
-	ClaudeCodeOnly       bool   // 仅允许 Claude Code 客户端
-	FallbackGroupID      *int64 // 降级分组 ID
+	AllowImageGeneration                    bool
+	ImageRateIndependent                    bool
+	ImageRateMultiplier                     *float64
+	ImagePrice1K                            *float64
+	ImagePrice2K                            *float64
+	ImagePrice4K                            *float64
+	ResponsesImageGenerationRedirectGroupID *int64
+	ClaudeCodeOnly                          bool   // 仅允许 Claude Code 客户端
+	FallbackGroupID                         *int64 // 降级分组 ID
 	// 无效请求兜底分组 ID（仅 anthropic 平台使用）
 	FallbackGroupIDOnInvalidRequest *int64
 	// 模型路由配置（仅 anthropic 平台使用）
@@ -246,14 +247,15 @@ type UpdateGroupInput struct {
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
 	// 图片生成计费配置（仅 antigravity 平台使用）
-	AllowImageGeneration *bool
-	ImageRateIndependent *bool
-	ImageRateMultiplier  *float64
-	ImagePrice1K         *float64
-	ImagePrice2K         *float64
-	ImagePrice4K         *float64
-	ClaudeCodeOnly       *bool  // 仅允许 Claude Code 客户端
-	FallbackGroupID      *int64 // 降级分组 ID
+	AllowImageGeneration                    *bool
+	ImageRateIndependent                    *bool
+	ImageRateMultiplier                     *float64
+	ImagePrice1K                            *float64
+	ImagePrice2K                            *float64
+	ImagePrice4K                            *float64
+	ResponsesImageGenerationRedirectGroupID *int64
+	ClaudeCodeOnly                          *bool  // 仅允许 Claude Code 客户端
+	FallbackGroupID                         *int64 // 降级分组 ID
 	// 无效请求兜底分组 ID（仅 anthropic 平台使用）
 	FallbackGroupIDOnInvalidRequest *int64
 	// 模型路由配置（仅 anthropic 平台使用）
@@ -1837,6 +1839,12 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 			return nil, err
 		}
 	}
+	responsesImageRedirectGroupID := normalizePositiveInt64Ptr(input.ResponsesImageGenerationRedirectGroupID)
+	if responsesImageRedirectGroupID != nil {
+		if err := s.validateResponsesImageRedirectGroup(ctx, 0, platform, *responsesImageRedirectGroupID); err != nil {
+			return nil, err
+		}
+	}
 
 	// MCPXMLInject：默认为 true，仅当显式传入 false 时关闭
 	mcpXMLInject := true
@@ -1877,36 +1885,38 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	}
 
 	group := &Group{
-		Name:                            input.Name,
-		Description:                     input.Description,
-		Platform:                        platform,
-		RateMultiplier:                  input.RateMultiplier,
-		IsExclusive:                     input.IsExclusive,
-		Status:                          StatusActive,
-		SubscriptionType:                subscriptionType,
-		DailyLimitUSD:                   dailyLimit,
-		WeeklyLimitUSD:                  weeklyLimit,
-		MonthlyLimitUSD:                 monthlyLimit,
-		AllowImageGeneration:            input.AllowImageGeneration,
-		ImageRateIndependent:            input.ImageRateIndependent,
-		ImageRateMultiplier:             imageRateMultiplier,
-		ImagePrice1K:                    imagePrice1K,
-		ImagePrice2K:                    imagePrice2K,
-		ImagePrice4K:                    imagePrice4K,
-		ClaudeCodeOnly:                  input.ClaudeCodeOnly,
-		FallbackGroupID:                 input.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
-		ModelRouting:                    input.ModelRouting,
-		MCPXMLInject:                    mcpXMLInject,
-		SupportedModelScopes:            input.SupportedModelScopes,
-		AllowMessagesDispatch:           input.AllowMessagesDispatch,
-		RequireOAuthOnly:                input.RequireOAuthOnly,
-		RequirePrivacySet:               input.RequirePrivacySet,
-		DefaultMappedModel:              input.DefaultMappedModel,
-		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
-		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
-		RPMLimit:                        input.RPMLimit,
+		Name:                                    input.Name,
+		Description:                             input.Description,
+		Platform:                                platform,
+		RateMultiplier:                          input.RateMultiplier,
+		IsExclusive:                             input.IsExclusive,
+		Status:                                  StatusActive,
+		SubscriptionType:                        subscriptionType,
+		DailyLimitUSD:                           dailyLimit,
+		WeeklyLimitUSD:                          weeklyLimit,
+		MonthlyLimitUSD:                         monthlyLimit,
+		AllowImageGeneration:                    input.AllowImageGeneration,
+		ImageRateIndependent:                    input.ImageRateIndependent,
+		ImageRateMultiplier:                     imageRateMultiplier,
+		ImagePrice1K:                            imagePrice1K,
+		ImagePrice2K:                            imagePrice2K,
+		ImagePrice4K:                            imagePrice4K,
+		ResponsesImageGenerationRedirectGroupID: responsesImageRedirectGroupID,
+		ClaudeCodeOnly:                          input.ClaudeCodeOnly,
+		FallbackGroupID:                         input.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:         fallbackOnInvalidRequest,
+		ModelRouting:                            input.ModelRouting,
+		MCPXMLInject:                            mcpXMLInject,
+		SupportedModelScopes:                    input.SupportedModelScopes,
+		AllowMessagesDispatch:                   input.AllowMessagesDispatch,
+		RequireOAuthOnly:                        input.RequireOAuthOnly,
+		RequirePrivacySet:                       input.RequirePrivacySet,
+		DefaultMappedModel:                      input.DefaultMappedModel,
+		MessagesDispatchModelConfig:             normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
+		ModelsListConfig:                        normalizeGroupModelsListConfig(input.ModelsListConfig),
+		RPMLimit:                                input.RPMLimit,
 	}
+	sanitizeGroupResponsesImageRedirectFields(group)
 	sanitizeGroupMessagesDispatchFields(group)
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
@@ -1958,6 +1968,13 @@ func normalizePrice(price *float64) *float64 {
 		return nil
 	}
 	return price
+}
+
+func normalizePositiveInt64Ptr(value *int64) *int64 {
+	if value == nil || *value <= 0 {
+		return nil
+	}
+	return value
 }
 
 // validateFallbackGroup 校验降级分组的有效性
@@ -2029,6 +2046,35 @@ func (s *adminServiceImpl) validateFallbackGroupOnInvalidRequest(ctx context.Con
 	return nil
 }
 
+func (s *adminServiceImpl) validateResponsesImageRedirectGroup(ctx context.Context, currentGroupID int64, platform string, targetGroupID int64) error {
+	if platform != PlatformOpenAI {
+		return fmt.Errorf("responses image redirect only supported for openai groups")
+	}
+	if currentGroupID > 0 && currentGroupID == targetGroupID {
+		return fmt.Errorf("responses image redirect group cannot be self")
+	}
+	targetGroup, err := s.groupRepo.GetByIDLite(ctx, targetGroupID)
+	if err != nil {
+		return fmt.Errorf("responses image redirect group not found: %w", err)
+	}
+	if targetGroup.Platform != PlatformOpenAI {
+		return fmt.Errorf("responses image redirect group must be openai platform")
+	}
+	if !targetGroup.IsActive() {
+		return fmt.Errorf("responses image redirect group must be active")
+	}
+	if !GroupAllowsImageGeneration(targetGroup) {
+		return fmt.Errorf("responses image redirect group must allow image generation")
+	}
+	return nil
+}
+
+func sanitizeGroupResponsesImageRedirectFields(group *Group) {
+	if group == nil || group.Platform != PlatformOpenAI {
+		group.ResponsesImageGenerationRedirectGroupID = nil
+	}
+}
+
 func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *UpdateGroupInput) (*Group, error) {
 	group, err := s.groupRepo.GetByID(ctx, id)
 	if err != nil {
@@ -2088,6 +2134,16 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.ImagePrice4K != nil {
 		group.ImagePrice4K = normalizePrice(input.ImagePrice4K)
 	}
+	if input.ResponsesImageGenerationRedirectGroupID != nil {
+		redirectGroupID := normalizePositiveInt64Ptr(input.ResponsesImageGenerationRedirectGroupID)
+		if redirectGroupID != nil {
+			if err := s.validateResponsesImageRedirectGroup(ctx, id, group.Platform, *redirectGroupID); err != nil {
+				return nil, err
+			}
+		}
+		group.ResponsesImageGenerationRedirectGroupID = redirectGroupID
+	}
+	sanitizeGroupResponsesImageRedirectFields(group)
 
 	// Claude Code 客户端限制
 	if input.ClaudeCodeOnly != nil {

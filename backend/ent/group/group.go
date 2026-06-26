@@ -56,6 +56,8 @@ const (
 	FieldImagePrice2k = "image_price_2k"
 	// FieldImagePrice4k holds the string denoting the image_price_4k field in the database.
 	FieldImagePrice4k = "image_price_4k"
+	// FieldResponsesImageGenerationRedirectGroupID holds the string denoting the responses_image_generation_redirect_group_id field in the database.
+	FieldResponsesImageGenerationRedirectGroupID = "responses_image_generation_redirect_group_id"
 	// FieldClaudeCodeOnly holds the string denoting the claude_code_only field in the database.
 	FieldClaudeCodeOnly = "claude_code_only"
 	// FieldFallbackGroupID holds the string denoting the fallback_group_id field in the database.
@@ -181,6 +183,7 @@ var Columns = []string{
 	FieldImagePrice1k,
 	FieldImagePrice2k,
 	FieldImagePrice4k,
+	FieldResponsesImageGenerationRedirectGroupID,
 	FieldClaudeCodeOnly,
 	FieldFallbackGroupID,
 	FieldFallbackGroupIDOnInvalidRequest,
@@ -391,6 +394,11 @@ func ByImagePrice2k(opts ...sql.OrderTermOption) OrderOption {
 // ByImagePrice4k orders the results by the image_price_4k field.
 func ByImagePrice4k(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldImagePrice4k, opts...).ToFunc()
+}
+
+// ByResponsesImageGenerationRedirectGroupID orders the results by the responses_image_generation_redirect_group_id field.
+func ByResponsesImageGenerationRedirectGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResponsesImageGenerationRedirectGroupID, opts...).ToFunc()
 }
 
 // ByClaudeCodeOnly orders the results by the claude_code_only field.
