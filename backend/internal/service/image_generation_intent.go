@@ -22,6 +22,17 @@ func GroupAllowsImageGeneration(group *Group) bool {
 	return group == nil || group.AllowImageGeneration
 }
 
+func GroupHasOpenAIResponsesImageRedirect(group *Group) bool {
+	if group == nil || group.Platform != PlatformOpenAI || group.ResponsesImageGenerationRedirectGroupID == nil {
+		return false
+	}
+	return *group.ResponsesImageGenerationRedirectGroupID > 0
+}
+
+func GroupAllowsOpenAIResponsesImageGeneration(group *Group) bool {
+	return GroupAllowsImageGeneration(group) || GroupHasOpenAIResponsesImageRedirect(group)
+}
+
 // IsImageGenerationIntent classifies requests that can produce generated images.
 func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte) bool {
 	if IsImageGenerationEndpoint(endpoint) {

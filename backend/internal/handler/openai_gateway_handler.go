@@ -310,7 +310,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if h.handleResponsesImageRedirect(c, apiKey, subject, subscription, body, reqStream, routingStart, &streamStarted, reqLog) {
 		return
 	}
-	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
+	if imageIntent && !service.GroupAllowsOpenAIResponsesImageGeneration(apiKey.Group) {
 		h.handleStreamingAwareError(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage(), streamStarted)
 		return
 	}
@@ -1565,7 +1565,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		return
 	}
 
-	if service.IsImageGenerationIntent("/v1/responses", reqModel, firstMessage) && !service.GroupAllowsImageGeneration(apiKey.Group) {
+	if service.IsImageGenerationIntent("/v1/responses", reqModel, firstMessage) && !service.GroupAllowsOpenAIResponsesImageGeneration(apiKey.Group) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.ImageGenerationPermissionMessage())
 		return
 	}

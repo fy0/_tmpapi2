@@ -2489,7 +2489,7 @@ export default {
         finalPricePreview: '最终单张价格预览',
         notConfigured: '未配置',
         responsesImageGenerationRedirect: 'Responses 图片分流目标',
-        responsesImageGenerationRedirectHint: '显式携带 image_generation 工具的 /responses 请求会转发到所选 OpenAI 图片分组；计价仍归属当前 API Key 分组。',
+        responsesImageGenerationRedirectHint: '显式携带 image_generation 工具的 /responses 请求会转发到所选 OpenAI 图片分组；Codex 图片桥接也可借此启用。计价仍归属当前 API Key 分组。',
         responsesImageGenerationRedirectGroupPlaceholder: '选择 OpenAI 图片分组',
         noOpenAIImageGroupsAvailable: '暂无可用的 OpenAI 图片生成分组'
       },
@@ -2717,7 +2717,7 @@ export default {
         webSearchEmulationHint: '⚠️ 开启后该渠道下所有 Anthropic 分组的账号将自动拦截 web_search 请求，请谨慎操作',
         webSearchEmulationGlobalDisabled: '请先在系统设置 → 网关 → Web Search 模拟中启用全局开关',
         codexImageGenerationBridge: 'Codex 图片生成桥接',
-        codexImageGenerationBridgeHint: '开启后，OpenAI 分组的 Codex /responses 文本请求可能会被自动注入 image_generation 工具。仅在路由账号支持图片生成时开启。',
+        codexImageGenerationBridgeHint: '开启后，OpenAI 分组的 Codex /responses 文本请求可能会被自动注入 image_generation 工具。可配合分组上的 Responses 图片分流目标使用。',
         bedrockCCCompat: 'Bedrock CC 兼容',
         bedrockCCCompatHint: '⚠️ 开启后，该渠道下 Bedrock 账号的请求将进行 Claude Code 兼容处理（thinking 类型转换、tool_use ID 清理）',
         basicSettings: '基础设置',
@@ -3775,7 +3775,7 @@ export default {
         codexCLIOnlyAllowClaudeCodeDesc: '仅在上方开关开启时生效。额外放行通过 Claude Code 的 Codex 插件发起的请求（精确匹配 originator=Claude Code），不影响对其他非官方客户端的拦截。',
         codexImageGenerationBridge: 'Codex 图片生成桥接',
         codexImageGenerationBridgeDesc:
-          '账号级策略优先于渠道和全局配置。仅控制 Codex 走 /responses 文本端点时是否注入 image_generation 工具；不影响独立图片生成接口。',
+          '账号级策略优先于渠道和全局配置。仅控制 Codex 走 /responses 文本端点时是否注入 image_generation 工具；可配合分组上的 Responses 图片分流目标使用，不影响独立图片生成接口。',
         codexImageGenerationBridgeInherit: '跟随渠道',
         codexImageGenerationBridgeInheritDesc: '不写入账号覆盖，继续使用渠道或全局策略。',
         codexImageGenerationBridgeEnabled: '强制开启',

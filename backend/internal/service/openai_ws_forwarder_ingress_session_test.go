@@ -335,13 +335,16 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InjectsCodexImag
 	}
 
 	groupID := int64(3)
+	redirectGroupID := int64(33)
 	apiKey := &APIKey{
 		ID:      1,
 		UserID:  1,
 		GroupID: &groupID,
 		Group: &Group{
-			ID:                   groupID,
-			AllowImageGeneration: true,
+			ID:                                      groupID,
+			Platform:                                PlatformOpenAI,
+			AllowImageGeneration:                    false,
+			ResponsesImageGenerationRedirectGroupID: &redirectGroupID,
 		},
 	}
 	account := &Account{
@@ -357,7 +360,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InjectsCodexImag
 		},
 		Extra: map[string]any{
 			"openai_oauth_responses_websockets_v2_enabled": true,
-			"codex_image_generation_bridge":                true,
+			"codex_image_generation_bridge":                false,
 		},
 	}
 

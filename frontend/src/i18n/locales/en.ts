@@ -2406,7 +2406,7 @@ export default {
         finalPricePreview: 'Final per-image price preview',
         notConfigured: 'Not configured',
         responsesImageGenerationRedirect: 'Responses image redirect target',
-        responsesImageGenerationRedirectHint: 'Explicit /responses requests with the image_generation tool are forwarded to the selected OpenAI image group. Billing still belongs to the current API key group.',
+        responsesImageGenerationRedirectHint: 'Explicit /responses requests with the image_generation tool are forwarded to the selected OpenAI image group. Codex image bridging can use this target too. Billing still belongs to the current API key group.',
         responsesImageGenerationRedirectGroupPlaceholder: 'Select OpenAI image group',
         noOpenAIImageGroupsAvailable: 'No OpenAI image-generation groups available'
       },
@@ -2640,7 +2640,7 @@ export default {
         webSearchEmulationHint: '⚠️ When enabled, all accounts in this channel\'s Anthropic groups will intercept web_search requests. Use with caution.',
         webSearchEmulationGlobalDisabled: 'Please enable the global switch first in Settings → Gateway → Web Search Emulation',
         codexImageGenerationBridge: 'Codex Image Generation Bridge',
-        codexImageGenerationBridgeHint: 'When enabled, Codex /responses text requests in OpenAI groups may be automatically given the image_generation tool. Keep off unless the routed accounts support image generation.',
+        codexImageGenerationBridgeHint: 'When enabled, Codex /responses text requests in OpenAI groups may be automatically given the image_generation tool. This can be paired with the Responses image redirect target on the group.',
         bedrockCCCompat: 'Bedrock CC Compatibility',
         bedrockCCCompatHint: '⚠️ When enabled, requests to Bedrock accounts in this channel will be transformed for Claude Code compatibility (thinking type conversion, tool_use ID sanitization).',
         basicSettings: 'Basic Settings',
@@ -3621,7 +3621,7 @@ export default {
           'Only takes effect when the switch above is on. Additionally allows requests from the Claude Code Codex plugin (exact match on originator=Claude Code) without weakening blocking of other non-official clients.',
         codexImageGenerationBridge: 'Codex image-generation bridge',
         codexImageGenerationBridgeDesc:
-          'Account policy takes precedence over channel and global settings. Only controls whether Codex requests through the /responses text endpoint receive the image_generation tool; standalone image-generation endpoints are unaffected.',
+          'Account policy takes precedence over channel and global settings. Only controls whether Codex requests through the /responses text endpoint receive the image_generation tool; it can be paired with the group Responses image redirect target and does not affect standalone image-generation endpoints.',
         codexImageGenerationBridgeInherit: 'Follow channel',
         codexImageGenerationBridgeInheritDesc: 'Do not write an account override; use the channel or global policy.',
         codexImageGenerationBridgeEnabled: 'Force on',
