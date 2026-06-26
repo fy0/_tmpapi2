@@ -245,7 +245,7 @@ const sortState = reactive({
 
 const createForm = reactive({
   title: '',
-  category: 'feedback',
+  category: 'bug',
   priority: 'normal',
   content: ''
 })
@@ -273,11 +273,8 @@ const categoryFilterOptions = computed(() => [
 ])
 
 const categoryOptions = computed(() => [
-  { value: 'feedback', label: t('supportTickets.category.feedback') },
   { value: 'bug', label: t('supportTickets.category.bug') },
-  { value: 'billing', label: t('supportTickets.category.billing') },
-  { value: 'account', label: t('supportTickets.category.account') },
-  { value: 'other', label: t('supportTickets.category.other') }
+  { value: 'feedback', label: t('supportTickets.category.feedback') }
 ])
 
 const priorityOptions = computed(() => [
@@ -394,7 +391,7 @@ function handleSearch() {
 
 function openCreateDialog() {
   createForm.title = ''
-  createForm.category = 'feedback'
+  createForm.category = 'bug'
   createForm.priority = 'normal'
   createForm.content = ''
   showCreateDialog.value = true

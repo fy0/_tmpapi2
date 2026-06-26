@@ -469,7 +469,7 @@ export default {
       high: '高'
     },
     category: {
-      feedback: '意见反馈',
+      feedback: '提意见',
       bug: '问题反馈',
       billing: '计费/充值',
       account: '账号',
