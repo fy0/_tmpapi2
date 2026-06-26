@@ -1,8 +1,23 @@
-import type { GroupPlatform } from '@/types'
+import type { CustomEndpoint, GroupPlatform } from '@/types'
 
 export const OPENAI_CC_SWITCH_CODEX_MODEL = 'gpt-5.5'
 
 export type CcSwitchClientType = 'claude' | 'gemini'
+
+export interface CcSwitchMirrorOption {
+  id: string
+  name: string
+  endpoint: string
+  description: string
+  isDefault: boolean
+}
+
+export interface CcSwitchMirrorOptionsInput {
+  apiBaseUrl?: string | null
+  customEndpoints?: CustomEndpoint[] | null
+  fallbackBaseUrl?: string
+  defaultName: string
+}
 
 export interface CcSwitchImportConfig {
   app: string
@@ -17,6 +32,45 @@ export interface CcSwitchImportDeeplinkInput {
   providerName: string
   apiKey: string
   usageScript: string
+}
+
+function normalizeEndpoint(value: string | null | undefined): string {
+  return (value || '').trim().replace(/\/+$/, '')
+}
+
+export function buildCcSwitchMirrorOptions(input: CcSwitchMirrorOptionsInput): CcSwitchMirrorOption[] {
+  const options: CcSwitchMirrorOption[] = []
+  const seen = new Set<string>()
+
+  const addOption = (option: Omit<CcSwitchMirrorOption, 'id'>) => {
+    const endpoint = normalizeEndpoint(option.endpoint)
+    if (!endpoint || seen.has(endpoint)) return
+
+    seen.add(endpoint)
+    options.push({
+      ...option,
+      id: option.isDefault ? 'default' : `custom-${options.length}`,
+      endpoint
+    })
+  }
+
+  addOption({
+    name: input.defaultName,
+    endpoint: normalizeEndpoint(input.apiBaseUrl) || normalizeEndpoint(input.fallbackBaseUrl),
+    description: '',
+    isDefault: true
+  })
+
+  for (const item of input.customEndpoints || []) {
+    addOption({
+      name: item.name?.trim() || item.endpoint?.trim() || '',
+      endpoint: item.endpoint,
+      description: item.description?.trim() || '',
+      isDefault: false
+    })
+  }
+
+  return options
 }
 
 export function resolveCcSwitchImportConfig(

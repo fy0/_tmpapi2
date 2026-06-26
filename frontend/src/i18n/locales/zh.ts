@@ -976,6 +976,15 @@ export default {
     ipRestrictionEnabled: '已配置 IP 限制',
     ccSwitchNotInstalled:
       'CC-Switch 未安装或协议处理程序未注册。请先安装 CC-Switch 或手动复制 API 密钥。',
+    ccsImport: {
+      title: '导入到 CCS',
+      description: '导入前请选择要写入 CCS 的访问镜像。',
+      clientSection: '客户端类型',
+      mirrorSection: '访问镜像',
+      currentSite: '主站',
+      defaultMirror: '默认',
+      selectMirror: '请选择一个访问镜像'
+    },
     ccsClientSelect: {
       title: '选择客户端',
       description: '请选择您要导入到 CC-Switch 的客户端类型：',

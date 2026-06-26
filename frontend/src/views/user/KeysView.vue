@@ -965,48 +965,118 @@
       @close="closeUseKeyModal"
     />
 
-    <!-- CCS Client Selection Dialog for Antigravity -->
+    <!-- CCS Import Configuration Dialog -->
     <BaseDialog
-      :show="showCcsClientSelect"
-      :title="t('keys.ccsClientSelect.title')"
-      width="narrow"
-      @close="closeCcsClientSelect"
+      :show="showCcsImportDialog"
+      :title="t('keys.ccsImport.title')"
+      width="normal"
+      @close="closeCcsImportDialog"
     >
       <div class="space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          {{ t('keys.ccsClientSelect.description') }}
-	        </p>
-	        <div class="grid grid-cols-2 gap-3">
-	          <button
-	            @click="handleCcsClientSelect('claude')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
-	          >
-	            <Icon name="terminal" size="xl" class="text-gray-600 dark:text-gray-400" />
-	            <span class="font-medium text-gray-900 dark:text-white">{{
-	              t('keys.ccsClientSelect.claudeCode')
-	            }}</span>
-	            <span class="text-xs text-gray-500 dark:text-gray-400">{{
-	              t('keys.ccsClientSelect.claudeCodeDesc')
-	            }}</span>
-	          </button>
-	          <button
-	            @click="handleCcsClientSelect('gemini')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
-	          >
-	            <Icon name="sparkles" size="xl" class="text-gray-600 dark:text-gray-400" />
-	            <span class="font-medium text-gray-900 dark:text-white">{{
-	              t('keys.ccsClientSelect.geminiCli')
-	            }}</span>
-	            <span class="text-xs text-gray-500 dark:text-gray-400">{{
-	              t('keys.ccsClientSelect.geminiCliDesc')
-	            }}</span>
-	          </button>
-	        </div>
-	      </div>
+          {{ t('keys.ccsImport.description') }}
+        </p>
+
+        <div v-if="pendingCcsRow?.group?.platform === 'antigravity'" class="space-y-2">
+          <p class="text-sm font-medium text-gray-900 dark:text-white">
+            {{ t('keys.ccsImport.clientSection') }}
+          </p>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              @click="selectedCcsClientType = 'claude'"
+              :class="[
+                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+                selectedCcsClientType === 'claude'
+                  ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500 dark:bg-primary-900/20 dark:text-primary-300'
+                  : 'border-gray-200 text-gray-700 hover:border-primary-300 hover:bg-primary-50/60 dark:border-dark-600 dark:text-gray-300 dark:hover:border-primary-600 dark:hover:bg-primary-900/10'
+              ]"
+            >
+              <Icon name="terminal" size="lg" class="shrink-0" />
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">{{ t('keys.ccsClientSelect.claudeCode') }}</span>
+                <span class="block text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('keys.ccsClientSelect.claudeCodeDesc') }}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              @click="selectedCcsClientType = 'gemini'"
+              :class="[
+                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+                selectedCcsClientType === 'gemini'
+                  ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500 dark:bg-primary-900/20 dark:text-primary-300'
+                  : 'border-gray-200 text-gray-700 hover:border-primary-300 hover:bg-primary-50/60 dark:border-dark-600 dark:text-gray-300 dark:hover:border-primary-600 dark:hover:bg-primary-900/10'
+              ]"
+            >
+              <Icon name="sparkles" size="lg" class="shrink-0" />
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">{{ t('keys.ccsClientSelect.geminiCli') }}</span>
+                <span class="block text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('keys.ccsClientSelect.geminiCliDesc') }}
+                </span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <p class="text-sm font-medium text-gray-900 dark:text-white">
+            {{ t('keys.ccsImport.mirrorSection') }}
+          </p>
+          <div class="space-y-2">
+            <button
+              v-for="mirror in ccsMirrorOptions"
+              :key="mirror.id"
+              type="button"
+              @click="selectedCcsMirrorEndpoint = mirror.endpoint"
+              :class="[
+                'flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors',
+                selectedCcsMirrorEndpoint === mirror.endpoint
+                  ? 'border-primary-500 bg-primary-50 dark:border-primary-500 dark:bg-primary-900/20'
+                  : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50 dark:border-dark-600 dark:hover:border-primary-600 dark:hover:bg-dark-700/60'
+              ]"
+            >
+              <span
+                :class="[
+                  'mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                  selectedCcsMirrorEndpoint === mirror.endpoint
+                    ? 'border-primary-500 bg-primary-500'
+                    : 'border-gray-300 dark:border-dark-500'
+                ]"
+              >
+                <span v-if="selectedCcsMirrorEndpoint === mirror.endpoint" class="h-1.5 w-1.5 rounded-full bg-white"></span>
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ mirror.name }}</span>
+                  <span
+                    v-if="mirror.isDefault"
+                    class="rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+                  >
+                    {{ t('keys.ccsImport.defaultMirror') }}
+                  </span>
+                </span>
+                <code class="mt-1 block break-all font-mono text-xs text-gray-500 dark:text-gray-400">
+                  {{ mirror.endpoint }}
+                </code>
+                <span v-if="mirror.description" class="mt-1 block break-words text-xs text-gray-500 dark:text-gray-400">
+                  {{ mirror.description }}
+                </span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
       <template #footer>
-        <div class="flex justify-end">
-          <button @click="closeCcsClientSelect" class="btn btn-secondary">
+        <div class="flex justify-end gap-3">
+          <button @click="closeCcsImportDialog" class="btn btn-secondary">
             {{ t('common.cancel') }}
+          </button>
+          <button @click="confirmCcsImport" class="btn btn-primary">
+            <Icon name="upload" size="md" class="mr-2" />
+            {{ t('keys.importToCcSwitch') }}
           </button>
         </div>
       </template>
@@ -1111,6 +1181,7 @@ import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
+  buildCcSwitchMirrorOptions,
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'
@@ -1180,12 +1251,22 @@ const showDeleteDialog = ref(false)
 const showResetQuotaDialog = ref(false)
 const showResetRateLimitDialog = ref(false)
 const showUseKeyModal = ref(false)
-const showCcsClientSelect = ref(false)
+const showCcsImportDialog = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
+const selectedCcsClientType = ref<CcSwitchClientType>('claude')
+const selectedCcsMirrorEndpoint = ref('')
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
+const ccsMirrorOptions = computed(() =>
+  buildCcSwitchMirrorOptions({
+    apiBaseUrl: publicSettings.value?.api_base_url,
+    customEndpoints: publicSettings.value?.custom_endpoints,
+    fallbackBaseUrl: typeof window !== 'undefined' ? window.location.origin : '',
+    defaultName: t('keys.ccsImport.currentSite')
+  })
+)
 const apiKeyPageNotice = computed(
   () => publicSettings.value?.api_key_page_notice?.trim() || ''
 )
@@ -1772,20 +1853,13 @@ const resetRateLimitUsage = async () => {
 
 const importToCcswitch = (row: ApiKey) => {
   const platform = row.group?.platform || 'anthropic'
-
-  // For antigravity platform, show client selection dialog
-  if (platform === 'antigravity') {
-    pendingCcsRow.value = row
-    showCcsClientSelect.value = true
-    return
-  }
-
-  // For other platforms, execute directly
-  executeCcsImport(row, platform === 'gemini' ? 'gemini' : 'claude')
+  pendingCcsRow.value = row
+  selectedCcsClientType.value = platform === 'gemini' ? 'gemini' : 'claude'
+  selectedCcsMirrorEndpoint.value = ccsMirrorOptions.value[0]?.endpoint || window.location.origin
+  showCcsImportDialog.value = true
 }
 
-const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
-  const baseUrl = publicSettings.value?.api_base_url || window.location.origin
+const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType, baseUrl: string) => {
   const platform = row.group?.platform || 'anthropic'
 
   const usageScript = `({
@@ -1829,17 +1903,23 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   }
 }
 
-const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
-  if (pendingCcsRow.value) {
-    executeCcsImport(pendingCcsRow.value, clientType)
+const confirmCcsImport = () => {
+  if (!pendingCcsRow.value) return
+  const selectedEndpoint = selectedCcsMirrorEndpoint.value || ccsMirrorOptions.value[0]?.endpoint || window.location.origin
+  if (!selectedEndpoint) {
+    appStore.showError(t('keys.ccsImport.selectMirror'))
+    return
   }
-  showCcsClientSelect.value = false
-  pendingCcsRow.value = null
+
+  executeCcsImport(pendingCcsRow.value, selectedCcsClientType.value, selectedEndpoint)
+  closeCcsImportDialog()
 }
 
-const closeCcsClientSelect = () => {
-  showCcsClientSelect.value = false
+const closeCcsImportDialog = () => {
+  showCcsImportDialog.value = false
   pendingCcsRow.value = null
+  selectedCcsClientType.value = 'claude'
+  selectedCcsMirrorEndpoint.value = ''
 }
 
 function formatResetTime(resetAt: string | null): string {

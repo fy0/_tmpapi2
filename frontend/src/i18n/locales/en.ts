@@ -972,6 +972,15 @@ export default {
     ipBlacklistHint: 'One IP or CIDR per line. These IPs will be blocked from using this key.',
     ipRestrictionEnabled: 'IP restriction enabled',
     ccSwitchNotInstalled: 'CC-Switch is not installed or the protocol handler is not registered. Please install CC-Switch first or manually copy the API key.',
+    ccsImport: {
+      title: 'Import to CCS',
+      description: 'Select the access mirror to import into CCS.',
+      clientSection: 'Client Type',
+      mirrorSection: 'Access Mirror',
+      currentSite: 'Main Site',
+      defaultMirror: 'Default',
+      selectMirror: 'Please select an access mirror',
+    },
     ccsClientSelect: {
       title: 'Select Client',
       description: 'Please select the client type to import to CC-Switch:',
