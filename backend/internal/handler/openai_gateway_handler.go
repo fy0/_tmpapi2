@@ -311,6 +311,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if h.rejectIfCyberSessionBlocked(c, apiKey, sessionHashBody, reqModel, cyberBlockFormatResponses) {
 		return
 	}
+	if h.handleResponsesImageRedirect(c, apiKey, subject, subscription, body, reqStream, routingStart, &streamStarted, reqLog) {
+		return
+	}
 	requireCompact := isOpenAIRemoteCompactPath(c)
 
 	maxAccountSwitches := h.maxAccountSwitches
@@ -531,6 +534,326 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			zap.Int("switch_count", switchCount),
 		)
 		return
+	}
+}
+
+func (h *OpenAIGatewayHandler) handleResponsesImageRedirect(
+	c *gin.Context,
+	apiKey *service.APIKey,
+	subject middleware2.AuthSubject,
+	subscription *service.UserSubscription,
+	body []byte,
+	reqStream bool,
+	routingStart time.Time,
+	streamStarted *bool,
+	reqLog *zap.Logger,
+) bool {
+	target, err := h.gatewayService.ResolveResponsesImageRedirectTarget(c.Request.Context(), apiKey, body)
+	if err != nil {
+		reqLog.Warn("openai.responses_image_redirect.resolve_failed", zap.Error(err))
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "Responses image redirect target is unavailable", *streamStarted)
+		return true
+	}
+	if target == nil || target.Group == nil {
+		return false
+	}
+
+	imageBody, parsed, err := h.gatewayService.ParseResponsesImageRedirectRequest(c, body)
+	if err != nil {
+		reqLog.Warn("openai.responses_image_redirect.parse_failed", zap.Error(err))
+		h.handleStreamingAwareError(c, http.StatusBadRequest, "invalid_request_error", err.Error(), *streamStarted)
+		return true
+	}
+	imageRequestModel := strings.TrimSpace(parsed.Model)
+	if imageRequestModel == "" {
+		imageRequestModel = "gpt-image-2"
+	}
+	reqLog = reqLog.With(
+		zap.Bool("responses_image_redirect", true),
+		zap.Int64("redirect_group_id", target.Group.ID),
+		zap.String("image_model", imageRequestModel),
+		zap.String("image_endpoint", parsed.Endpoint),
+	)
+
+	if decision := h.checkContentModeration(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIImages, imageRequestModel, parsed.ModerationBody()); decision != nil && decision.Blocked {
+		h.handleStreamingAwareError(c, contentModerationStatus(decision), contentModerationErrorCode(decision), decision.Message, *streamStarted)
+		return true
+	}
+
+	// Split-flow billing: the redirect target group only selects image-capable
+	// accounts. Pricing and channel attribution stay on the original API key
+	// group, but use the converted Images model instead of the Responses model.
+	imageChannelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, imageRequestModel)
+	requestCtx := service.WithOpenAIImageGenerationIntent(c.Request.Context())
+	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, imageBody)
+	targetGroupID := target.Group.ID
+	targetGroupIDPtr := &targetGroupID
+
+	maxAccountSwitches := h.maxAccountSwitches
+	switchCount := 0
+	failedAccountIDs := make(map[int64]struct{})
+	sameAccountRetryCount := make(map[int64]int)
+	var lastFailoverErr *service.UpstreamFailoverError
+
+	for {
+		reqLog.Debug("openai.responses_image_redirect.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImages(
+			requestCtx,
+			targetGroupIDPtr,
+			sessionHash,
+			imageRequestModel,
+			failedAccountIDs,
+			parsed.RequiredCapability,
+		)
+		if err != nil {
+			reqLog.Warn("openai.responses_image_redirect.account_select_failed",
+				zap.Error(err),
+				zap.Int("excluded_account_count", len(failedAccountIDs)),
+			)
+			if len(failedAccountIDs) == 0 {
+				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available compatible image accounts", *streamStarted)
+				return true
+			}
+			if lastFailoverErr != nil {
+				h.handleFailoverExhausted(c, lastFailoverErr, *streamStarted)
+			} else {
+				h.handleFailoverExhaustedSimple(c, 502, *streamStarted)
+			}
+			return true
+		}
+		if selection == nil || selection.Account == nil {
+			markOpsRoutingCapacityLimited(c)
+			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available compatible image accounts", *streamStarted)
+			return true
+		}
+
+		reqLog.Debug("openai.responses_image_redirect.account_schedule_decision",
+			zap.String("layer", scheduleDecision.Layer),
+			zap.Bool("sticky_session_hit", scheduleDecision.StickySessionHit),
+			zap.Int("candidate_count", scheduleDecision.CandidateCount),
+			zap.Int("top_k", scheduleDecision.TopK),
+			zap.Int64("latency_ms", scheduleDecision.LatencyMs),
+			zap.Float64("load_skew", scheduleDecision.LoadSkew),
+		)
+
+		account := selection.Account
+		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
+		reqLog.Debug("openai.responses_image_redirect.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
+		setOpsSelectedAccount(c, account.ID, account.Platform)
+
+		accountReleaseFunc, acquired := h.acquireResponsesAccountSlot(c, targetGroupIDPtr, sessionHash, selection, false, streamStarted, reqLog)
+		if !acquired {
+			return true
+		}
+
+		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
+		forwardStart := time.Now()
+		writerSizeBeforeForward := c.Writer.Size()
+		redirectResult, err := func() (*service.OpenAIResponsesImageRedirectResult, error) {
+			defer func() {
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+			}()
+			return h.gatewayService.ForwardResponsesImageRedirect(requestCtx, c, account, imageBody, parsed, imageChannelMapping.MappedModel)
+		}()
+		forwardDurationMs := time.Since(forwardStart).Milliseconds()
+		upstreamLatencyMs, _ := getContextInt64(c, service.OpsUpstreamLatencyMsKey)
+		responseLatencyMs := forwardDurationMs
+		if upstreamLatencyMs > 0 && forwardDurationMs > upstreamLatencyMs {
+			responseLatencyMs = forwardDurationMs - upstreamLatencyMs
+		}
+		service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, responseLatencyMs)
+
+		result := (*service.OpenAIForwardResult)(nil)
+		if redirectResult != nil {
+			result = redirectResult.Result
+		}
+		if result != nil && result.FirstTokenMs != nil {
+			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
+		}
+
+		if err != nil {
+			if result != nil && result.ImageCount > 0 {
+				reqLog.Warn("openai.responses_image_redirect.forward_partial_error_with_image_result",
+					zap.Int64("account_id", account.ID),
+					zap.Int("image_count", result.ImageCount),
+					zap.Error(err),
+				)
+			} else {
+				var imageUpstreamErr *service.OpenAIImagesUpstreamError
+				if errors.As(err, &imageUpstreamErr) {
+					retryableServerError := service.IsOpenAIImagesRetryableUpstreamError(imageUpstreamErr)
+					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, !retryableServerError, nil)
+					if c.Writer.Size() == writerSizeBeforeForward {
+						statusCode := imageUpstreamErr.StatusCode
+						if statusCode <= 0 {
+							statusCode = http.StatusBadGateway
+						}
+						errType := strings.TrimSpace(imageUpstreamErr.ErrorType)
+						if errType == "" {
+							errType = "upstream_error"
+						}
+						message := strings.TrimSpace(imageUpstreamErr.Message)
+						if message == "" {
+							message = strings.TrimSpace(imageUpstreamErr.Code)
+						}
+						if message == "" {
+							message = "Upstream request failed"
+						}
+						h.handleStreamingAwareError(c, statusCode, errType, message, *streamStarted)
+					}
+					reqLog.Warn("openai.responses_image_redirect.upstream_user_error",
+						zap.Int64("account_id", account.ID),
+						zap.Int("status_code", imageUpstreamErr.StatusCode),
+						zap.String("error_type", imageUpstreamErr.ErrorType),
+						zap.String("error_code", imageUpstreamErr.Code),
+						zap.Error(err),
+					)
+					return true
+				}
+				var failoverErr *service.UpstreamFailoverError
+				if errors.As(err, &failoverErr) {
+					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+					if c.Writer.Size() != writerSizeBeforeForward {
+						reqLog.Warn("openai.responses_image_redirect.upstream_failover_skipped_after_flush",
+							zap.Int64("account_id", account.ID),
+							zap.Int("upstream_status", failoverErr.StatusCode),
+						)
+						h.handleFailoverExhausted(c, failoverErr, true)
+						return true
+					}
+					if failoverErr.RetryableOnSameAccount {
+						retryLimit := account.GetPoolModeRetryCount()
+						if sameAccountRetryCount[account.ID] < retryLimit {
+							sameAccountRetryCount[account.ID]++
+							reqLog.Warn("openai.responses_image_redirect.pool_mode_same_account_retry",
+								zap.Int64("account_id", account.ID),
+								zap.Int("upstream_status", failoverErr.StatusCode),
+								zap.Int("retry_limit", retryLimit),
+								zap.Int("retry_count", sameAccountRetryCount[account.ID]),
+							)
+							select {
+							case <-requestCtx.Done():
+								return true
+							case <-time.After(sameAccountRetryDelay):
+							}
+							continue
+						}
+					}
+					h.gatewayService.RecordOpenAIAccountSwitch()
+					failedAccountIDs[account.ID] = struct{}{}
+					lastFailoverErr = failoverErr
+					if switchCount >= maxAccountSwitches {
+						h.handleFailoverExhausted(c, failoverErr, *streamStarted)
+						return true
+					}
+					switchCount++
+					if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount) {
+						h.handleFailoverExhausted(c, failoverErr, *streamStarted)
+						return true
+					}
+					reqLog.Warn("openai.responses_image_redirect.upstream_failover_switching",
+						zap.Int64("account_id", account.ID),
+						zap.Int("upstream_status", failoverErr.StatusCode),
+						zap.Int("switch_count", switchCount),
+						zap.Int("max_switches", maxAccountSwitches),
+					)
+					continue
+				}
+				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+				upstreamErrorAlreadyCommunicated := openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+				wroteFallback := false
+				if !upstreamErrorAlreadyCommunicated {
+					wroteFallback = h.ensureForwardErrorResponse(c, *streamStarted)
+				}
+				fields := []zap.Field{
+					zap.Int64("account_id", account.ID),
+					zap.Bool("fallback_error_response_written", wroteFallback),
+					zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
+					zap.Error(err),
+				}
+				if shouldLogOpenAIForwardFailureAsWarn(c, wroteFallback) {
+					reqLog.Warn("openai.responses_image_redirect.forward_failed", fields...)
+					return true
+				}
+				reqLog.Error("openai.responses_image_redirect.forward_failed", fields...)
+				return true
+			}
+		}
+
+		if redirectResult == nil || result == nil || len(redirectResult.ResponseBody) == 0 {
+			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+			h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed", *streamStarted)
+			return true
+		}
+
+		result.Stream = reqStream
+		if account.Type == service.AccountTypeOAuth {
+			h.gatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, result.ResponseHeaders)
+		}
+		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
+
+		if requestID := strings.TrimSpace(result.RequestID); requestID != "" {
+			c.Header("X-Request-Id", requestID)
+		}
+		if reqStream {
+			c.Header("Content-Type", "text/event-stream")
+			c.Header("Cache-Control", "no-cache")
+			c.Header("Connection", "keep-alive")
+			c.Header("X-Accel-Buffering", "no")
+			c.Status(http.StatusOK)
+			*streamStarted = true
+			if _, writeErr := c.Writer.Write(service.BuildOpenAIResponsesImageRedirectSSE(redirectResult.ResponseBody)); writeErr != nil {
+				_ = c.Error(writeErr)
+				return true
+			}
+			if flusher, ok := c.Writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		} else {
+			c.Data(http.StatusOK, "application/json; charset=utf-8", redirectResult.ResponseBody)
+		}
+
+		userAgent := c.GetHeader("User-Agent")
+		clientIP := ip.GetClientIP(c)
+		requestPayloadHash := service.HashUsageRequestPayload(body)
+		inboundEndpoint := GetInboundEndpoint(c)
+		upstreamEndpoint := parsed.Endpoint
+		upstreamModel := result.UpstreamModel
+		h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
+				Result:             result,
+				APIKey:             apiKey,
+				User:               apiKey.User,
+				Account:            account,
+				Subscription:       subscription,
+				InboundEndpoint:    inboundEndpoint,
+				UpstreamEndpoint:   upstreamEndpoint,
+				UserAgent:          userAgent,
+				IPAddress:          clientIP,
+				RequestPayloadHash: requestPayloadHash,
+				APIKeyService:      h.apiKeyService,
+				ChannelUsageFields: imageChannelMapping.ToUsageFields(imageRequestModel, upstreamModel),
+			}); err != nil {
+				logger.L().With(
+					zap.String("component", "handler.openai_gateway.responses_image_redirect"),
+					zap.Int64("user_id", subject.UserID),
+					zap.Int64("api_key_id", apiKey.ID),
+					zap.Any("group_id", apiKey.GroupID),
+					zap.Int64("redirect_group_id", targetGroupID),
+					zap.String("model", imageRequestModel),
+					zap.Int64("account_id", account.ID),
+				).Error("openai.responses_image_redirect.record_usage_failed", zap.Error(err))
+			}
+		})
+
+		reqLog.Debug("openai.responses_image_redirect.request_completed",
+			zap.Int64("account_id", account.ID),
+			zap.Int("switch_count", switchCount),
+		)
+		return true
 	}
 }
 
