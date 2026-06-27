@@ -16,7 +16,7 @@ describe('ccswitchImport utils', () => {
     expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.5')
   })
 
-  it('builds stable mirror options from the default endpoint and custom endpoints', () => {
+  it('builds stable mirror options with custom endpoints before the default endpoint', () => {
     const options = buildCcSwitchMirrorOptions({
       apiBaseUrl: 'https://api.example.com/',
       fallbackBaseUrl: 'https://fallback.example.com',
@@ -37,30 +37,30 @@ describe('ccswitchImport utils', () => {
 
     expect(options).toEqual([
       {
-        id: 'default',
-        name: '主站',
-        endpoint: 'https://api.example.com',
-        description: '',
-        isDefault: true
-      },
-      {
-        id: 'custom-1',
+        id: 'custom-0',
         name: '优化线路(位于北美)',
         endpoint: 'https://code-us.example.com',
         description: 'North America',
         isDefault: false
       },
       {
-        id: 'custom-2',
+        id: 'custom-1',
         name: '优化线路(位于日本)',
         endpoint: 'https://code-jp.example.com',
         description: 'Japan',
         isDefault: false
+      },
+      {
+        id: 'default',
+        name: '主站',
+        endpoint: 'https://api.example.com',
+        description: '',
+        isDefault: true
       }
     ])
   })
 
-  it('falls back to the current origin and skips empty or duplicated mirror endpoints', () => {
+  it('lets custom endpoints override the default endpoint when URLs duplicate', () => {
     const options = buildCcSwitchMirrorOptions({
       apiBaseUrl: '',
       fallbackBaseUrl: 'https://current.example.com/',
@@ -74,11 +74,11 @@ describe('ccswitchImport utils', () => {
 
     expect(options).toEqual([
       {
-        id: 'default',
-        name: 'Default',
+        id: 'custom-0',
+        name: 'Duplicate',
         endpoint: 'https://current.example.com',
-        description: '',
-        isDefault: true
+        description: 'duplicate',
+        isDefault: false
       },
       {
         id: 'custom-1',

@@ -5047,25 +5047,40 @@
                           })
                         }}
                       </span>
-                      <button
-                        type="button"
-                        class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                        @click="removeEndpoint(index)"
-                      >
-                        <svg
-                          class="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-width="2"
+                      <div class="flex items-center gap-2">
+                        <button
+                          v-if="index > 0"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="
+                            t('admin.settings.site.customEndpoints.moveUp')
+                          "
+                          @click="moveEndpoint(index, -1)"
                         >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
+                          <Icon name="arrowUp" size="sm" :stroke-width="2" />
+                        </button>
+                        <button
+                          v-if="index < form.custom_endpoints.length - 1"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="
+                            t('admin.settings.site.customEndpoints.moveDown')
+                          "
+                          @click="moveEndpoint(index, 1)"
+                        >
+                          <Icon name="arrowDown" size="sm" :stroke-width="2" />
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          :title="
+                            t('admin.settings.site.customEndpoints.remove')
+                          "
+                          @click="removeEndpoint(index)"
+                        >
+                          <Icon name="trash" size="sm" :stroke-width="2" />
+                        </button>
+                      </div>
                     </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
@@ -8662,6 +8677,13 @@ function addEndpoint() {
 
 function removeEndpoint(index: number) {
   form.custom_endpoints.splice(index, 1);
+}
+
+function moveEndpoint(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.custom_endpoints.length) return;
+  const [endpoint] = form.custom_endpoints.splice(index, 1);
+  form.custom_endpoints.splice(targetIndex, 0, endpoint);
 }
 
 function addLoginAgreementDocument() {

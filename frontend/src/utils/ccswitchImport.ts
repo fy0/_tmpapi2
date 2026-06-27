@@ -54,13 +54,6 @@ export function buildCcSwitchMirrorOptions(input: CcSwitchMirrorOptionsInput): C
     })
   }
 
-  addOption({
-    name: input.defaultName,
-    endpoint: normalizeEndpoint(input.apiBaseUrl) || normalizeEndpoint(input.fallbackBaseUrl),
-    description: '',
-    isDefault: true
-  })
-
   for (const item of input.customEndpoints || []) {
     addOption({
       name: item.name?.trim() || item.endpoint?.trim() || '',
@@ -69,6 +62,13 @@ export function buildCcSwitchMirrorOptions(input: CcSwitchMirrorOptionsInput): C
       isDefault: false
     })
   }
+
+  addOption({
+    name: input.defaultName,
+    endpoint: normalizeEndpoint(input.apiBaseUrl) || normalizeEndpoint(input.fallbackBaseUrl),
+    description: '',
+    isDefault: true
+  })
 
   return options
 }
