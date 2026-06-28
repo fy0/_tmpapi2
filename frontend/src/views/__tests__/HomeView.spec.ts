@@ -150,7 +150,7 @@ describe('HomeView mirror cards', () => {
     })
   })
 
-  it('renders custom mirrors before the default mirror and links guests to login', () => {
+  it('does not render access mirrors on the default home page', () => {
     stores.appStore.cachedPublicSettings = publicSettings({
       api_base_url: 'https://api.example.com/',
       custom_endpoints: [
@@ -168,60 +168,22 @@ describe('HomeView mirror cards', () => {
     })
 
     const wrapper = mountHome()
-    const cards = wrapper.findAll('[data-testid="home-mirror-card"]')
 
-    expect(cards).toHaveLength(3)
-    expect(cards[0].text()).toContain('US Mirror')
-    expect(cards[0].text()).toContain('https://us.example.com')
-    expect(cards[0].text()).toContain('North America route')
-    expect(cards[1].text()).toContain('JP Mirror')
-    expect(cards[2].text()).toContain('Main Site')
-    expect(cards[2].text()).toContain('Default')
-    expect(cards[2].text()).toContain('https://api.example.com')
-    expect(cards.every((card) => card.attributes('href') === '/login')).toBe(true)
+    expect(wrapper.findAll('[data-testid="home-mirror-card"]')).toHaveLength(0)
+    expect(wrapper.text()).not.toContain('Access Mirrors')
+    expect(wrapper.text()).not.toContain('US Mirror')
+    expect(wrapper.text()).not.toContain('https://api.example.com')
   })
 
-  it('uses the current site as the default mirror when no API base URL is configured', () => {
-    stores.appStore.cachedPublicSettings = publicSettings({
-      api_base_url: '',
-      custom_endpoints: []
-    })
-
+  it('does not render the marketing tags and feature cards on the default home page', () => {
     const wrapper = mountHome()
-    const cards = wrapper.findAll('[data-testid="home-mirror-card"]')
 
-    expect(cards).toHaveLength(1)
-    expect(cards[0].text()).toContain('Main Site')
-    expect(cards[0].text()).toContain(window.location.origin)
-    expect(cards[0].text()).toContain('Sign in to create and manage keys through this route')
-  })
-
-  it('links authenticated admins to the admin dashboard', () => {
-    stores.authStore.isAuthenticated = true
-    stores.authStore.isAdmin = true
-    stores.authStore.user = {
-      id: 1,
-      username: 'Admin',
-      email: 'admin@example.com',
-      role: 'admin',
-      balance: 0,
-      concurrency: 1,
-      status: 'active',
-      allowed_groups: null,
-      balance_notify_enabled: false,
-      balance_notify_threshold: null,
-      balance_notify_extra_emails: [],
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z'
-    }
-    stores.appStore.cachedPublicSettings = publicSettings({
-      api_base_url: 'https://api.example.com'
-    })
-
-    const wrapper = mountHome()
-    const card = wrapper.find('[data-testid="home-mirror-card"]')
-
-    expect(card.attributes('href')).toBe('/admin/dashboard')
+    expect(wrapper.text()).not.toContain('Subscription to API')
+    expect(wrapper.text()).not.toContain('Session Persistence')
+    expect(wrapper.text()).not.toContain('Pay As You Go')
+    expect(wrapper.text()).not.toContain('One-Click Access')
+    expect(wrapper.text()).not.toContain('Always Reliable')
+    expect(wrapper.text()).not.toContain('Pay What You Use')
   })
 
   it('renders custom home links in a separate section', () => {
