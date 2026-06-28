@@ -99,3 +99,12 @@ func TestUserIDMaintenanceServiceSetNextUserIDRejectsNonPositiveBeforeDatabase(t
 	require.Equal(t, http.StatusBadRequest, infraerrors.Code(err))
 	require.Equal(t, "USER_ID_INVALID_NEXT_ID", infraerrors.Reason(err))
 }
+
+func TestUserIDMaintenanceNonFKRefsIncludesUsageLogs(t *testing.T) {
+	refs := userIDMaintenanceNonFKRefs()
+	require.Contains(t, refs, userIDMaintenanceColumnRef{
+		Schema: "public",
+		Table:  "usage_logs",
+		Column: "user_id",
+	})
+}

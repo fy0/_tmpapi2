@@ -658,6 +658,7 @@ func userIDMaintenanceNonFKRefs() []userIDMaintenanceColumnRef {
 		{Schema: "public", Table: "ops_error_logs", Column: "deleted_key_owner_user_id"},
 		{Schema: "public", Table: "ops_retry_attempts", Column: "requested_by_user_id"},
 		{Schema: "public", Table: "ops_alert_silences", Column: "created_by"},
+		{Schema: "public", Table: "usage_logs", Column: "user_id"},
 		{Schema: "public", Table: "usage_dashboard_hourly_users", Column: "user_id"},
 		{Schema: "public", Table: "usage_dashboard_daily_users", Column: "user_id"},
 		{Schema: "public", Table: "ops_system_logs", Column: "user_id"},
