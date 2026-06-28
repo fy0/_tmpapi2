@@ -110,6 +110,11 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 			ValidityDays: sub.ValidityDays,
 		})
 	}
+	customHomeLinks, err := h.settingService.ListCustomHomeLinks(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// Load payment config
 	var paymentCfg *service.PaymentConfig
@@ -228,6 +233,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		TablePageSizeOptions:                   settings.TablePageSizeOptions,
 		CustomMenuItems:                        dto.ParseCustomMenuItems(settings.CustomMenuItems),
 		CustomEndpoints:                        dto.ParseCustomEndpoints(settings.CustomEndpoints),
+		CustomHomeLinks:                        dto.CustomHomeLinksFromService(customHomeLinks),
 		SupportTicketEntryVisibility:           settings.SupportTicketEntryVisibility,
 		DefaultConcurrency:                     settings.DefaultConcurrency,
 		DefaultBalance:                         settings.DefaultBalance,
@@ -680,6 +686,37 @@ type UpdateSettingsRequest struct {
 	AuthSourceDingTalkPlatformQuotas map[string]*service.DefaultPlatformQuotaSetting `json:"auth_source_default_dingtalk_platform_quotas"`
 
 	AllowUserViewErrorRequests *bool `json:"allow_user_view_error_requests"`
+}
+
+type UpdateCustomHomeLinksRequest struct {
+	Items []dto.CustomHomeLink `json:"items"`
+}
+
+// ListCustomHomeLinks returns homepage custom links stored in the dedicated table.
+// GET /api/v1/admin/settings/custom-home-links
+func (h *SettingHandler) ListCustomHomeLinks(c *gin.Context) {
+	links, err := h.settingService.ListCustomHomeLinks(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.CustomHomeLinksFromService(links))
+}
+
+// UpdateCustomHomeLinks replaces the full homepage custom link list.
+// PUT /api/v1/admin/settings/custom-home-links
+func (h *SettingHandler) UpdateCustomHomeLinks(c *gin.Context) {
+	var req UpdateCustomHomeLinksRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	links, err := h.settingService.ReplaceCustomHomeLinks(c.Request.Context(), dto.CustomHomeLinksToService(req.Items))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.CustomHomeLinksFromService(links))
 }
 
 // UpdateSettings 更新系统设置
@@ -1964,6 +2001,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			ValidityDays: sub.ValidityDays,
 		})
 	}
+	updatedCustomHomeLinks, err := h.settingService.ListCustomHomeLinks(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// Reload payment config for response
 	var updatedPaymentCfg *service.PaymentConfig
@@ -2082,6 +2124,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TablePageSizeOptions:                   updatedSettings.TablePageSizeOptions,
 		CustomMenuItems:                        dto.ParseCustomMenuItems(updatedSettings.CustomMenuItems),
 		CustomEndpoints:                        dto.ParseCustomEndpoints(updatedSettings.CustomEndpoints),
+		CustomHomeLinks:                        dto.CustomHomeLinksFromService(updatedCustomHomeLinks),
 		SupportTicketEntryVisibility:           updatedSettings.SupportTicketEntryVisibility,
 		DefaultConcurrency:                     updatedSettings.DefaultConcurrency,
 		DefaultBalance:                         updatedSettings.DefaultBalance,

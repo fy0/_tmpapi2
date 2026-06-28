@@ -176,6 +176,111 @@
           </div>
         </div>
 
+        <!-- Access Mirrors -->
+        <div v-if="mirrorCards.length > 0" class="mb-12">
+          <div class="mb-5 text-center">
+            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">
+              {{ t('home.mirrors.title') }}
+            </p>
+            <p class="mt-2 text-sm text-gray-600 dark:text-dark-400">
+              {{ t('home.mirrors.description') }}
+            </p>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            <router-link
+              v-for="mirror in mirrorCards"
+              :key="mirror.id"
+              :to="isAuthenticated ? dashboardPath : '/login'"
+              class="group flex min-h-[132px] flex-col justify-between rounded-lg border border-gray-200/60 bg-white/70 p-5 text-left shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/60 dark:bg-dark-800/70 dark:hover:border-primary-700/70"
+              data-testid="home-mirror-card"
+            >
+              <span class="flex items-start justify-between gap-4">
+                <span class="flex min-w-0 items-start gap-3">
+                  <span
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-cyan-500 text-white shadow-lg shadow-primary-500/25 transition-transform group-hover:scale-105"
+                  >
+                    <Icon name="globe" size="md" />
+                  </span>
+                  <span class="min-w-0">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <span class="break-words text-base font-semibold text-gray-900 dark:text-white">
+                        {{ mirror.name }}
+                      </span>
+                      <span
+                        v-if="mirror.isDefault"
+                        class="rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+                      >
+                        {{ t('home.mirrors.default') }}
+                      </span>
+                    </span>
+                    <span class="mt-2 block break-all font-mono text-xs leading-5 text-gray-500 dark:text-dark-300">
+                      {{ mirror.endpoint }}
+                    </span>
+                  </span>
+                </span>
+                <Icon
+                  name="arrowRight"
+                  size="sm"
+                  class="mt-1 shrink-0 text-gray-400 transition-colors group-hover:text-primary-500 dark:text-dark-400 dark:group-hover:text-primary-400"
+                />
+              </span>
+
+              <span
+                class="mt-4 block text-sm leading-6 text-gray-600 dark:text-dark-400"
+                :class="{ 'text-gray-500 dark:text-dark-300': !mirror.description }"
+              >
+                {{ mirror.description || t('home.mirrors.action') }}
+              </span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- Custom Links -->
+        <div v-if="customHomeLinks.length > 0" class="mb-12">
+          <div class="mb-5 text-center">
+            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">
+              {{ t('home.customLinks.title') }}
+            </p>
+            <p class="mt-2 text-sm text-gray-600 dark:text-dark-400">
+              {{ t('home.customLinks.description') }}
+            </p>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <component
+              :is="customHomeLinkComponent(link)"
+              v-for="link in customHomeLinks"
+              :key="`${link.url}-${link.title}`"
+              v-bind="customHomeLinkAttrs(link)"
+              class="group flex min-h-[118px] flex-col rounded-lg border border-gray-200/60 bg-white/70 p-5 text-left shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/60 dark:bg-dark-800/70 dark:hover:border-primary-700/70"
+              data-testid="home-custom-link"
+            >
+              <span class="flex items-start justify-between gap-4">
+                <span class="min-w-0">
+                  <span class="block break-words text-base font-semibold text-gray-900 dark:text-white">
+                    {{ link.title }}
+                  </span>
+                  <span
+                    v-if="link.description"
+                    class="mt-2 block text-sm leading-6 text-gray-600 dark:text-dark-400"
+                  >
+                    {{ link.description }}
+                  </span>
+                </span>
+                <Icon
+                  :name="link.open_in_new_window || !isInternalHomeLink(link.url) ? 'externalLink' : 'arrowRight'"
+                  size="sm"
+                  class="mt-1 shrink-0 text-gray-400 transition-colors group-hover:text-primary-500 dark:text-dark-400 dark:group-hover:text-primary-400"
+                />
+              </span>
+              <span class="mt-auto block break-all pt-4 font-mono text-xs leading-5 text-gray-500 dark:text-dark-300">
+                {{ link.url }}
+              </span>
+            </component>
+          </div>
+        </div>
+
         <!-- Feature Tags - Centered -->
         <div class="mb-12 flex flex-wrap items-center justify-center gap-4 md:gap-6">
           <div
@@ -410,6 +515,8 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { buildCcSwitchMirrorOptions } from '@/utils/ccswitchImport'
+import type { CustomHomeLink } from '@/types'
 
 const { t } = useI18n()
 
@@ -422,6 +529,26 @@ const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appS
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const mirrorCards = computed(() =>
+  buildCcSwitchMirrorOptions({
+    apiBaseUrl: appStore.cachedPublicSettings?.api_base_url,
+    customEndpoints: appStore.cachedPublicSettings?.custom_endpoints,
+    fallbackBaseUrl: typeof window !== 'undefined' ? window.location.origin : '',
+    defaultName: t('home.mirrors.currentSite')
+  })
+)
+const customHomeLinks = computed(() =>
+  (appStore.cachedPublicSettings?.custom_home_links ?? [])
+    .filter((link) => link.title.trim() && link.url.trim())
+    .map((link, index) => ({
+      ...link,
+      title: link.title.trim(),
+      url: link.url.trim(),
+      description: link.description.trim(),
+      sort_order: link.sort_order ?? index
+    }))
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+)
 
 // Check if homeContent is a URL (for iframe display)
 const isHomeContentUrl = computed(() => {
@@ -453,6 +580,25 @@ function toggleTheme() {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+}
+
+function isInternalHomeLink(url: string): boolean {
+  return url.startsWith('/') && !url.startsWith('//')
+}
+
+function customHomeLinkComponent(link: CustomHomeLink) {
+  return isInternalHomeLink(link.url) && !link.open_in_new_window ? 'router-link' : 'a'
+}
+
+function customHomeLinkAttrs(link: CustomHomeLink) {
+  if (isInternalHomeLink(link.url) && !link.open_in_new_window) {
+    return { to: link.url }
+  }
+  return {
+    href: link.url,
+    target: link.open_in_new_window ? '_blank' : undefined,
+    rel: link.open_in_new_window ? 'noopener noreferrer' : undefined
+  }
 }
 
 // Initialize theme

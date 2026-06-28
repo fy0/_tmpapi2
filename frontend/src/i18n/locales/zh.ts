@@ -18,6 +18,17 @@ export default {
       stickySession: '会话保持',
       realtimeBilling: '按量计费'
     },
+    mirrors: {
+      title: '访问镜像',
+      description: '选择就近线路接入同一个 API 服务',
+      currentSite: '主站',
+      default: '默认',
+      action: '登录后即可使用该线路创建和管理密钥'
+    },
+    customLinks: {
+      title: '推荐链接',
+      description: '常用页面和外部资源'
+    },
     // 用户痛点区块
     painPoints: {
       title: '你是否也遇到这些问题？',
@@ -6220,6 +6231,22 @@ export default {
           descriptionLabel: '介绍',
           descriptionPlaceholder: '如：支持 OpenAI 格式请求',
           add: '添加端点',
+          remove: '删除',
+          moveUp: '上移',
+          moveDown: '下移',
+        },
+        customHomeLinks: {
+          title: '首页自定义链接',
+          description: '添加展示在首页的自定义链接，支持外部 http(s) 地址或内部 / 开头路径',
+          itemLabel: '链接 #{n}',
+          linkTitle: '标题',
+          titlePlaceholder: '如：使用文档',
+          url: 'URL',
+          urlPlaceholder: 'https://docs.example.com 或 /dashboard',
+          descriptionLabel: '描述',
+          descriptionPlaceholder: '如：快速了解 API 使用方式',
+          openInNewWindow: '新窗口打开',
+          add: '添加链接',
           remove: '删除',
           moveUp: '上移',
           moveDown: '下移',

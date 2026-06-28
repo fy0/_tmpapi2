@@ -272,6 +272,7 @@ type PublicSettings struct {
 	TablePageSizeOptions         []int
 	CustomMenuItems              string // JSON array of custom menu items
 	CustomEndpoints              string // JSON array of custom endpoints
+	CustomHomeLinks              []CustomHomeLink
 	SupportTicketEntryVisibility string `json:"ticket_entry_visibility"`
 
 	LinuxDoOAuthEnabled      bool

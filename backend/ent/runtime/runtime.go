@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/customhomelink"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -702,6 +703,52 @@ func init() {
 	channelmonitorrequesttemplate.DefaultBodyOverrideMode = channelmonitorrequesttemplateDescBodyOverrideMode.Default.(string)
 	// channelmonitorrequesttemplate.BodyOverrideModeValidator is a validator for the "body_override_mode" field. It is called by the builders before save.
 	channelmonitorrequesttemplate.BodyOverrideModeValidator = channelmonitorrequesttemplateDescBodyOverrideMode.Validators[0].(func(string) error)
+	customhomelinkFields := schema.CustomHomeLink{}.Fields()
+	_ = customhomelinkFields
+	// customhomelinkDescTitle is the schema descriptor for title field.
+	customhomelinkDescTitle := customhomelinkFields[0].Descriptor()
+	// customhomelink.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	customhomelink.TitleValidator = func() func(string) error {
+		validators := customhomelinkDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// customhomelinkDescDescription is the schema descriptor for description field.
+	customhomelinkDescDescription := customhomelinkFields[1].Descriptor()
+	// customhomelink.DefaultDescription holds the default value on creation for the description field.
+	customhomelink.DefaultDescription = customhomelinkDescDescription.Default.(string)
+	// customhomelinkDescURL is the schema descriptor for url field.
+	customhomelinkDescURL := customhomelinkFields[2].Descriptor()
+	// customhomelink.URLValidator is a validator for the "url" field. It is called by the builders before save.
+	customhomelink.URLValidator = customhomelinkDescURL.Validators[0].(func(string) error)
+	// customhomelinkDescOpenInNewWindow is the schema descriptor for open_in_new_window field.
+	customhomelinkDescOpenInNewWindow := customhomelinkFields[3].Descriptor()
+	// customhomelink.DefaultOpenInNewWindow holds the default value on creation for the open_in_new_window field.
+	customhomelink.DefaultOpenInNewWindow = customhomelinkDescOpenInNewWindow.Default.(bool)
+	// customhomelinkDescSortOrder is the schema descriptor for sort_order field.
+	customhomelinkDescSortOrder := customhomelinkFields[4].Descriptor()
+	// customhomelink.DefaultSortOrder holds the default value on creation for the sort_order field.
+	customhomelink.DefaultSortOrder = customhomelinkDescSortOrder.Default.(int)
+	// customhomelinkDescCreatedAt is the schema descriptor for created_at field.
+	customhomelinkDescCreatedAt := customhomelinkFields[5].Descriptor()
+	// customhomelink.DefaultCreatedAt holds the default value on creation for the created_at field.
+	customhomelink.DefaultCreatedAt = customhomelinkDescCreatedAt.Default.(func() time.Time)
+	// customhomelinkDescUpdatedAt is the schema descriptor for updated_at field.
+	customhomelinkDescUpdatedAt := customhomelinkFields[6].Descriptor()
+	// customhomelink.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	customhomelink.DefaultUpdatedAt = customhomelinkDescUpdatedAt.Default.(func() time.Time)
+	// customhomelink.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	customhomelink.UpdateDefaultUpdatedAt = customhomelinkDescUpdatedAt.UpdateDefault.(func() time.Time)
 	errorpassthroughruleMixin := schema.ErrorPassthroughRule{}.Mixin()
 	errorpassthroughruleMixinFields0 := errorpassthroughruleMixin[0].Fields()
 	_ = errorpassthroughruleMixinFields0

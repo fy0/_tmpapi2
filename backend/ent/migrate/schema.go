@@ -604,6 +604,30 @@ var (
 			},
 		},
 	}
+	// CustomHomeLinksColumns holds the columns for the "custom_home_links" table.
+	CustomHomeLinksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "title", Type: field.TypeString, Size: 100},
+		{Name: "description", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "url", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "open_in_new_window", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// CustomHomeLinksTable holds the schema information for the "custom_home_links" table.
+	CustomHomeLinksTable = &schema.Table{
+		Name:       "custom_home_links",
+		Columns:    CustomHomeLinksColumns,
+		PrimaryKey: []*schema.Column{CustomHomeLinksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_custom_home_links_sort_order_id",
+				Unique:  false,
+				Columns: []*schema.Column{CustomHomeLinksColumns[5], CustomHomeLinksColumns[0]},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1894,6 +1918,7 @@ var (
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
+		CustomHomeLinksTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		IdempotencyRecordsTable,
@@ -1968,6 +1993,9 @@ func init() {
 	}
 	ChannelMonitorRequestTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "channel_monitor_request_templates",
+	}
+	CustomHomeLinksTable.Annotation = &entsql.Annotation{
+		Table: "custom_home_links",
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",

@@ -25,6 +25,16 @@ type CustomEndpoint struct {
 	Description string `json:"description"`
 }
 
+// CustomHomeLink represents an admin-configured public homepage link.
+type CustomHomeLink struct {
+	ID              int64  `json:"id"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	URL             string `json:"url"`
+	OpenInNewWindow bool   `json:"open_in_new_window"`
+	SortOrder       int    `json:"sort_order"`
+}
+
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
 	RegistrationEnabled              bool                     `json:"registration_enabled"`
@@ -142,6 +152,7 @@ type SystemSettings struct {
 	TablePageSizeOptions         []int            `json:"table_page_size_options"`
 	CustomMenuItems              []CustomMenuItem `json:"custom_menu_items"`
 	CustomEndpoints              []CustomEndpoint `json:"custom_endpoints"`
+	CustomHomeLinks              []CustomHomeLink `json:"custom_home_links"`
 	SupportTicketEntryVisibility string           `json:"ticket_entry_visibility"`
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
@@ -302,6 +313,7 @@ type PublicSettings struct {
 	TablePageSizeOptions             []int                    `json:"table_page_size_options"`
 	CustomMenuItems                  []CustomMenuItem         `json:"custom_menu_items"`
 	CustomEndpoints                  []CustomEndpoint         `json:"custom_endpoints"`
+	CustomHomeLinks                  []CustomHomeLink         `json:"custom_home_links"`
 	SupportTicketEntryVisibility     string                   `json:"ticket_entry_visibility"`
 	DingTalkOAuthEnabled             bool                     `json:"dingtalk_oauth_enabled"`
 	LinuxDoOAuthEnabled              bool                     `json:"linuxdo_oauth_enabled"`
@@ -498,4 +510,34 @@ func ParseCustomEndpoints(raw string) []CustomEndpoint {
 		return []CustomEndpoint{}
 	}
 	return items
+}
+
+func CustomHomeLinksFromService(items []service.CustomHomeLink) []CustomHomeLink {
+	result := make([]CustomHomeLink, 0, len(items))
+	for _, item := range items {
+		result = append(result, CustomHomeLink{
+			ID:              item.ID,
+			Title:           item.Title,
+			Description:     item.Description,
+			URL:             item.URL,
+			OpenInNewWindow: item.OpenInNewWindow,
+			SortOrder:       item.SortOrder,
+		})
+	}
+	return result
+}
+
+func CustomHomeLinksToService(items []CustomHomeLink) []service.CustomHomeLink {
+	result := make([]service.CustomHomeLink, 0, len(items))
+	for _, item := range items {
+		result = append(result, service.CustomHomeLink{
+			ID:              item.ID,
+			Title:           item.Title,
+			Description:     item.Description,
+			URL:             item.URL,
+			OpenInNewWindow: item.OpenInNewWindow,
+			SortOrder:       item.SortOrder,
+		})
+	}
+	return result
 }

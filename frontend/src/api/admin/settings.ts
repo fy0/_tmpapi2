@@ -6,6 +6,7 @@
 import { apiClient } from "../client";
 import type {
   CustomEndpoint,
+  CustomHomeLink,
   CustomMenuItem,
   LoginAgreementDocument,
   NotifyEmailEntry,
@@ -439,6 +440,7 @@ export interface SystemSettings {
   backend_mode_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
   custom_endpoints: CustomEndpoint[];
+  custom_home_links: CustomHomeLink[];
   ticket_entry_visibility: "all" | "admin" | string;
   // SMTP settings
   smtp_host: string;
@@ -889,6 +891,23 @@ export async function updateSettings(
   const { data } = await apiClient.put<SystemSettings>(
     "/admin/settings",
     settings,
+  );
+  return data;
+}
+
+export async function getCustomHomeLinks(): Promise<CustomHomeLink[]> {
+  const { data } = await apiClient.get<CustomHomeLink[]>(
+    "/admin/settings/custom-home-links",
+  );
+  return data;
+}
+
+export async function updateCustomHomeLinks(
+  items: CustomHomeLink[],
+): Promise<CustomHomeLink[]> {
+  const { data } = await apiClient.put<CustomHomeLink[]>(
+    "/admin/settings/custom-home-links",
+    { items },
   );
   return data;
 }
@@ -1353,6 +1372,8 @@ export async function resetWebSearchUsage(payload: {
 export const settingsAPI = {
   getSettings,
   updateSettings,
+  getCustomHomeLinks,
+  updateCustomHomeLinks,
   testSmtpConnection,
   sendTestEmail,
   getEmailTemplates,

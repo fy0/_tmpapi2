@@ -5166,6 +5166,148 @@
                 </button>
               </div>
 
+              <!-- Custom Home Links -->
+              <div>
+                <label
+                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {{ t("admin.settings.site.customHomeLinks.title") }}
+                </label>
+                <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.site.customHomeLinks.description") }}
+                </p>
+
+                <div class="space-y-3">
+                  <div
+                    v-for="(link, index) in form.custom_home_links"
+                    :key="link.id || index"
+                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-600"
+                  >
+                    <div class="mb-3 flex items-center justify-between">
+                      <span
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        {{
+                          t("admin.settings.site.customHomeLinks.itemLabel", {
+                            n: index + 1,
+                          })
+                        }}
+                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          v-if="index > 0"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="
+                            t('admin.settings.site.customHomeLinks.moveUp')
+                          "
+                          @click="moveCustomHomeLink(index, -1)"
+                        >
+                          <Icon name="arrowUp" size="sm" :stroke-width="2" />
+                        </button>
+                        <button
+                          v-if="index < form.custom_home_links.length - 1"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="
+                            t('admin.settings.site.customHomeLinks.moveDown')
+                          "
+                          @click="moveCustomHomeLink(index, 1)"
+                        >
+                          <Icon name="arrowDown" size="sm" :stroke-width="2" />
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          :title="
+                            t('admin.settings.site.customHomeLinks.remove')
+                          "
+                          @click="removeCustomHomeLink(index)"
+                        >
+                          <Icon name="trash" size="sm" :stroke-width="2" />
+                        </button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                        >
+                          {{ t("admin.settings.site.customHomeLinks.linkTitle") }}
+                        </label>
+                        <input
+                          v-model="link.title"
+                          type="text"
+                          maxlength="100"
+                          class="input text-sm"
+                          :placeholder="
+                            t(
+                              'admin.settings.site.customHomeLinks.titlePlaceholder',
+                            )
+                          "
+                        />
+                      </div>
+                      <div>
+                        <label
+                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                        >
+                          {{ t("admin.settings.site.customHomeLinks.url") }}
+                        </label>
+                        <input
+                          v-model="link.url"
+                          type="text"
+                          class="input font-mono text-sm"
+                          :placeholder="
+                            t('admin.settings.site.customHomeLinks.urlPlaceholder')
+                          "
+                        />
+                      </div>
+                      <div class="sm:col-span-2">
+                        <label
+                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                        >
+                          {{
+                            t(
+                              "admin.settings.site.customHomeLinks.descriptionLabel",
+                            )
+                          }}
+                        </label>
+                        <input
+                          v-model="link.description"
+                          type="text"
+                          maxlength="500"
+                          class="input text-sm"
+                          :placeholder="
+                            t(
+                              'admin.settings.site.customHomeLinks.descriptionPlaceholder',
+                            )
+                          "
+                        />
+                      </div>
+                      <div class="sm:col-span-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-dark-700/50">
+                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                          {{
+                            t(
+                              "admin.settings.site.customHomeLinks.openInNewWindow",
+                            )
+                          }}
+                        </span>
+                        <Toggle v-model="link.open_in_new_window" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-2.5 text-sm text-gray-500 transition-colors hover:border-primary-400 hover:text-primary-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
+                  @click="addCustomHomeLink"
+                >
+                  <Icon name="plus" size="sm" :stroke-width="2" />
+                  {{ t("admin.settings.site.customHomeLinks.add") }}
+                </button>
+              </div>
+
               <!-- Contact Info -->
               <div>
                 <label
@@ -7219,6 +7361,7 @@ import type {
 } from "@/api/admin/settings";
 import type {
   AdminGroup,
+  CustomHomeLink,
   LoginAgreementDocument,
   NotifyEmailEntry,
   Proxy,
@@ -8014,6 +8157,7 @@ const form = reactive<SettingsForm>({
     endpoint: string;
     description: string;
   }>,
+  custom_home_links: [] as CustomHomeLink[],
   frontend_url: "",
   smtp_host: "",
   smtp_port: 587,
@@ -8686,6 +8830,49 @@ function moveEndpoint(index: number, direction: -1 | 1) {
   form.custom_endpoints.splice(targetIndex, 0, endpoint);
 }
 
+// Custom home link management
+function addCustomHomeLink() {
+  form.custom_home_links.push({
+    title: "",
+    url: "",
+    description: "",
+    open_in_new_window: true,
+    sort_order: form.custom_home_links.length,
+  });
+}
+
+function removeCustomHomeLink(index: number) {
+  form.custom_home_links.splice(index, 1);
+  reindexCustomHomeLinks();
+}
+
+function moveCustomHomeLink(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.custom_home_links.length) return;
+  const [link] = form.custom_home_links.splice(index, 1);
+  form.custom_home_links.splice(targetIndex, 0, link);
+  reindexCustomHomeLinks();
+}
+
+function reindexCustomHomeLinks() {
+  form.custom_home_links.forEach((link, index) => {
+    link.sort_order = index;
+  });
+}
+
+function normalizeCustomHomeLinksForSave(): CustomHomeLink[] {
+  return form.custom_home_links
+    .map((link, index) => ({
+      id: link.id,
+      title: link.title.trim(),
+      url: link.url.trim(),
+      description: link.description.trim(),
+      open_in_new_window: link.open_in_new_window,
+      sort_order: index,
+    }))
+    .filter((link) => link.title || link.url || link.description);
+}
+
 function addLoginAgreementDocument() {
   form.login_agreement_documents.push({
     id: `custom-${Date.now().toString(36)}`,
@@ -8791,6 +8978,16 @@ async function loadSettings() {
         : defaultLoginAgreementDocuments();
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(settings));
     form.default_platform_quotas = normalizePlatformQuotasMap(settings.default_platform_quotas);
+    form.custom_home_links = Array.isArray(settings.custom_home_links)
+      ? settings.custom_home_links.map((link, index) => ({
+          id: link.id,
+          title: link.title || "",
+          url: link.url || "",
+          description: link.description || "",
+          open_in_new_window: link.open_in_new_window !== false,
+          sort_order: link.sort_order ?? index,
+        }))
+      : [];
     form.backend_mode_enabled = settings.backend_mode_enabled;
     form.default_subscriptions = normalizeDefaultSubscriptionSettings(
       settings.default_subscriptions,
@@ -9466,12 +9663,24 @@ async function saveSettings() {
     appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
 
     const updated = await adminAPI.settings.updateSettings(payload);
+    const updatedCustomHomeLinks =
+      await adminAPI.settings.updateCustomHomeLinks(
+        normalizeCustomHomeLinksForSave(),
+      );
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;
       if (value !== null && value !== undefined) {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.custom_home_links = updatedCustomHomeLinks.map((link, index) => ({
+      id: link.id,
+      title: link.title || "",
+      url: link.url || "",
+      description: link.description || "",
+      open_in_new_window: link.open_in_new_window !== false,
+      sort_order: link.sort_order ?? index,
+    }));
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
     form.default_platform_quotas = normalizePlatformQuotasMap(updated.default_platform_quotas);
     registrationEmailSuffixWhitelistTags.value =

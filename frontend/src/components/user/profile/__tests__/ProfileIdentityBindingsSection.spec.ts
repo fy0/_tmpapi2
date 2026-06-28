@@ -256,6 +256,7 @@ describe('ProfileIdentityBindingsSection', () => {
       table_page_size_options: [10, 20, 50, 100],
       custom_menu_items: [],
       custom_endpoints: [],
+      custom_home_links: [],
       linuxdo_oauth_enabled: false,
       wechat_oauth_enabled: true,
       wechat_oauth_open_enabled: true,

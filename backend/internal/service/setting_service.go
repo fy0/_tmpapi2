@@ -190,6 +190,7 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 // SettingService 系统设置服务
 type SettingService struct {
 	settingRepo                 SettingRepository
+	customHomeLinkRepo          CustomHomeLinkRepository
 	defaultSubGroupReader       DefaultSubscriptionGroupReader
 	proxyRepo                   ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                         *config.Config
@@ -846,6 +847,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	if err != nil {
 		return nil, fmt.Errorf("get public settings: %w", err)
 	}
+	customHomeLinks, err := s.ListCustomHomeLinks(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	linuxDoEnabled := false
 	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
@@ -928,6 +933,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		TablePageSizeOptions:             tablePageSizeOptions,
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
+		CustomHomeLinks:                  customHomeLinks,
 		SupportTicketEntryVisibility:     normalizeSupportTicketEntryVisibility(settings[SettingKeySupportTicketEntryVisibility]),
 		LinuxDoOAuthEnabled:              linuxDoEnabled,
 		DingTalkOAuthEnabled:             dingTalkEnabled,
@@ -1253,6 +1259,7 @@ type PublicSettingsInjectionPayload struct {
 	TablePageSizeOptions             []int                    `json:"table_page_size_options"`
 	CustomMenuItems                  json.RawMessage          `json:"custom_menu_items"`
 	CustomEndpoints                  json.RawMessage          `json:"custom_endpoints"`
+	CustomHomeLinks                  []CustomHomeLink         `json:"custom_home_links"`
 	SupportTicketEntryVisibility     string                   `json:"ticket_entry_visibility"`
 	LinuxDoOAuthEnabled              bool                     `json:"linuxdo_oauth_enabled"`
 	DingTalkOAuthEnabled             bool                     `json:"dingtalk_oauth_enabled"`
@@ -1321,6 +1328,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		TablePageSizeOptions:             settings.TablePageSizeOptions,
 		CustomMenuItems:                  filterUserVisibleMenuItems(settings.CustomMenuItems),
 		CustomEndpoints:                  safeRawJSONArray(settings.CustomEndpoints),
+		CustomHomeLinks:                  settings.CustomHomeLinks,
 		SupportTicketEntryVisibility:     settings.SupportTicketEntryVisibility,
 		LinuxDoOAuthEnabled:              settings.LinuxDoOAuthEnabled,
 		DingTalkOAuthEnabled:             settings.DingTalkOAuthEnabled,

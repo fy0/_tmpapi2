@@ -180,6 +180,15 @@ export interface CustomEndpoint {
   description: string
 }
 
+export interface CustomHomeLink {
+  id?: number
+  title: string
+  description: string
+  url: string
+  open_in_new_window: boolean
+  sort_order?: number
+}
+
 export interface LoginAgreementDocument {
   id: string
   title: string
@@ -216,6 +225,7 @@ export interface PublicSettings {
   table_page_size_options: number[]
   custom_menu_items: CustomMenuItem[]
   custom_endpoints: CustomEndpoint[]
+  custom_home_links: CustomHomeLink[]
   ticket_entry_visibility: 'all' | 'admin' | string
   linuxdo_oauth_enabled: boolean
   dingtalk_oauth_enabled?: boolean

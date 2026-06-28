@@ -18,6 +18,17 @@ export default {
       stickySession: 'Session Persistence',
       realtimeBilling: 'Pay As You Go'
     },
+    mirrors: {
+      title: 'Access Mirrors',
+      description: 'Choose a nearby route for the same API service',
+      currentSite: 'Main Site',
+      default: 'Default',
+      action: 'Sign in to create and manage keys through this route'
+    },
+    customLinks: {
+      title: 'Featured Links',
+      description: 'Common pages and external resources'
+    },
     // Pain points section
     painPoints: {
       title: 'Sound Familiar?',
@@ -6067,6 +6078,22 @@ export default {
           descriptionLabel: 'Description',
           descriptionPlaceholder: 'e.g., Supports OpenAI format requests',
           add: 'Add Endpoint',
+          remove: 'Remove',
+          moveUp: 'Move Up',
+          moveDown: 'Move Down',
+        },
+        customHomeLinks: {
+          title: 'Home Custom Links',
+          description: 'Add custom links shown on the home page. Supports external http(s) URLs or internal paths starting with /.',
+          itemLabel: 'Link #{n}',
+          linkTitle: 'Title',
+          titlePlaceholder: 'e.g., Documentation',
+          url: 'URL',
+          urlPlaceholder: 'https://docs.example.com or /dashboard',
+          descriptionLabel: 'Description',
+          descriptionPlaceholder: 'e.g., Learn how to use the API',
+          openInNewWindow: 'Open in new window',
+          add: 'Add Link',
           remove: 'Remove',
           moveUp: 'Move Up',
           moveDown: 'Move Down',

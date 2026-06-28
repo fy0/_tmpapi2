@@ -7,6 +7,7 @@ import SettingsView from "../SettingsView.vue";
 const {
   getSettings,
   updateSettings,
+  updateCustomHomeLinks,
   getWebSearchEmulationConfig,
   updateWebSearchEmulationConfig,
   getAdminApiKey,
@@ -29,6 +30,7 @@ const {
 } = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
+  updateCustomHomeLinks: vi.fn(),
   getWebSearchEmulationConfig: vi.fn(),
   updateWebSearchEmulationConfig: vi.fn(),
   getAdminApiKey: vi.fn(),
@@ -57,6 +59,7 @@ vi.mock("@/api", () => ({
     settings: {
       getSettings,
       updateSettings,
+      updateCustomHomeLinks,
       getWebSearchEmulationConfig,
       updateWebSearchEmulationConfig,
       getAdminApiKey,
@@ -315,6 +318,7 @@ const baseSettingsResponse = {
   backend_mode_enabled: false,
   custom_menu_items: [],
   custom_endpoints: [],
+  custom_home_links: [],
   frontend_url: "",
   smtp_host: "",
   smtp_port: 587,
@@ -481,6 +485,7 @@ describe("admin SettingsView payment visible method controls", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
+    updateCustomHomeLinks.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
@@ -507,6 +512,7 @@ describe("admin SettingsView payment visible method controls", () => {
       ...baseSettingsResponse,
       ...payload,
     }));
+    updateCustomHomeLinks.mockImplementation(async (items) => items);
     getWebSearchEmulationConfig.mockResolvedValue({
       enabled: false,
       providers: [],
@@ -820,6 +826,7 @@ describe("admin SettingsView wechat connect controls", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
+    updateCustomHomeLinks.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
@@ -849,6 +856,7 @@ describe("admin SettingsView wechat connect controls", () => {
       payment_visible_method_wxpay_source: "official_wxpay",
       ...payload,
     }));
+    updateCustomHomeLinks.mockImplementation(async (items) => items);
     getWebSearchEmulationConfig.mockResolvedValue({
       enabled: false,
       providers: [],
@@ -1066,6 +1074,7 @@ describe("admin SettingsView platform quota matrix", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
+    updateCustomHomeLinks.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
@@ -1092,6 +1101,7 @@ describe("admin SettingsView platform quota matrix", () => {
       ...baseSettingsResponse,
       ...payload,
     }));
+    updateCustomHomeLinks.mockImplementation(async (items) => items);
     getWebSearchEmulationConfig.mockResolvedValue({ enabled: false, providers: [] });
     updateWebSearchEmulationConfig.mockResolvedValue({ enabled: false, providers: [] });
     getAdminApiKey.mockResolvedValue({ exists: false, masked_key: "" });
