@@ -3,6 +3,8 @@ package dto
 
 import "github.com/Wei-Shaw/sub2api/internal/service"
 
+const keyHintMaskedTailLength = 6
+
 // RedactCredentials 复制一份 in，剥离 service.SensitiveCredentialKeys 列出的所有敏感子键，
 // 并产出一个 has_<key> 状态 map 表示哪些敏感键存在且非零值。
 //
@@ -41,4 +43,37 @@ func isCredentialValuePresent(v any) bool {
 	default:
 		return true
 	}
+}
+
+func apiKeyHintFromCredentials(credentials map[string]any) string {
+	value, ok := credentials["api_key"]
+	if !ok {
+		return ""
+	}
+	key, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return maskTail(key, keyHintMaskedTailLength)
+}
+
+func maskTail(value string, tailLength int) string {
+	if value == "" || tailLength <= 0 {
+		return value
+	}
+	if len(value) <= tailLength {
+		return repeatByte('*', len(value))
+	}
+	return value[:len(value)-tailLength] + repeatByte('*', tailLength)
+}
+
+func repeatByte(b byte, count int) string {
+	if count <= 0 {
+		return ""
+	}
+	buf := make([]byte, count)
+	for i := range buf {
+		buf[i] = b
+	}
+	return string(buf)
 }

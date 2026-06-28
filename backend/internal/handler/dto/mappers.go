@@ -209,6 +209,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		Notes:                   a.Notes,
 		Platform:                a.Platform,
 		Type:                    a.Type,
+		KeyHint:                 apiKeyHintFromCredentials(a.Credentials),
 		Credentials:             redactedCreds,
 		CredentialsStatus:       credsStatus,
 		Extra:                   a.Extra,

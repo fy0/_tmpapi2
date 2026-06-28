@@ -42,6 +42,7 @@ func TestAccountFromServiceShallow_RedactsSensitiveCredentials(t *testing.T) {
 	require.True(t, got.CredentialsStatus["has_refresh_token"])
 	require.True(t, got.CredentialsStatus["has_id_token"])
 	require.True(t, got.CredentialsStatus["has_api_key"])
+	require.Equal(t, "sk-******", got.KeyHint)
 
 	// JSON 序列化校验：响应体里不会出现敏感子串
 	raw, err := json.Marshal(got)
@@ -50,6 +51,7 @@ func TestAccountFromServiceShallow_RedactsSensitiveCredentials(t *testing.T) {
 	require.NotContains(t, string(raw), "at-secret")
 	require.NotContains(t, string(raw), "sk-secret")
 	require.NotContains(t, string(raw), "id-secret")
+	require.Contains(t, string(raw), `"key_hint":"sk-******"`)
 	// 状态标识应序列化进 JSON
 	require.Contains(t, string(raw), "credentials_status")
 	require.Contains(t, string(raw), "has_refresh_token")

@@ -95,3 +95,22 @@ func TestRedactCredentials_AllKnownSensitiveKeys(t *testing.T) {
 		require.True(t, status["has_"+k], "key %s 应在 status 中标记为已配置", k)
 	}
 }
+
+func TestAPIKeyHintFromCredentials_MasksTail(t *testing.T) {
+	require.Equal(t, "sk-live-abc******", apiKeyHintFromCredentials(map[string]any{
+		"api_key": "sk-live-abc123456",
+	}))
+	require.Equal(t, "******", apiKeyHintFromCredentials(map[string]any{
+		"api_key": "abcdef",
+	}))
+	require.Equal(t, "***", apiKeyHintFromCredentials(map[string]any{
+		"api_key": "abc",
+	}))
+	require.Empty(t, apiKeyHintFromCredentials(map[string]any{
+		"api_key": "",
+	}))
+	require.Empty(t, apiKeyHintFromCredentials(map[string]any{
+		"api_key": 123,
+	}))
+	require.Empty(t, apiKeyHintFromCredentials(nil))
+}
