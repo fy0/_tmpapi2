@@ -175,18 +175,18 @@ describe('HomeView mirror cards', () => {
     expect(wrapper.text()).not.toContain('https://api.example.com')
   })
 
-  it('does not render the marketing tags and feature cards on the default home page', () => {
+  it('renders marketing tags and feature cards when there are no custom home links', () => {
     const wrapper = mountHome()
 
-    expect(wrapper.text()).not.toContain('Subscription to API')
-    expect(wrapper.text()).not.toContain('Session Persistence')
-    expect(wrapper.text()).not.toContain('Pay As You Go')
-    expect(wrapper.text()).not.toContain('One-Click Access')
-    expect(wrapper.text()).not.toContain('Always Reliable')
-    expect(wrapper.text()).not.toContain('Pay What You Use')
+    expect(wrapper.text()).toContain('Subscription to API')
+    expect(wrapper.text()).toContain('Session Persistence')
+    expect(wrapper.text()).toContain('Pay As You Go')
+    expect(wrapper.text()).toContain('One-Click Access')
+    expect(wrapper.text()).toContain('Always Reliable')
+    expect(wrapper.text()).toContain('Pay What You Use')
   })
 
-  it('renders custom home links in a separate section', () => {
+  it('renders custom home links and hides marketing tags and feature cards', () => {
     stores.appStore.cachedPublicSettings = publicSettings({
       custom_home_links: [
         {
@@ -212,6 +212,12 @@ describe('HomeView mirror cards', () => {
     const links = wrapper.findAll('[data-testid="home-custom-link"]')
 
     expect(wrapper.text()).toContain('Featured Links')
+    expect(wrapper.text()).not.toContain('Subscription to API')
+    expect(wrapper.text()).not.toContain('Session Persistence')
+    expect(wrapper.text()).not.toContain('Pay As You Go')
+    expect(wrapper.text()).not.toContain('One-Click Access')
+    expect(wrapper.text()).not.toContain('Always Reliable')
+    expect(wrapper.text()).not.toContain('Pay What You Use')
     expect(links).toHaveLength(2)
     expect(links[0].text()).toContain('Status')
     expect(links[0].attributes('href')).toBe('https://status.example.com')
