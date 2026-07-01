@@ -69,6 +69,7 @@ function buildPublicSettings(overrides: Partial<WeChatPublicSettings> = {}): WeC
     site_name: 'Sub2API',
     site_logo: '',
     site_subtitle: '',
+    site_description: '',
     api_base_url: '/api/v1',
     contact_info: '',
     doc_url: '',

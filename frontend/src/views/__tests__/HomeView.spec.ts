@@ -86,6 +86,7 @@ function publicSettings(overrides: Partial<PublicSettings> = {}): PublicSettings
     site_name: 'URPG API',
     site_logo: '',
     site_subtitle: 'Stable API service',
+    site_description: '',
     api_base_url: '',
     contact_info: '',
     doc_url: '',
@@ -184,6 +185,19 @@ describe('HomeView mirror cards', () => {
     expect(wrapper.text()).toContain('One-Click Access')
     expect(wrapper.text()).toContain('Always Reliable')
     expect(wrapper.text()).toContain('Pay What You Use')
+  })
+
+  it('uses site description for the hero copy when configured', () => {
+    stores.appStore.cachedPublicSettings = publicSettings({
+      site_subtitle: 'Login subtitle',
+      site_description: 'Stable API service\nNot serving Mainland China users'
+    })
+
+    const wrapper = mountHome()
+
+    expect(wrapper.text()).toContain('Stable API service')
+    expect(wrapper.text()).toContain('Not serving Mainland China users')
+    expect(wrapper.text()).not.toContain('Login subtitle')
   })
 
   it('renders custom home links and hides marketing tags and feature cards', () => {

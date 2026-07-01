@@ -122,8 +122,8 @@
             >
               {{ siteName }}
             </h1>
-            <p class="mb-8 text-lg text-gray-600 dark:text-dark-300 md:text-xl">
-              {{ siteSubtitle }}
+            <p class="mb-8 whitespace-pre-line text-lg text-gray-600 dark:text-dark-300 md:text-xl">
+              {{ siteDescription }}
             </p>
 
             <!-- CTA Button -->
@@ -468,6 +468,10 @@ const appStore = useAppStore()
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
+const siteDescription = computed(() => {
+  const description = appStore.cachedPublicSettings?.site_description?.trim()
+  return description || siteSubtitle.value
+})
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 const customHomeLinks = computed(() =>

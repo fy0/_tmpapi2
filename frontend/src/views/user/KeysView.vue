@@ -35,12 +35,12 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div
             v-if="apiKeyPageNotice"
-            class="flex h-8 min-w-0 flex-1 items-center overflow-hidden rounded border border-[#f5c86b] bg-[#fff9e6] px-3 text-xs text-[#4a2c08] dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100"
+            class="min-w-0 flex-1 rounded border border-[#f5c86b] bg-[#fff9e6] px-3 py-2 text-xs leading-5 text-[#4a2c08] dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100"
           >
-            <p
-              class="api-key-notice-markdown m-0 truncate"
+            <div
+              class="api-key-notice-markdown min-w-0"
               v-html="apiKeyPageNoticeHtml"
-            ></p>
+            ></div>
           </div>
           <div v-else class="hidden min-w-0 flex-1 sm:block"></div>
           <div class="flex shrink-0 justify-end gap-3">
@@ -1272,13 +1272,13 @@ const apiKeyPageNotice = computed(
 )
 const apiKeyPageNoticeHtml = computed(() => {
   if (!apiKeyPageNotice.value) return ''
-  const html = marked.parseInline(apiKeyPageNotice.value, {
+  const html = marked.parse(apiKeyPageNotice.value, {
     breaks: true,
     gfm: true
   }) as string
 
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['a', 'strong', 'em', 'code', 'del', 'br'],
+    ALLOWED_TAGS: ['p', 'a', 'strong', 'em', 'code', 'del', 'br', 'ul', 'ol', 'li'],
     ALLOWED_ATTR: ['href', 'title']
   })
 })
@@ -1950,6 +1950,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.api-key-notice-markdown {
+  @apply break-words;
+}
+
+.api-key-notice-markdown :deep(p) {
+  @apply my-0;
+}
+
+.api-key-notice-markdown :deep(p + p) {
+  @apply mt-1.5;
+}
+
+.api-key-notice-markdown :deep(ul),
+.api-key-notice-markdown :deep(ol) {
+  @apply my-1 pl-4;
+}
+
+.api-key-notice-markdown :deep(ul) {
+  @apply list-disc;
+}
+
+.api-key-notice-markdown :deep(ol) {
+  @apply list-decimal;
+}
+
 .api-key-notice-markdown :deep(a) {
   @apply font-medium underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-50;
 }

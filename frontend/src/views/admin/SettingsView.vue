@@ -4920,16 +4920,34 @@
                   >
                     {{ t("admin.settings.site.siteSubtitle") }}
                   </label>
-                  <input
+                  <textarea
                     v-model="form.site_subtitle"
-                    type="text"
-                    class="input"
+                    rows="3"
+                    class="input min-h-[88px] resize-y"
                     :placeholder="
                       t('admin.settings.site.siteSubtitlePlaceholder')
                     "
-                  />
+                  ></textarea>
                   <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ t("admin.settings.site.siteSubtitleHint") }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.site.siteDescription") }}
+                  </label>
+                  <textarea
+                    v-model="form.site_description"
+                    rows="3"
+                    class="input min-h-[88px] resize-y"
+                    :placeholder="
+                      t('admin.settings.site.siteDescriptionPlaceholder')
+                    "
+                  ></textarea>
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.site.siteDescriptionHint") }}
                   </p>
                 </div>
               </div>
@@ -4959,14 +4977,14 @@
                 >
                   {{ t("admin.settings.site.apiKeyPageNotice") }}
                 </label>
-                <input
+                <textarea
                   v-model="form.api_key_page_notice"
-                  type="text"
-                  class="input"
+                  rows="4"
+                  class="input min-h-[112px] resize-y"
                   :placeholder="
                     t('admin.settings.site.apiKeyPageNoticePlaceholder')
                   "
-                />
+                ></textarea>
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.site.apiKeyPageNoticeHint") }}
                 </p>
@@ -8110,6 +8128,7 @@ const form = reactive<SettingsForm>({
   site_name: "Sub2API",
   site_logo: "",
   site_subtitle: "Subscription to API Conversion Platform",
+  site_description: "",
   api_base_url: "",
   contact_info: "",
   doc_url: "",
@@ -9438,6 +9457,7 @@ async function saveSettings() {
       site_name: form.site_name,
       site_logo: form.site_logo,
       site_subtitle: form.site_subtitle,
+      site_description: form.site_description.trim(),
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
       doc_url: form.doc_url,

@@ -307,6 +307,7 @@ const baseSettingsResponse = {
   site_name: "Sub2API",
   site_logo: "",
   site_subtitle: "",
+  site_description: "",
   api_base_url: "",
   contact_info: "",
   doc_url: "",
@@ -615,7 +616,7 @@ describe("admin SettingsView payment visible method controls", () => {
   it("submits a trimmed API Keys page notice", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
-      api_key_page_notice: "  请国内直连用户优先选择 hk.taffy.work  ",
+      api_key_page_notice: "  请国内直连用户优先选择 hk.taffy.work\n不要公开分享 API Key  ",
     });
 
     const wrapper = mountView();
@@ -627,7 +628,27 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateSettings).toHaveBeenCalledTimes(1);
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
-        api_key_page_notice: "请国内直连用户优先选择 hk.taffy.work",
+        api_key_page_notice: "请国内直连用户优先选择 hk.taffy.work\n不要公开分享 API Key",
+      }),
+    );
+  });
+
+  it("submits a trimmed site description", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      site_description: "  尽量保证稳定的小站\n不面向中国大陆地区提供服务  ",
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        site_description: "尽量保证稳定的小站\n不面向中国大陆地区提供服务",
       }),
     );
   });

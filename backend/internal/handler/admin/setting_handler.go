@@ -221,6 +221,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		SiteName:                               settings.SiteName,
 		SiteLogo:                               settings.SiteLogo,
 		SiteSubtitle:                           settings.SiteSubtitle,
+		SiteDescription:                        settings.SiteDescription,
 		APIBaseURL:                             settings.APIBaseURL,
 		ContactInfo:                            settings.ContactInfo,
 		DocURL:                                 settings.DocURL,
@@ -510,6 +511,7 @@ type UpdateSettingsRequest struct {
 	SiteName                     string                `json:"site_name"`
 	SiteLogo                     string                `json:"site_logo"`
 	SiteSubtitle                 string                `json:"site_subtitle"`
+	SiteDescription              string                `json:"site_description"`
 	APIBaseURL                   string                `json:"api_base_url"`
 	ContactInfo                  string                `json:"contact_info"`
 	DocURL                       string                `json:"doc_url"`
@@ -1627,6 +1629,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteName:                               req.SiteName,
 		SiteLogo:                               req.SiteLogo,
 		SiteSubtitle:                           req.SiteSubtitle,
+		SiteDescription:                        req.SiteDescription,
 		APIBaseURL:                             req.APIBaseURL,
 		ContactInfo:                            req.ContactInfo,
 		DocURL:                                 req.DocURL,
@@ -2112,6 +2115,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteName:                               updatedSettings.SiteName,
 		SiteLogo:                               updatedSettings.SiteLogo,
 		SiteSubtitle:                           updatedSettings.SiteSubtitle,
+		SiteDescription:                        updatedSettings.SiteDescription,
 		APIBaseURL:                             updatedSettings.APIBaseURL,
 		ContactInfo:                            updatedSettings.ContactInfo,
 		DocURL:                                 updatedSettings.DocURL,
@@ -2511,6 +2515,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.SiteSubtitle != after.SiteSubtitle {
 		changed = append(changed, "site_subtitle")
+	}
+	if before.SiteDescription != after.SiteDescription {
+		changed = append(changed, "site_description")
 	}
 	if before.APIBaseURL != after.APIBaseURL {
 		changed = append(changed, "api_base_url")

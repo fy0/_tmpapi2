@@ -246,6 +246,7 @@ describe('ProfileIdentityBindingsSection', () => {
       site_name: 'Sub2API',
       site_logo: '',
       site_subtitle: '',
+      site_description: '',
       api_base_url: '',
       contact_info: '',
       doc_url: '',
