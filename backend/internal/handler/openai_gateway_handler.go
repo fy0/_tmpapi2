@@ -851,6 +851,7 @@ func (h *OpenAIGatewayHandler) handleResponsesImageRedirect(
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := parsed.Endpoint
 		upstreamModel := result.UpstreamModel
+		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
@@ -864,6 +865,7 @@ func (h *OpenAIGatewayHandler) handleResponsesImageRedirect(
 				IPAddress:          clientIP,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
+				QuotaPlatform:      quotaPlatform,
 				ChannelUsageFields: imageChannelMapping.ToUsageFields(imageRequestModel, upstreamModel),
 			}); err != nil {
 				logger.L().With(
