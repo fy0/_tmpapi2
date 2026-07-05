@@ -170,7 +170,7 @@ func TestMigration151AddsAccountAutoPauseExpiryPartialIndex(t *testing.T) {
 }
 
 func TestMigration158BackfillsGrokMediaGenerationGroups(t *testing.T) {
-	content, err := FS.ReadFile("158_enable_grok_media_generation_groups.sql")
+	content, err := FS.ReadFile("168_enable_grok_media_generation_groups.sql")
 	require.NoError(t, err)
 
 	sql := string(content)
@@ -181,7 +181,7 @@ func TestMigration158BackfillsGrokMediaGenerationGroups(t *testing.T) {
 }
 
 func TestMigration154AddsSparkShadowColumnsAndConstraintsWithoutHotIndexes(t *testing.T) {
-	content, err := FS.ReadFile("154_account_spark_shadow.sql")
+	content, err := FS.ReadFile("161_account_spark_shadow.sql")
 	require.NoError(t, err)
 
 	sql := string(content)
@@ -202,7 +202,7 @@ func TestMigration154AddsSparkShadowColumnsAndConstraintsWithoutHotIndexes(t *te
 }
 
 func TestMigration154aAddsSparkShadowIndexesConcurrently(t *testing.T) {
-	content, err := FS.ReadFile("154a_account_spark_shadow_indexes_notx.sql")
+	content, err := FS.ReadFile("163_account_spark_shadow_indexes_notx.sql")
 	require.NoError(t, err)
 
 	sql := string(content)
