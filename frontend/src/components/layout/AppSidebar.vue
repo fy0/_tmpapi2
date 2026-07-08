@@ -152,7 +152,7 @@
           </div>
 
           <div
-            v-for="section in customMenuGroupSectionsForUser"
+            v-for="section in standaloneCustomMenuGroupSectionsForAdminPersonal"
             :key="`user-custom-${section.group}`"
             class="sidebar-section"
           >
@@ -211,7 +211,7 @@
         </div>
 
         <div
-          v-for="section in customMenuGroupSectionsForUser"
+          v-for="section in standaloneCustomMenuGroupSectionsForUser"
           :key="`user-custom-${section.group}`"
           class="sidebar-section"
         >
@@ -333,6 +333,11 @@ interface CustomMenuGroupSection {
   items: NavItem[]
 }
 
+interface NavSectionsWithCustomGroups {
+  sections: NavSection[]
+  standaloneCustomSections: CustomMenuGroupSection[]
+}
+
 // applyFeatureFlags 递归过滤掉 featureFlag() === false 的节点（含子节点）。
 // 使用 `!== false` 宽容语义：undefined（设置未加载）或 true 都视为显示。
 function applyFeatureFlags(items: NavItem[]): NavItem[] {
@@ -385,6 +390,10 @@ function normalizeCustomMenuGroup(item: CustomMenuItem): string {
   return (item.group || '').trim()
 }
 
+function normalizeMenuGroupTitle(value: string): string {
+  return value.trim().toLocaleLowerCase()
+}
+
 function isExternalCustomMenuItem(item: CustomMenuItem): boolean {
   return item.open_mode === 'external' || item.open_mode === 'external_confirm'
 }
@@ -417,6 +426,37 @@ function groupCustomMenuItems(items: CustomMenuItem[]): CustomMenuGroupSection[]
   }
 
   return sections
+}
+
+function mergeCustomGroupSectionsIntoNavSections(
+  sections: NavSection[],
+  customSections: CustomMenuGroupSection[],
+): NavSectionsWithCustomGroups {
+  const mergedSections = sections.map((section) => ({
+    ...section,
+    items: [...section.items],
+  }))
+  const sectionIndex = new Map<string, NavSection>()
+
+  for (const section of mergedSections) {
+    if (!section.title) continue
+    sectionIndex.set(normalizeMenuGroupTitle(section.title), section)
+  }
+
+  const standaloneCustomSections: CustomMenuGroupSection[] = []
+  for (const customSection of customSections) {
+    const targetSection = sectionIndex.get(normalizeMenuGroupTitle(customSection.group))
+    if (!targetSection) {
+      standaloneCustomSections.push(customSection)
+      continue
+    }
+    targetSection.items.push(...customSection.items)
+  }
+
+  return {
+    sections: mergedSections,
+    standaloneCustomSections,
+  }
 }
 
 function navItemComponent(item: NavItem) {
@@ -483,21 +523,6 @@ const GiftIcon = {
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
           d: 'M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z'
-        })
-      ]
-    )
-}
-
-const UserIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          d: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z'
         })
       ]
     )
@@ -871,11 +896,8 @@ function buildSelfNavSections(withDashboard: boolean): NavSection[] {
       ]
     },
     {
-      key: 'profile',
-      items: [
-        { path: '/profile', label: t('nav.profile'), icon: UserIcon },
-        ...defaultCustomMenuItemsForUser.value.map(customMenuNavItem),
-      ]
+      key: 'custom-default',
+      items: defaultCustomMenuItemsForUser.value.map(customMenuNavItem)
     },
   )
   return sections
@@ -893,14 +915,6 @@ function finalizeNavSections(sections: NavSection[]): NavSection[] {
     .filter(section => section.items.length > 0)
 }
 
-// User navigation sections (for regular users)
-const userNavSections = computed((): NavSection[] => finalizeNavSections(buildSelfNavSections(true)))
-
-// Personal navigation sections (for admin's account area, without Dashboard).
-// Admins access 可用渠道 from this section just like regular users — there is no
-// separate admin entry, since the page is purely a user-facing view.
-const personalNavSections = computed((): NavSection[] => finalizeNavSections(buildSelfNavSections(false)))
-
 // Custom menu items filtered by visibility
 const customMenuItemsForUser = computed(() => {
   const items = appStore.cachedPublicSettings?.custom_menu_items ?? []
@@ -916,6 +930,33 @@ const defaultCustomMenuItemsForUser = computed(() => {
 const customMenuGroupSectionsForUser = computed(() => {
   return groupCustomMenuItems(customMenuItemsForUser.value)
 })
+
+function buildSelfNavSectionsWithCustomGroups(withDashboard: boolean): NavSectionsWithCustomGroups {
+  const merged = mergeCustomGroupSectionsIntoNavSections(
+    buildSelfNavSections(withDashboard),
+    customMenuGroupSectionsForUser.value,
+  )
+  return {
+    sections: finalizeNavSections(merged.sections),
+    standaloneCustomSections: merged.standaloneCustomSections,
+  }
+}
+
+// User navigation sections (for regular users)
+const userNavSectionsWithCustomGroups = computed(() => buildSelfNavSectionsWithCustomGroups(true))
+const userNavSections = computed((): NavSection[] => userNavSectionsWithCustomGroups.value.sections)
+const standaloneCustomMenuGroupSectionsForUser = computed(
+  (): CustomMenuGroupSection[] => userNavSectionsWithCustomGroups.value.standaloneCustomSections
+)
+
+// Personal navigation sections (for admin's account area, without Dashboard).
+// Admins access 可用渠道 from this section just like regular users — there is no
+// separate admin entry, since the page is purely a user-facing view.
+const personalNavSectionsWithCustomGroups = computed(() => buildSelfNavSectionsWithCustomGroups(false))
+const personalNavSections = computed((): NavSection[] => personalNavSectionsWithCustomGroups.value.sections)
+const standaloneCustomMenuGroupSectionsForAdminPersonal = computed(
+  (): CustomMenuGroupSection[] => personalNavSectionsWithCustomGroups.value.standaloneCustomSections
+)
 
 const customMenuItemsForAdmin = computed(() => {
   return adminSettingsStore.customMenuItems

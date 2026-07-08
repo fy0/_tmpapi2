@@ -58,15 +58,22 @@ describe('AppSidebar user navigation sections', () => {
     expect(apiManagementSection).toContain("path: '/monitor'")
   })
 
-  it('groups service routes under services and keeps profile separate', () => {
-    const servicesSection = sourceBetween("key: 'services'", "key: 'profile'")
-    const profileSection = sourceBetween("key: 'profile'", '\n  return sections')
+  it('groups service routes under services and keeps profile out of the sidebar', () => {
+    const servicesSection = sourceBetween("key: 'services'", "key: 'custom-default'")
+    const defaultCustomSection = sourceBetween("key: 'custom-default'", '\n  return sections')
 
     expect(servicesSection).toContain("path: '/subscriptions'")
     expect(servicesSection).toContain("path: '/invoices'")
     expect(servicesSection).toContain("path: '/support-tickets'")
     expect(servicesSection).toContain("path: '/redeem'")
-    expect(profileSection).toContain("path: '/profile'")
-    expect(profileSection).toContain('defaultCustomMenuItemsForUser.value.map(customMenuNavItem)')
+    expect(defaultCustomSection).not.toContain("path: '/profile'")
+    expect(defaultCustomSection).toContain('defaultCustomMenuItemsForUser.value.map(customMenuNavItem)')
+  })
+
+  it('merges custom groups with built-in sections before rendering standalone groups', () => {
+    expect(componentSource).toContain('mergeCustomGroupSectionsIntoNavSections(')
+    expect(componentSource).toContain('targetSection.items.push(...customSection.items)')
+    expect(componentSource).toContain('standaloneCustomMenuGroupSectionsForUser')
+    expect(componentSource).toContain('standaloneCustomMenuGroupSectionsForAdminPersonal')
   })
 })
