@@ -121,32 +121,36 @@
           </component>
         </div>
 
-        <!-- Personal Section for Admin (hidden in simple mode) -->
-        <div v-if="!authStore.isSimpleMode" class="sidebar-section">
-          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
-            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
-              {{ t('nav.myAccount') }}
-            </span>
+        <template v-if="!authStore.isSimpleMode">
+          <!-- Personal Sections for Admin -->
+          <div
+            v-for="section in personalNavSections"
+            :key="`personal-${section.key}`"
+            class="sidebar-section"
+          >
+            <div v-if="section.title" class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+              <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+                {{ section.title }}
+              </span>
+            </div>
+
+            <component
+              :is="navItemComponent(item)"
+              v-for="item in section.items"
+              :key="item.path"
+              v-bind="navItemProps(item)"
+              class="sidebar-link mb-1 w-full"
+              :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :title="sidebarCollapsed ? item.label : undefined"
+              :data-tour="!item.externalMenuItem && item.path === '/keys' ? 'sidebar-my-keys' : undefined"
+              @click="handleNavItemClick(item, $event)"
+            >
+              <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+              <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+            </component>
           </div>
 
-          <component
-            :is="navItemComponent(item)"
-            v-for="item in personalNavItems"
-            :key="item.path"
-            v-bind="navItemProps(item)"
-            class="sidebar-link mb-1 w-full"
-            :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
-            :title="sidebarCollapsed ? item.label : undefined"
-            :data-tour="!item.externalMenuItem && item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleNavItemClick(item, $event)"
-          >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </component>
-        </div>
-
-        <template v-if="!authStore.isSimpleMode">
           <div
             v-for="section in customMenuGroupSectionsForUser"
             :key="`user-custom-${section.group}`"
@@ -178,10 +182,20 @@
 
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
-        <div class="sidebar-section">
+        <div
+          v-for="section in userNavSections"
+          :key="`user-${section.key}`"
+          class="sidebar-section"
+        >
+          <div v-if="section.title" class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+              {{ section.title }}
+            </span>
+          </div>
+
           <component
             :is="navItemComponent(item)"
-            v-for="item in userNavItems"
+            v-for="item in section.items"
             :key="item.path"
             v-bind="navItemProps(item)"
             class="sidebar-link mb-1 w-full"
@@ -306,6 +320,12 @@ interface NavItem {
    * 开关切换时菜单自动更新。
    */
   featureFlag?: () => boolean | undefined
+}
+
+interface NavSection {
+  key: string
+  title?: string
+  items: NavItem[]
 }
 
 interface CustomMenuGroupSection {
@@ -815,32 +835,50 @@ const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagSupportTicketsForUser = () => appStore.cachedPublicSettings?.ticket_entry_visibility !== 'admin'
 
-// buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
-// withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
-//
-// 条目顺序：密钥 → 用量 → 可用渠道 → 渠道状态 → 订阅/支付 → 兑换/资料。
-// 可用渠道紧挨渠道状态之上，让用户"先看自己能用什么、再看对应状态"。
-function buildSelfNavItems(withDashboard: boolean): NavItem[] {
-  const items: NavItem[] = []
+// buildSelfNavSections 构造用户自己的导航分组（用户端主菜单和管理员的个人区共享这组声明）。
+// withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员已有独立仪表盘入口）。
+function buildSelfNavSections(withDashboard: boolean): NavSection[] {
+  const sections: NavSection[] = []
   if (withDashboard) {
-    items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
+    sections.push({
+      key: 'dashboard',
+      items: [{ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon }]
+    })
   }
-  items.push(
-    { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
-    { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
-    { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
-    { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
-    { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
-    { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
-    { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
-    { path: '/invoices', label: t('nav.myInvoices'), icon: OrderListIcon, hideInSimpleMode: true },
-    { path: '/support-tickets', label: t('nav.supportTickets'), icon: BellIcon, featureFlag: flagSupportTicketsForUser },
-    { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
-    { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
-    { path: '/profile', label: t('nav.profile'), icon: UserIcon },
-    ...defaultCustomMenuItemsForUser.value.map(customMenuNavItem),
+
+  sections.push(
+    {
+      key: 'api-management',
+      title: t('nav.apiManagement'),
+      items: [
+        { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
+        { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
+        { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
+        { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
+      ]
+    },
+    {
+      key: 'services',
+      title: t('nav.services'),
+      items: [
+        { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
+        { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
+        { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
+        { path: '/invoices', label: t('nav.myInvoices'), icon: OrderListIcon, hideInSimpleMode: true },
+        { path: '/support-tickets', label: t('nav.supportTickets'), icon: BellIcon, featureFlag: flagSupportTicketsForUser },
+        { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
+        { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
+      ]
+    },
+    {
+      key: 'profile',
+      items: [
+        { path: '/profile', label: t('nav.profile'), icon: UserIcon },
+        ...defaultCustomMenuItemsForUser.value.map(customMenuNavItem),
+      ]
+    },
   )
-  return items
+  return sections
 }
 
 // finalizeNav 合并三重过滤：featureFlag 过滤 + simple 模式过滤。
@@ -849,13 +887,19 @@ function finalizeNav(items: NavItem[]): NavItem[] {
   return authStore.isSimpleMode ? visible.filter(item => !item.hideInSimpleMode) : visible
 }
 
-// User navigation items (for regular users)
-const userNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(true)))
+function finalizeNavSections(sections: NavSection[]): NavSection[] {
+  return sections
+    .map(section => ({ ...section, items: finalizeNav(section.items) }))
+    .filter(section => section.items.length > 0)
+}
 
-// Personal navigation items (for admin's "My Account" section, without Dashboard).
+// User navigation sections (for regular users)
+const userNavSections = computed((): NavSection[] => finalizeNavSections(buildSelfNavSections(true)))
+
+// Personal navigation sections (for admin's account area, without Dashboard).
 // Admins access 可用渠道 from this section just like regular users — there is no
 // separate admin entry, since the page is purely a user-facing view.
-const personalNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(false)))
+const personalNavSections = computed((): NavSection[] => finalizeNavSections(buildSelfNavSections(false)))
 
 // Custom menu items filtered by visibility
 const customMenuItemsForUser = computed(() => {

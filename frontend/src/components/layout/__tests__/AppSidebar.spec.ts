@@ -6,6 +6,20 @@ import { describe, expect, it } from 'vitest'
 
 const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
+const zhLocalePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../i18n/locales/zh.ts')
+const enLocalePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../i18n/locales/en.ts')
+const zhLocaleSource = readFileSync(zhLocalePath, 'utf8')
+const enLocaleSource = readFileSync(enLocalePath, 'utf8')
+
+function sourceBetween(start: string, end: string): string {
+  const startIndex = componentSource.indexOf(start)
+  const endIndex = componentSource.indexOf(end, startIndex + start.length)
+
+  expect(startIndex).toBeGreaterThanOrEqual(0)
+  expect(endIndex).toBeGreaterThan(startIndex)
+
+  return componentSource.slice(startIndex, endIndex)
+}
 
 describe('AppSidebar custom SVG styles', () => {
   it('does not override uploaded SVG fill or stroke colors', () => {
@@ -22,5 +36,37 @@ describe('AppSidebar version badge', () => {
     expect(componentSource).toContain('<VersionBadge :version="siteVersion" />')
     expect(componentSource).not.toContain('version badge dropdown')
     expect(componentSource).not.toContain('check-updates')
+  })
+})
+
+describe('AppSidebar user navigation sections', () => {
+  it('defines localized section titles for API management and services', () => {
+    expect(componentSource).toContain("title: t('nav.apiManagement')")
+    expect(componentSource).toContain("title: t('nav.services')")
+    expect(zhLocaleSource).toContain("apiManagement: 'API 管理'")
+    expect(zhLocaleSource).toContain("services: '服务'")
+    expect(enLocaleSource).toContain("apiManagement: 'API Management'")
+    expect(enLocaleSource).toContain("services: 'Services'")
+  })
+
+  it('groups API-related user routes under API management', () => {
+    const apiManagementSection = sourceBetween("key: 'api-management'", "key: 'services'")
+
+    expect(apiManagementSection).toContain("path: '/keys'")
+    expect(apiManagementSection).toContain("path: '/usage'")
+    expect(apiManagementSection).toContain("path: '/available-channels'")
+    expect(apiManagementSection).toContain("path: '/monitor'")
+  })
+
+  it('groups service routes under services and keeps profile separate', () => {
+    const servicesSection = sourceBetween("key: 'services'", "key: 'profile'")
+    const profileSection = sourceBetween("key: 'profile'", '\n  return sections')
+
+    expect(servicesSection).toContain("path: '/subscriptions'")
+    expect(servicesSection).toContain("path: '/invoices'")
+    expect(servicesSection).toContain("path: '/support-tickets'")
+    expect(servicesSection).toContain("path: '/redeem'")
+    expect(profileSection).toContain("path: '/profile'")
+    expect(profileSection).toContain('defaultCustomMenuItemsForUser.value.map(customMenuNavItem)')
   })
 })
