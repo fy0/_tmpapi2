@@ -1829,21 +1829,22 @@ func extractOriginFromURL(rawURL string) string {
 	return u.Scheme + "://" + u.Host
 }
 
-// parseCustomMenuItemURLs extracts URLs from a raw JSON array of custom menu items.
+// parseCustomMenuItemURLs extracts iframe URLs from a raw JSON array of custom menu items.
 func parseCustomMenuItemURLs(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || raw == "[]" {
 		return nil
 	}
 	var items []struct {
-		URL string `json:"url"`
+		URL      string `json:"url"`
+		OpenMode string `json:"open_mode"`
 	}
 	if err := json.Unmarshal([]byte(raw), &items); err != nil {
 		return nil
 	}
 	urls := make([]string, 0, len(items))
 	for _, item := range items {
-		if item.URL != "" {
+		if item.URL != "" && (item.OpenMode == "" || item.OpenMode == "embedded") {
 			urls = append(urls, item.URL)
 		}
 	}

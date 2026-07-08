@@ -5811,6 +5811,39 @@
                     </select>
                   </div>
 
+                  <!-- Open mode -->
+                  <div>
+                    <label
+                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                    >
+                      {{ t("admin.settings.customMenu.openMode") }}
+                    </label>
+                    <select v-model="item.open_mode" class="input text-sm">
+                      <option
+                        v-for="option in customMenuOpenModeOptions"
+                        :key="option.value"
+                        :value="option.value"
+                      >
+                        {{ option.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Group -->
+                  <div>
+                    <label
+                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                    >
+                      {{ t("admin.settings.customMenu.group") }}
+                    </label>
+                    <input
+                      v-model="item.group"
+                      type="text"
+                      class="input text-sm"
+                      :placeholder="t('admin.settings.customMenu.groupPlaceholder')"
+                    />
+                  </div>
+
                   <!-- URL (full width) -->
                   <div class="sm:col-span-2">
                     <label
@@ -7642,6 +7675,8 @@ import type {
 import type {
   AdminGroup,
   CustomHomeLink,
+  CustomMenuItem,
+  CustomMenuOpenMode,
   LoginAgreementDocument,
   NotifyEmailEntry,
   Proxy,
@@ -7703,6 +7738,12 @@ const paymentMethodsHref = computed(() =>
 const supportTicketEntryVisibilityOptions = computed(() => [
   { value: "all", label: t("admin.settings.site.supportTicketEntryVisibilityAll") },
   { value: "admin", label: t("admin.settings.site.supportTicketEntryVisibilityAdmin") },
+]);
+
+const customMenuOpenModeOptions = computed<Array<{ value: CustomMenuOpenMode; label: string }>>(() => [
+  { value: "embedded", label: t("admin.settings.customMenu.openModeEmbedded") },
+  { value: "external", label: t("admin.settings.customMenu.openModeExternal") },
+  { value: "external_confirm", label: t("admin.settings.customMenu.openModeExternalConfirm") },
 ]);
 
 type SettingsTab =
@@ -8431,14 +8472,7 @@ const form = reactive<SettingsForm>({
   table_default_page_size: tablePageSizeDefault,
   table_page_size_options: [10, 20, 50, 100],
   ticket_entry_visibility: "all",
-  custom_menu_items: [] as Array<{
-    id: string;
-    label: string;
-    icon_svg: string;
-    url: string;
-    visibility: "user" | "admin";
-    sort_order: number;
-  }>,
+  custom_menu_items: [] as CustomMenuItem[],
   custom_endpoints: [] as Array<{
     name: string;
     endpoint: string;
@@ -9061,6 +9095,33 @@ async function setAndCopyOIDCRedirectUrl() {
   await copyToClipboard(url, t("admin.settings.oidc.redirectUrlSetAndCopied"));
 }
 
+function normalizeCustomMenuOpenMode(value: unknown): CustomMenuOpenMode {
+  return value === "external" || value === "external_confirm" ? value : "embedded";
+}
+
+function normalizeCustomMenuItem(item: Partial<CustomMenuItem>, index: number): CustomMenuItem {
+  return {
+    id: item.id || "",
+    label: item.label || "",
+    icon_svg: item.icon_svg || "",
+    url: item.url || "",
+    page_slug: item.page_slug || undefined,
+    visibility: item.visibility === "admin" ? "admin" : "user",
+    sort_order: Number.isFinite(Number(item.sort_order)) ? Number(item.sort_order) : index,
+    open_mode: normalizeCustomMenuOpenMode(item.open_mode),
+    group: item.group || "",
+  };
+}
+
+function normalizeCustomMenuItemsForSave(items: CustomMenuItem[]): CustomMenuItem[] {
+  return items.map((item, index) => ({
+    ...item,
+    sort_order: index,
+    open_mode: normalizeCustomMenuOpenMode(item.open_mode),
+    group: (item.group || "").trim(),
+  }));
+}
+
 // Custom menu item management
 function addMenuItem() {
   form.custom_menu_items.push({
@@ -9070,6 +9131,8 @@ function addMenuItem() {
     url: "",
     visibility: "user",
     sort_order: form.custom_menu_items.length,
+    open_mode: "embedded",
+    group: "",
   });
 }
 
@@ -9352,6 +9415,9 @@ async function loadSettings() {
           open_in_new_window: link.open_in_new_window !== false,
           sort_order: link.sort_order ?? index,
         }))
+      : [];
+    form.custom_menu_items = Array.isArray(settings.custom_menu_items)
+      ? settings.custom_menu_items.map((item, index) => normalizeCustomMenuItem(item, index))
       : [];
     form.backend_mode_enabled = settings.backend_mode_enabled;
     form.default_subscriptions = normalizeDefaultSubscriptionSettings(
@@ -9814,7 +9880,7 @@ async function saveSettings() {
       table_default_page_size: form.table_default_page_size,
       table_page_size_options: form.table_page_size_options,
       ticket_entry_visibility: form.ticket_entry_visibility,
-      custom_menu_items: form.custom_menu_items,
+      custom_menu_items: normalizeCustomMenuItemsForSave(form.custom_menu_items),
       custom_endpoints: form.custom_endpoints,
       frontend_url: form.frontend_url,
       smtp_host: form.smtp_host,

@@ -164,6 +164,8 @@ export interface SendVerifyCodeResponse {
   countdown: number
 }
 
+export type CustomMenuOpenMode = 'embedded' | 'external' | 'external_confirm'
+
 export interface CustomMenuItem {
   id: string
   label: string
@@ -172,6 +174,8 @@ export interface CustomMenuItem {
   page_slug?: string
   visibility: 'user' | 'admin'
   sort_order: number
+  open_mode?: CustomMenuOpenMode
+  group?: string
 }
 
 export interface CustomEndpoint {

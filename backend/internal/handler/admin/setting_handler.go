@@ -1343,6 +1343,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		maxMenuItemURLLen     = 2048
 		maxMenuItemIconSVGLen = 10 * 1024 // 10KB
 		maxMenuItemIDLen      = 32
+		maxMenuItemGroupLen   = 50
 	)
 
 	customMenuJSON := previousSettings.CustomMenuItems
@@ -1361,9 +1362,30 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				response.BadRequest(c, "Custom menu item label is too long (max 50 characters)")
 				return
 			}
+			openMode := strings.TrimSpace(item.OpenMode)
+			if openMode == "" {
+				openMode = "embedded"
+			}
+			if openMode != "embedded" && openMode != "external" && openMode != "external_confirm" {
+				response.BadRequest(c, "Custom menu item open mode must be 'embedded', 'external', or 'external_confirm'")
+				return
+			}
+			items[i].OpenMode = openMode
+
+			group := strings.TrimSpace(item.Group)
+			if len(group) > maxMenuItemGroupLen {
+				response.BadRequest(c, "Custom menu item group is too long (max 50 characters)")
+				return
+			}
+			items[i].Group = group
+
 			urlTrimmed := strings.TrimSpace(item.URL)
 			if strings.HasPrefix(urlTrimmed, "md:") {
 				// Markdown page mode: URL = "md:<slug>"
+				if openMode != "embedded" {
+					response.BadRequest(c, "Custom menu item markdown pages must use embedded open mode")
+					return
+				}
 				slug := strings.TrimPrefix(urlTrimmed, "md:")
 				if slug == "" {
 					response.BadRequest(c, "Custom menu item markdown slug cannot be empty (use md:slug format)")
