@@ -69,11 +69,12 @@
               </div>
             </template>
             <!-- Normal item (no children) -->
-            <router-link
+            <component
+              :is="navItemComponent(item)"
               v-else
-              :to="item.path"
-              class="sidebar-link mb-1"
-              :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+              v-bind="navItemProps(item)"
+              class="sidebar-link mb-1 w-full"
+              :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :id="
                 item.path === '/admin/accounts'
@@ -84,13 +85,40 @@
                       ? 'sidebar-wallet'
                       : undefined
               "
-              @click="handleMenuItemClick(item.path)"
+              @click="handleNavItemClick(item, $event)"
             >
               <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
               <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-            </router-link>
+            </component>
           </template>
+        </div>
+
+        <div
+          v-for="section in customMenuGroupSectionsForAdmin"
+          :key="`admin-custom-${section.group}`"
+          class="sidebar-section"
+        >
+          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+              {{ section.group }}
+            </span>
+          </div>
+
+          <component
+            :is="navItemComponent(item)"
+            v-for="item in section.items"
+            :key="item.path"
+            v-bind="navItemProps(item)"
+            class="sidebar-link mb-1 w-full"
+            :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
+            :title="sidebarCollapsed ? item.label : undefined"
+            @click="handleNavItemClick(item, $event)"
+          >
+            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+          </component>
         </div>
 
         <!-- Personal Section for Admin (hidden in simple mode) -->
@@ -101,40 +129,98 @@
             </span>
           </div>
 
-          <router-link
+          <component
+            :is="navItemComponent(item)"
             v-for="item in personalNavItems"
             :key="item.path"
-            :to="item.path"
-            class="sidebar-link mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+            v-bind="navItemProps(item)"
+            class="sidebar-link mb-1 w-full"
+            :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
-            :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleMenuItemClick(item.path)"
+            :data-tour="!item.externalMenuItem && item.path === '/keys' ? 'sidebar-my-keys' : undefined"
+            @click="handleNavItemClick(item, $event)"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
+          </component>
         </div>
+
+        <template v-if="!authStore.isSimpleMode">
+          <div
+            v-for="section in customMenuGroupSectionsForUser"
+            :key="`user-custom-${section.group}`"
+            class="sidebar-section"
+          >
+            <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+              <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+                {{ section.group }}
+              </span>
+            </div>
+
+            <component
+              :is="navItemComponent(item)"
+              v-for="item in section.items"
+              :key="item.path"
+              v-bind="navItemProps(item)"
+              class="sidebar-link mb-1 w-full"
+              :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :title="sidebarCollapsed ? item.label : undefined"
+              @click="handleNavItemClick(item, $event)"
+            >
+              <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+              <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+            </component>
+          </div>
+        </template>
       </template>
 
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
         <div class="sidebar-section">
-          <router-link
+          <component
+            :is="navItemComponent(item)"
             v-for="item in userNavItems"
             :key="item.path"
-            :to="item.path"
-            class="sidebar-link mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+            v-bind="navItemProps(item)"
+            class="sidebar-link mb-1 w-full"
+            :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
-            :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleMenuItemClick(item.path)"
+            :data-tour="!item.externalMenuItem && item.path === '/keys' ? 'sidebar-my-keys' : undefined"
+            @click="handleNavItemClick(item, $event)"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
+          </component>
+        </div>
+
+        <div
+          v-for="section in customMenuGroupSectionsForUser"
+          :key="`user-custom-${section.group}`"
+          class="sidebar-section"
+        >
+          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
+              {{ section.group }}
+            </span>
+          </div>
+
+          <component
+            :is="navItemComponent(item)"
+            v-for="item in section.items"
+            :key="item.path"
+            v-bind="navItemProps(item)"
+            class="sidebar-link mb-1 w-full"
+            :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
+            :title="sidebarCollapsed ? item.label : undefined"
+            @click="handleNavItemClick(item, $event)"
+          >
+            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+          </component>
         </div>
       </template>
     </nav>
@@ -177,16 +263,28 @@
       @click="closeMobile"
     ></div>
   </transition>
+
+  <ConfirmDialog
+    :show="Boolean(pendingExternalMenuItem)"
+    :title="t('customPage.externalConfirmTitle')"
+    :message="externalConfirmMessage"
+    :confirm-text="t('customPage.externalConfirmOpen')"
+    @confirm="confirmExternalNavigation"
+    @cancel="cancelExternalNavigation"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
 import VersionBadge from '@/components/common/VersionBadge.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
+import { keysAPI } from '@/api'
+import type { CustomMenuItem } from '@/types'
 
 interface NavItem {
   path: string
@@ -195,6 +293,7 @@ interface NavItem {
   iconSvg?: string
   hideInSimpleMode?: boolean
   children?: NavItem[]
+  externalMenuItem?: CustomMenuItem
   /**
    * When true, the parent item only toggles the expand/collapse state and
    * does NOT navigate to its `path`. The `path` is purely a stable key.
@@ -207,6 +306,11 @@ interface NavItem {
    * 开关切换时菜单自动更新。
    */
   featureFlag?: () => boolean | undefined
+}
+
+interface CustomMenuGroupSection {
+  group: string
+  items: NavItem[]
 }
 
 // applyFeatureFlags 递归过滤掉 featureFlag() === false 的节点（含子节点）。
@@ -246,6 +350,62 @@ const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => appStore.siteLogo)
 const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
+const pendingExternalMenuItem = ref<CustomMenuItem | null>(null)
+const externalConfirmMessage = computed(() => {
+  const item = pendingExternalMenuItem.value
+  return t('customPage.externalConfirmMessage', {
+    label: item?.label || '',
+    url: item?.url || '',
+  })
+})
+
+const IMG_KEY_PLACEHOLDER = '[img-key]'
+
+function normalizeCustomMenuGroup(item: CustomMenuItem): string {
+  return (item.group || '').trim()
+}
+
+function isExternalCustomMenuItem(item: CustomMenuItem): boolean {
+  return item.open_mode === 'external' || item.open_mode === 'external_confirm'
+}
+
+function customMenuNavItem(item: CustomMenuItem): NavItem {
+  const external = isExternalCustomMenuItem(item)
+  return {
+    path: external ? `custom-external:${item.id}` : `/custom/${item.id}`,
+    label: item.label,
+    icon: null,
+    iconSvg: item.icon_svg,
+    externalMenuItem: external ? item : undefined,
+  }
+}
+
+function groupCustomMenuItems(items: CustomMenuItem[]): CustomMenuGroupSection[] {
+  const sections: CustomMenuGroupSection[] = []
+  const index = new Map<string, CustomMenuGroupSection>()
+
+  for (const item of items) {
+    const group = normalizeCustomMenuGroup(item)
+    if (!group) continue
+    let section = index.get(group)
+    if (!section) {
+      section = { group, items: [] }
+      index.set(group, section)
+      sections.push(section)
+    }
+    section.items.push(customMenuNavItem(item))
+  }
+
+  return sections
+}
+
+function navItemComponent(item: NavItem) {
+  return item.externalMenuItem ? 'button' : RouterLink
+}
+
+function navItemProps(item: NavItem) {
+  return item.externalMenuItem ? { type: 'button' } : { to: item.path }
+}
 
 // SVG Icon Components
 const DashboardIcon = {
@@ -678,12 +838,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
     { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
-    ...customMenuItemsForUser.value.map((item): NavItem => ({
-      path: `/custom/${item.id}`,
-      label: item.label,
-      icon: null,
-      iconSvg: item.icon_svg,
-    })),
+    ...defaultCustomMenuItemsForUser.value.map(customMenuNavItem),
   )
   return items
 }
@@ -710,10 +865,26 @@ const customMenuItemsForUser = computed(() => {
     .sort((a, b) => a.sort_order - b.sort_order)
 })
 
+const defaultCustomMenuItemsForUser = computed(() => {
+  return customMenuItemsForUser.value.filter((item) => !normalizeCustomMenuGroup(item))
+})
+
+const customMenuGroupSectionsForUser = computed(() => {
+  return groupCustomMenuItems(customMenuItemsForUser.value)
+})
+
 const customMenuItemsForAdmin = computed(() => {
   return adminSettingsStore.customMenuItems
     .filter((item) => item.visibility === 'admin')
     .sort((a, b) => a.sort_order - b.sort_order)
+})
+
+const defaultCustomMenuItemsForAdmin = computed(() => {
+  return customMenuItemsForAdmin.value.filter((item) => !normalizeCustomMenuGroup(item))
+})
+
+const customMenuGroupSectionsForAdmin = computed(() => {
+  return groupCustomMenuItems(customMenuItemsForAdmin.value)
 })
 
 // Admin navigation items
@@ -779,15 +950,15 @@ const adminNavItems = computed((): NavItem[] => {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
-    for (const cm of customMenuItemsForAdmin.value) {
-      filtered.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
+    for (const cm of defaultCustomMenuItemsForAdmin.value) {
+      filtered.push(customMenuNavItem(cm))
     }
     return filtered
   }
 
   visible.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
-  for (const cm of customMenuItemsForAdmin.value) {
-    visible.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
+  for (const cm of defaultCustomMenuItemsForAdmin.value) {
+    visible.push(customMenuNavItem(cm))
   }
   return visible
 })
@@ -806,12 +977,16 @@ function closeMobile() {
   appStore.setMobileOpen(false)
 }
 
-function handleMenuItemClick(itemPath: string) {
+function scheduleMobileClose() {
   if (mobileOpen.value) {
     setTimeout(() => {
       appStore.setMobileOpen(false)
     }, 150)
   }
+}
+
+function handleMenuItemClick(itemPath: string) {
+  scheduleMobileClose()
 
   // Map paths to tour selectors
   const pathToSelector: Record<string, string> = {
@@ -826,8 +1001,97 @@ function handleMenuItemClick(itemPath: string) {
   }
 }
 
+function validateExternalCustomMenuUrl(url: string): string {
+  const trimmed = url.trim()
+  if (!/^https?:\/\//i.test(trimmed)) {
+    throw new Error('invalid-url')
+  }
+  return trimmed
+}
+
+async function resolveExternalCustomMenuUrl(item: CustomMenuItem): Promise<string> {
+  const rawUrl = (item.url || '').trim()
+  if (!rawUrl) {
+    throw new Error('invalid-url')
+  }
+
+  let resolvedUrl = rawUrl
+  if (resolvedUrl.includes(IMG_KEY_PLACEHOLDER)) {
+    const imageKey = await keysAPI.getImageKey()
+    if (!imageKey.key) {
+      throw new Error('missing-image-key')
+    }
+    resolvedUrl = resolvedUrl.split(IMG_KEY_PLACEHOLDER).join(encodeURIComponent(imageKey.key))
+  }
+
+  return validateExternalCustomMenuUrl(resolvedUrl)
+}
+
+function showExternalOpenError(error: unknown) {
+  const message = error instanceof Error && error.message === 'missing-image-key'
+    ? t('customPage.imgKeyMissingDesc')
+    : t('customPage.externalOpenFailed')
+  appStore.showError(message)
+}
+
+function openExternalWindow(url: string) {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function openExternalMenuItem(item: CustomMenuItem) {
+  const rawUrl = (item.url || '').trim()
+  if (!rawUrl.includes(IMG_KEY_PLACEHOLDER)) {
+    try {
+      openExternalWindow(validateExternalCustomMenuUrl(rawUrl))
+    } catch (error) {
+      showExternalOpenError(error)
+    }
+    return
+  }
+
+  void resolveExternalCustomMenuUrl(item)
+    .then(openExternalWindow)
+    .catch((error) => {
+      showExternalOpenError(error)
+    })
+}
+
+function handleExternalMenuItemClick(item: CustomMenuItem) {
+  scheduleMobileClose()
+  if (item.open_mode === 'external_confirm') {
+    pendingExternalMenuItem.value = item
+    return
+  }
+  openExternalMenuItem(item)
+}
+
+function handleNavItemClick(item: NavItem, event: MouseEvent) {
+  if (item.externalMenuItem) {
+    event.preventDefault()
+    handleExternalMenuItemClick(item.externalMenuItem)
+    return
+  }
+  handleMenuItemClick(item.path)
+}
+
+function confirmExternalNavigation() {
+  const item = pendingExternalMenuItem.value
+  pendingExternalMenuItem.value = null
+  if (item) {
+    openExternalMenuItem(item)
+  }
+}
+
+function cancelExternalNavigation() {
+  pendingExternalMenuItem.value = null
+}
+
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
+}
+
+function isNavItemActive(item: NavItem): boolean {
+  return item.externalMenuItem ? false : isActive(item.path)
 }
 
 function isGroupActive(item: NavItem): boolean {
