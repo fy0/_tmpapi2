@@ -90,8 +90,8 @@ func TestUpdateServiceCheckUpdatePinnedAndOffline(t *testing.T) {
 	info, err := svc.CheckUpdate(context.Background(), true)
 
 	require.NoError(t, err)
-	require.Equal(t, "v0.1.138", info.CurrentVersion)
-	require.Equal(t, "v0.1.138", info.LatestVersion)
+	require.Equal(t, "v0.1.144", info.CurrentVersion)
+	require.Equal(t, "v0.1.144", info.LatestVersion)
 	require.False(t, info.HasUpdate)
 	require.Nil(t, info.ReleaseInfo)
 	require.False(t, info.Cached)

@@ -25,7 +25,7 @@ var (
 
 const (
 	// PinnedVersion is the fixed version exposed by update and public settings APIs.
-	PinnedVersion = "v0.1.138"
+	PinnedVersion = "v0.1.144"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"

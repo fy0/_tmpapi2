@@ -45,7 +45,7 @@ RUN pnpm run build
 FROM --platform=$BUILDPLATFORM ${GOLANG_IMAGE} AS backend-builder
 
 # Build arguments for version info (set by CI)
-ARG VERSION=v0.1.138
+ARG VERSION=v0.1.144
 ARG COMMIT=docker
 ARG DATE
 ARG TARGETOS
