@@ -14,9 +14,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 
+	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 )
 
@@ -44,7 +46,6 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetKey(key.Key).
 		SetName(key.Name).
 		SetStatus(key.Status).
-		SetIsImageKey(key.IsImageKey).
 		SetNillableGroupID(key.GroupID).
 		SetNillableLastUsedAt(key.LastUsedAt).
 		SetQuota(key.Quota).
@@ -178,11 +179,17 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldWeeklyLimitUsd,
 				group.FieldMonthlyLimitUsd,
 				group.FieldAllowImageGeneration,
+				group.FieldAllowBatchImageGeneration,
 				group.FieldImageRateIndependent,
 				group.FieldImageRateMultiplier,
 				group.FieldImagePrice1k,
 				group.FieldImagePrice2k,
 				group.FieldImagePrice4k,
+				group.FieldVideoRateIndependent,
+				group.FieldVideoRateMultiplier,
+				group.FieldVideoPrice480p,
+				group.FieldVideoPrice720p,
+				group.FieldVideoPrice1080p,
 				group.FieldResponsesImageGenerationRedirectGroupID,
 				group.FieldClaudeCodeOnly,
 				group.FieldFallbackGroupID,
@@ -224,7 +231,6 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 		Where(apikey.IDEQ(key.ID), apikey.DeletedAtIsNil()).
 		SetName(key.Name).
 		SetStatus(key.Status).
-		SetIsImageKey(key.IsImageKey).
 		SetQuota(key.Quota).
 		SetQuotaUsed(key.QuotaUsed).
 		SetRateLimit5h(key.RateLimit5h).
@@ -287,99 +293,6 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 
 	// 使用同一时间戳回填，避免并发删除导致二次查询失败。
 	key.UpdatedAt = now
-	return nil
-}
-
-func (r *apiKeyRepository) GetImageKeyCandidate(ctx context.Context, userID int64) (*service.APIKey, error) {
-	m, err := r.activeQuery().
-		Where(
-			apikey.UserIDEQ(userID),
-			apikey.StatusEQ(service.StatusActive),
-			apikey.Or(apikey.ExpiresAtIsNil(), apikey.ExpiresAtGT(time.Now())),
-			apikey.HasGroupWith(
-				group.DeletedAtIsNil(),
-				group.StatusEQ(service.StatusActive),
-				group.PlatformEQ(service.PlatformOpenAI),
-				group.AllowImageGenerationEQ(true),
-			),
-		).
-		WithGroup().
-		Order(dbent.Desc(apikey.FieldIsImageKey), dbent.Asc(apikey.FieldCreatedAt), dbent.Asc(apikey.FieldID)).
-		First(ctx)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return apiKeyEntityToService(m), nil
-}
-
-func (r *apiKeyRepository) SetImageKey(ctx context.Context, userID, apiKeyID int64) error {
-	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
-		return r.setImageKey(ctx, existingTx.Client(), userID, apiKeyID)
-	}
-
-	tx, err := r.client.Tx(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	txCtx := dbent.NewTxContext(ctx, tx)
-	if err := r.setImageKey(txCtx, tx.Client(), userID, apiKeyID); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func (r *apiKeyRepository) setImageKey(ctx context.Context, client *dbent.Client, userID, apiKeyID int64) error {
-	exists, err := client.APIKey.Query().
-		Where(
-			apikey.IDEQ(apiKeyID),
-			apikey.UserIDEQ(userID),
-			apikey.DeletedAtIsNil(),
-			apikey.StatusEQ(service.StatusActive),
-			apikey.Or(apikey.ExpiresAtIsNil(), apikey.ExpiresAtGT(time.Now())),
-			apikey.HasGroupWith(
-				group.DeletedAtIsNil(),
-				group.StatusEQ(service.StatusActive),
-				group.PlatformEQ(service.PlatformOpenAI),
-				group.AllowImageGenerationEQ(true),
-			),
-		).
-		Exist(ctx)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return service.ErrAPIKeyImageKeyIneligible
-	}
-
-	if _, err := client.APIKey.Update().
-		Where(
-			apikey.UserIDEQ(userID),
-			apikey.DeletedAtIsNil(),
-			apikey.IsImageKeyEQ(true),
-			apikey.IDNEQ(apiKeyID),
-		).
-		SetIsImageKey(false).
-		SetUpdatedAt(time.Now()).
-		Save(ctx); err != nil {
-		return err
-	}
-
-	affected, err := client.APIKey.Update().
-		Where(apikey.IDEQ(apiKeyID), apikey.UserIDEQ(userID), apikey.DeletedAtIsNil()).
-		SetIsImageKey(true).
-		SetUpdatedAt(time.Now()).
-		Save(ctx)
-	if err != nil {
-		return err
-	}
-	if affected == 0 {
-		return service.ErrAPIKeyNotFound
-	}
 	return nil
 }
 
@@ -483,10 +396,9 @@ func (r *apiKeyRepository) deleteWithAudit(ctx context.Context, exec *dbent.Clie
 	return nil
 }
 
-func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters service.APIKeyListFilters) ([]service.APIKey, *pagination.PaginationResult, error) {
+func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service.APIKeyListFilters) *dbent.APIKeyQuery {
 	q := r.activeQuery().Where(apikey.UserIDEQ(userID))
 
-	// Apply filters
 	if filters.Search != "" {
 		q = q.Where(apikey.Or(
 			apikey.NameContainsFold(filters.Search),
@@ -503,6 +415,12 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 			q = q.Where(apikey.GroupIDEQ(*filters.GroupID))
 		}
 	}
+
+	return q
+}
+
+func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters service.APIKeyListFilters) ([]service.APIKey, *pagination.PaginationResult, error) {
+	q := r.apiKeyListByUserIDQuery(userID, filters)
 
 	total, err := q.Count(ctx)
 	if err != nil {
@@ -526,8 +444,117 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 	for i := range keys {
 		outKeys = append(outKeys, *apiKeyEntityToService(keys[i]))
 	}
+	if err := r.attachLastUsedIPs(ctx, outKeys); err != nil {
+		return nil, nil, err
+	}
 
 	return outKeys, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *apiKeyRepository) ListAllByUserID(ctx context.Context, userID int64, filters service.APIKeyListFilters) ([]service.APIKey, error) {
+	keys, err := r.apiKeyListByUserIDQuery(userID, filters).
+		WithGroup().
+		Order(dbent.Asc(apikey.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	outKeys := make([]service.APIKey, 0, len(keys))
+	for i := range keys {
+		outKeys = append(outKeys, *apiKeyEntityToService(keys[i]))
+	}
+	if err := r.attachLastUsedIPs(ctx, outKeys); err != nil {
+		return nil, err
+	}
+	return outKeys, nil
+}
+
+func (r *apiKeyRepository) attachLastUsedIPs(ctx context.Context, keys []service.APIKey) error {
+	if len(keys) == 0 || r.sql == nil {
+		return nil
+	}
+
+	apiKeyIDs := make([]int64, 0, len(keys))
+	for i := range keys {
+		apiKeyIDs = append(apiKeyIDs, keys[i].ID)
+	}
+
+	lastUsedIPs, err := r.latestUsageLogIPs(ctx, apiKeyIDs)
+	if err != nil {
+		return err
+	}
+	for i := range keys {
+		if ip, ok := lastUsedIPs[keys[i].ID]; ok {
+			keys[i].LastUsedIP = &ip
+		}
+	}
+	return nil
+}
+
+func (r *apiKeyRepository) latestUsageLogIPs(ctx context.Context, apiKeyIDs []int64) (result map[int64]string, err error) {
+	if len(apiKeyIDs) == 0 || r.sql == nil {
+		return map[int64]string{}, nil
+	}
+
+	query, args := latestUsageLogIPsQuery(apiKeyIDs, r.client.Driver().Dialect())
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+
+	out := make(map[int64]string, len(apiKeyIDs))
+	for rows.Next() {
+		var apiKeyID int64
+		var ipAddress string
+		if err := rows.Scan(&apiKeyID, &ipAddress); err != nil {
+			return nil, err
+		}
+		out[apiKeyID] = ipAddress
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func latestUsageLogIPsQuery(apiKeyIDs []int64, dialectName string) (string, []any) {
+	if dialectName == dialect.Postgres {
+		return `
+		SELECT api_key_id, ip_address
+		FROM (
+			SELECT api_key_id, ip_address,
+				ROW_NUMBER() OVER (PARTITION BY api_key_id ORDER BY created_at DESC, id DESC) AS rn
+			FROM usage_logs
+			WHERE api_key_id = ANY($1::bigint[])
+				AND ip_address IS NOT NULL
+				AND ip_address <> ''
+		) ranked
+		WHERE rn = 1`, []any{pq.Array(apiKeyIDs)}
+	}
+
+	placeholders := make([]string, len(apiKeyIDs))
+	args := make([]any, len(apiKeyIDs))
+	for i, id := range apiKeyIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	return fmt.Sprintf(`
+		SELECT api_key_id, ip_address
+		FROM (
+			SELECT api_key_id, ip_address,
+				ROW_NUMBER() OVER (PARTITION BY api_key_id ORDER BY created_at DESC, id DESC) AS rn
+			FROM usage_logs
+			WHERE api_key_id IN (%s)
+				AND ip_address IS NOT NULL
+				AND ip_address <> ''
+		) ranked
+		WHERE rn = 1`, strings.Join(placeholders, ", ")), args
 }
 
 func (r *apiKeyRepository) VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error) {
@@ -599,14 +626,24 @@ func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector
 		field = apikey.FieldLastUsedAt
 	case "created_at":
 		field = apikey.FieldCreatedAt
+	case "id":
+		field = apikey.FieldID
 	default:
 		field = apikey.FieldID
 	}
 
 	if sortOrder == pagination.SortOrderAsc {
-		return []func(*entsql.Selector){dbent.Asc(field), dbent.Asc(apikey.FieldID)}
+		orders := []func(*entsql.Selector){dbent.Asc(field)}
+		if field != apikey.FieldID {
+			orders = append(orders, dbent.Asc(apikey.FieldID))
+		}
+		return orders
 	}
-	return []func(*entsql.Selector){dbent.Desc(field), dbent.Desc(apikey.FieldID)}
+	orders := []func(*entsql.Selector){dbent.Desc(field)}
+	if field != apikey.FieldID {
+		orders = append(orders, dbent.Desc(apikey.FieldID))
+	}
+	return orders
 }
 
 // SearchAPIKeys searches API keys by user ID and/or keyword (name)
@@ -809,7 +846,6 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		CreatedAt:     m.CreatedAt,
 		UpdatedAt:     m.UpdatedAt,
 		GroupID:       m.GroupID,
-		IsImageKey:    m.IsImageKey,
 		Quota:         m.Quota,
 		QuotaUsed:     m.QuotaUsed,
 		ExpiresAt:     m.ExpiresAt,
@@ -852,6 +888,7 @@ func userEntityToService(u *dbent.User) *service.User {
 		PasswordHash:               u.PasswordHash,
 		Role:                       u.Role,
 		Balance:                    u.Balance,
+		FrozenBalance:              u.FrozenBalance,
 		Concurrency:                u.Concurrency,
 		Status:                     u.Status,
 		SignupSource:               u.SignupSource,
@@ -894,15 +931,19 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		WeeklyLimitUSD:                          g.WeeklyLimitUsd,
 		MonthlyLimitUSD:                         g.MonthlyLimitUsd,
 		AllowImageGeneration:                    g.AllowImageGeneration,
+		AllowBatchImageGeneration:               g.AllowBatchImageGeneration,
 		ImageRateIndependent:                    g.ImageRateIndependent,
 		ImageRateMultiplier:                     g.ImageRateMultiplier,
-		PeakRateEnabled:                         g.PeakRateEnabled,
-		PeakStart:                               g.PeakStart,
-		PeakEnd:                                 g.PeakEnd,
-		PeakRateMultiplier:                      g.PeakRateMultiplier,
 		ImagePrice1K:                            g.ImagePrice1k,
 		ImagePrice2K:                            g.ImagePrice2k,
 		ImagePrice4K:                            g.ImagePrice4k,
+		BatchImageDiscountMultiplier:            g.BatchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:                g.BatchImageHoldMultiplier,
+		VideoRateIndependent:                    g.VideoRateIndependent,
+		VideoRateMultiplier:                     g.VideoRateMultiplier,
+		VideoPrice480P:                          g.VideoPrice480p,
+		VideoPrice720P:                          g.VideoPrice720p,
+		VideoPrice1080P:                         g.VideoPrice1080p,
 		ResponsesImageGenerationRedirectGroupID: g.ResponsesImageGenerationRedirectGroupID,
 		DefaultValidityDays:                     g.DefaultValidityDays,
 		ClaudeCodeOnly:                          g.ClaudeCodeOnly,
@@ -920,6 +961,10 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		MessagesDispatchModelConfig:             g.MessagesDispatchModelConfig,
 		ModelsListConfig:                        g.ModelsListConfig,
 		RPMLimit:                                g.RpmLimit,
+		PeakRateEnabled:                         g.PeakRateEnabled,
+		PeakStart:                               g.PeakStart,
+		PeakEnd:                                 g.PeakEnd,
+		PeakRateMultiplier:                      g.PeakRateMultiplier,
 		CreatedAt:                               g.CreatedAt,
 		UpdatedAt:                               g.UpdatedAt,
 	}

@@ -564,11 +564,11 @@ func normalizedInvoicePage(params service.InvoiceListParams) (int, int) {
 	return page, pageSize
 }
 
-type rowScanner interface {
+type invoiceRowScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanInvoiceRequest(scanner rowScanner) (*service.InvoiceRequest, error) {
+func scanInvoiceRequest(scanner invoiceRowScanner) (*service.InvoiceRequest, error) {
 	var item service.InvoiceRequest
 	var uploadedBy sql.NullInt64
 	var issuedAt sql.NullTime
@@ -612,7 +612,7 @@ func scanInvoiceRequest(scanner rowScanner) (*service.InvoiceRequest, error) {
 	return &item, nil
 }
 
-func scanInvoiceRecharge(scanner rowScanner) (service.InvoiceRecharge, error) {
+func scanInvoiceRecharge(scanner invoiceRowScanner) (service.InvoiceRecharge, error) {
 	var recharge service.InvoiceRecharge
 	var usedAt sql.NullTime
 	err := scanner.Scan(
