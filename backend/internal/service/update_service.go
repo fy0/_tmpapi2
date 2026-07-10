@@ -29,7 +29,7 @@ var (
 
 const (
 	// PinnedVersion is the fixed version exposed by update and public settings APIs.
-	PinnedVersion = "v0.1.149"
+	PinnedVersion = "v0.1.151"
 
 	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
