@@ -88,7 +88,11 @@ type APIKeyRepository interface {
 	GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error)
 }
 
-type apiKeyImageRepository interface {
+// APIKeyImageRepository defines the repository capabilities required by the
+// [img-key] placeholder flow. Concrete repositories should assert this
+// interface at compile time so the optional runtime type assertion cannot
+// silently regress during merges.
+type APIKeyImageRepository interface {
 	GetImageKeyCandidate(ctx context.Context, userID int64) (*APIKey, error)
 	SetImageKey(ctx context.Context, userID, apiKeyID int64) error
 }
@@ -368,8 +372,8 @@ func apiKeyEligibleForImageKey(apiKey *APIKey) bool {
 		apiKeyImageGroupEligible(apiKey.Group)
 }
 
-func (s *APIKeyService) imageRepo() apiKeyImageRepository {
-	if repo, ok := s.apiKeyRepo.(apiKeyImageRepository); ok {
+func (s *APIKeyService) imageRepo() APIKeyImageRepository {
+	if repo, ok := s.apiKeyRepo.(APIKeyImageRepository); ok {
 		return repo
 	}
 	return nil

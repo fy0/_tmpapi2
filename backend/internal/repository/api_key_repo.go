@@ -27,6 +27,8 @@ type apiKeyRepository struct {
 	sql    sqlExecutor
 }
 
+var _ service.APIKeyImageRepository = (*apiKeyRepository)(nil)
+
 func NewAPIKeyRepository(client *dbent.Client, sqlDB *sql.DB) service.APIKeyRepository {
 	return newAPIKeyRepositoryWithSQL(client, sqlDB)
 }
@@ -46,6 +48,7 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetKey(key.Key).
 		SetName(key.Name).
 		SetStatus(key.Status).
+		SetIsImageKey(key.IsImageKey).
 		SetNillableGroupID(key.GroupID).
 		SetNillableLastUsedAt(key.LastUsedAt).
 		SetQuota(key.Quota).
@@ -231,6 +234,7 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 		Where(apikey.IDEQ(key.ID), apikey.DeletedAtIsNil()).
 		SetName(key.Name).
 		SetStatus(key.Status).
+		SetIsImageKey(key.IsImageKey).
 		SetQuota(key.Quota).
 		SetQuotaUsed(key.QuotaUsed).
 		SetRateLimit5h(key.RateLimit5h).
@@ -293,6 +297,108 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 
 	// 使用同一时间戳回填，避免并发删除导致二次查询失败。
 	key.UpdatedAt = now
+	return nil
+}
+
+func (r *apiKeyRepository) GetImageKeyCandidate(ctx context.Context, userID int64) (*service.APIKey, error) {
+	m, err := r.activeQuery().
+		Where(
+			apikey.UserIDEQ(userID),
+			apikey.StatusEQ(service.StatusActive),
+			apikey.Or(apikey.ExpiresAtIsNil(), apikey.ExpiresAtGT(time.Now())),
+			apikey.HasGroupWith(
+				group.DeletedAtIsNil(),
+				group.StatusEQ(service.StatusActive),
+				group.PlatformEQ(service.PlatformOpenAI),
+				group.AllowImageGenerationEQ(true),
+			),
+		).
+		WithGroup().
+		Order(dbent.Desc(apikey.FieldIsImageKey), dbent.Asc(apikey.FieldCreatedAt), dbent.Asc(apikey.FieldID)).
+		First(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return apiKeyEntityToService(m), nil
+}
+
+func (r *apiKeyRepository) SetImageKey(ctx context.Context, userID, apiKeyID int64) error {
+	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		return r.setImageKey(ctx, existingTx.Client(), userID, apiKeyID)
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return err
+	}
+
+	exec := r.client
+	if err == nil {
+		defer func() { _ = tx.Rollback() }()
+		exec = tx.Client()
+		ctx = dbent.NewTxContext(ctx, tx)
+	}
+
+	if err := r.setImageKey(ctx, exec, userID, apiKeyID); err != nil {
+		return err
+	}
+	if tx != nil {
+		return tx.Commit()
+	}
+	return nil
+}
+
+func (r *apiKeyRepository) setImageKey(ctx context.Context, client *dbent.Client, userID, apiKeyID int64) error {
+	exists, err := client.APIKey.Query().
+		Where(
+			apikey.IDEQ(apiKeyID),
+			apikey.UserIDEQ(userID),
+			apikey.DeletedAtIsNil(),
+			apikey.StatusEQ(service.StatusActive),
+			apikey.Or(apikey.ExpiresAtIsNil(), apikey.ExpiresAtGT(time.Now())),
+			apikey.HasGroupWith(
+				group.DeletedAtIsNil(),
+				group.StatusEQ(service.StatusActive),
+				group.PlatformEQ(service.PlatformOpenAI),
+				group.AllowImageGenerationEQ(true),
+			),
+		).
+		Exist(ctx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return service.ErrAPIKeyImageKeyIneligible
+	}
+
+	now := time.Now()
+	if _, err := client.APIKey.Update().
+		Where(
+			apikey.UserIDEQ(userID),
+			apikey.DeletedAtIsNil(),
+			apikey.IsImageKeyEQ(true),
+			apikey.IDNEQ(apiKeyID),
+		).
+		SetIsImageKey(false).
+		SetUpdatedAt(now).
+		Save(ctx); err != nil {
+		return err
+	}
+
+	affected, err := client.APIKey.Update().
+		Where(apikey.IDEQ(apiKeyID), apikey.UserIDEQ(userID), apikey.DeletedAtIsNil()).
+		SetIsImageKey(true).
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAPIKeyNotFound
+	}
 	return nil
 }
 
@@ -846,6 +952,7 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		CreatedAt:     m.CreatedAt,
 		UpdatedAt:     m.UpdatedAt,
 		GroupID:       m.GroupID,
+		IsImageKey:    m.IsImageKey,
 		Quota:         m.Quota,
 		QuotaUsed:     m.QuotaUsed,
 		ExpiresAt:     m.ExpiresAt,
