@@ -64,6 +64,7 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetNillableVideoPrice480p(groupIn.VideoPrice480P).
 		SetNillableVideoPrice720p(groupIn.VideoPrice720P).
 		SetNillableVideoPrice1080p(groupIn.VideoPrice1080P).
+		SetNillableWebSearchPricePerCall(groupIn.WebSearchPricePerCall).
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
 		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
 		SetNillableFallbackGroupID(groupIn.FallbackGroupID).
@@ -220,6 +221,11 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		builder = builder.SetResponsesImageGenerationRedirectGroupID(*groupIn.ResponsesImageGenerationRedirectGroupID)
 	} else {
 		builder = builder.ClearResponsesImageGenerationRedirectGroupID()
+	}
+	if groupIn.WebSearchPricePerCall != nil {
+		builder = builder.SetWebSearchPricePerCall(*groupIn.WebSearchPricePerCall)
+	} else {
+		builder = builder.ClearWebSearchPricePerCall()
 	}
 
 	// 处理 FallbackGroupID：nil 时清除，否则设置

@@ -156,6 +156,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	videoPrice480P := normalizePrice(input.VideoPrice480P)
 	videoPrice720P := normalizePrice(input.VideoPrice720P)
 	videoPrice1080P := normalizePrice(input.VideoPrice1080P)
+	webSearchPricePerCall := normalizePrice(input.WebSearchPricePerCall)
 	imageRateMultiplier := 1.0
 	if input.ImageRateMultiplier != nil {
 		if *input.ImageRateMultiplier < 0 {
@@ -265,48 +266,49 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	}
 
 	group := &Group{
-		Name:                            input.Name,
-		Description:                     input.Description,
-		Platform:                        platform,
-		RateMultiplier:                  input.RateMultiplier,
-		IsExclusive:                     input.IsExclusive,
-		Status:                          StatusActive,
-		SubscriptionType:                subscriptionType,
-		DailyLimitUSD:                   dailyLimit,
-		WeeklyLimitUSD:                  weeklyLimit,
-		MonthlyLimitUSD:                 monthlyLimit,
-		AllowImageGeneration:            allowImageGeneration,
-		AllowBatchImageGeneration:       allowBatchImageGeneration,
-		ImageRateIndependent:            input.ImageRateIndependent,
-		ImageRateMultiplier:             imageRateMultiplier,
-		BatchImageDiscountMultiplier:    batchImageDiscountMultiplier,
-		BatchImageHoldMultiplier:        batchImageHoldMultiplier,
-		VideoRateIndependent:            input.VideoRateIndependent,
-		VideoRateMultiplier:             videoRateMultiplier,
-		PeakRateEnabled:                 peakRateEnabled,
-		PeakStart:                       peakStart,
-		PeakEnd:                         peakEnd,
-		PeakRateMultiplier:              peakRateMultiplier,
-		ImagePrice1K:                    imagePrice1K,
-		ImagePrice2K:                    imagePrice2K,
-		ImagePrice4K:                    imagePrice4K,
-		VideoPrice480P:                  videoPrice480P,
-		VideoPrice720P:                  videoPrice720P,
-		VideoPrice1080P:                 videoPrice1080P,
+		Name:                                    input.Name,
+		Description:                             input.Description,
+		Platform:                                platform,
+		RateMultiplier:                          input.RateMultiplier,
+		IsExclusive:                             input.IsExclusive,
+		Status:                                  StatusActive,
+		SubscriptionType:                        subscriptionType,
+		DailyLimitUSD:                           dailyLimit,
+		WeeklyLimitUSD:                          weeklyLimit,
+		MonthlyLimitUSD:                         monthlyLimit,
+		AllowImageGeneration:                    allowImageGeneration,
+		AllowBatchImageGeneration:               allowBatchImageGeneration,
+		ImageRateIndependent:                    input.ImageRateIndependent,
+		ImageRateMultiplier:                     imageRateMultiplier,
+		BatchImageDiscountMultiplier:            batchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:                batchImageHoldMultiplier,
+		VideoRateIndependent:                    input.VideoRateIndependent,
+		VideoRateMultiplier:                     videoRateMultiplier,
+		PeakRateEnabled:                         peakRateEnabled,
+		PeakStart:                               peakStart,
+		PeakEnd:                                 peakEnd,
+		PeakRateMultiplier:                      peakRateMultiplier,
+		ImagePrice1K:                            imagePrice1K,
+		ImagePrice2K:                            imagePrice2K,
+		ImagePrice4K:                            imagePrice4K,
+		VideoPrice480P:                          videoPrice480P,
+		VideoPrice720P:                          videoPrice720P,
+		VideoPrice1080P:                         videoPrice1080P,
 		ResponsesImageGenerationRedirectGroupID: responsesImageRedirectGroupID,
-		ClaudeCodeOnly:                  input.ClaudeCodeOnly,
-		FallbackGroupID:                 input.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
-		ModelRouting:                    input.ModelRouting,
-		MCPXMLInject:                    mcpXMLInject,
-		SupportedModelScopes:            input.SupportedModelScopes,
-		AllowMessagesDispatch:           input.AllowMessagesDispatch,
-		RequireOAuthOnly:                input.RequireOAuthOnly,
-		RequirePrivacySet:               input.RequirePrivacySet,
-		DefaultMappedModel:              input.DefaultMappedModel,
-		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
-		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
-		RPMLimit:                        input.RPMLimit,
+		WebSearchPricePerCall:                   webSearchPricePerCall,
+		ClaudeCodeOnly:                          input.ClaudeCodeOnly,
+		FallbackGroupID:                         input.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest:         fallbackOnInvalidRequest,
+		ModelRouting:                            input.ModelRouting,
+		MCPXMLInject:                            mcpXMLInject,
+		SupportedModelScopes:                    input.SupportedModelScopes,
+		AllowMessagesDispatch:                   input.AllowMessagesDispatch,
+		RequireOAuthOnly:                        input.RequireOAuthOnly,
+		RequirePrivacySet:                       input.RequirePrivacySet,
+		DefaultMappedModel:                      input.DefaultMappedModel,
+		MessagesDispatchModelConfig:             normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
+		ModelsListConfig:                        normalizeGroupModelsListConfig(input.ModelsListConfig),
+		RPMLimit:                                input.RPMLimit,
 	}
 	sanitizeGroupResponsesImageRedirectFields(group)
 	sanitizeGroupMessagesDispatchFields(group)
@@ -600,6 +602,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		group.ResponsesImageGenerationRedirectGroupID = redirectGroupID
 	}
 	sanitizeGroupResponsesImageRedirectFields(group)
+	if input.WebSearchPricePerCall != nil {
+		group.WebSearchPricePerCall = normalizePrice(input.WebSearchPricePerCall)
+	}
 
 	// Claude Code 客户端限制
 	if input.ClaudeCodeOnly != nil {

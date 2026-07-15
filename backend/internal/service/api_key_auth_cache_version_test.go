@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAPIKeyService_RejectsV10AuthSnapshotWithoutModelsListConfig(t *testing.T) {
+func TestAPIKeyService_RejectsV15AuthSnapshotAfterForkAndUpstreamFieldsMerged(t *testing.T) {
 	groupID := int64(9)
 	svc := &APIKeyService{}
 
-	apiKey, ok, err := svc.applyAuthCacheEntry("k-legacy-models-list", &APIKeyAuthCacheEntry{
+	apiKey, ok, err := svc.applyAuthCacheEntry("k-legacy-v15", &APIKeyAuthCacheEntry{
 		Snapshot: &APIKeyAuthSnapshot{
-			Version:  10,
+			Version:  15,
 			APIKeyID: 1,
 			UserID:   2,
 			GroupID:  &groupID,
@@ -40,7 +40,7 @@ func TestAPIKeyService_RejectsV10AuthSnapshotWithoutModelsListConfig(t *testing.
 		t.Fatalf("expected stale snapshot to be ignored without error, got %v", err)
 	}
 	if ok {
-		t.Fatalf("expected v10 auth snapshot to be rejected after models_list_config was added")
+		t.Fatalf("expected v15 auth snapshot to be rejected after fork and upstream fields were merged")
 	}
 	if apiKey != nil {
 		t.Fatalf("expected no API key from stale snapshot, got %#v", apiKey)
@@ -50,6 +50,7 @@ func TestAPIKeyService_RejectsV10AuthSnapshotWithoutModelsListConfig(t *testing.
 func TestAPIKeyAuthSnapshotPreservesMergedImageGenerationFields(t *testing.T) {
 	groupID := int64(9)
 	redirectGroupID := int64(23)
+	webSearchPrice := 0.025
 	svc := &APIKeyService{}
 
 	snapshot := svc.snapshotFromAPIKey(context.Background(), &APIKey{
@@ -72,6 +73,7 @@ func TestAPIKeyAuthSnapshotPreservesMergedImageGenerationFields(t *testing.T) {
 			VideoRateIndependent:                    true,
 			VideoRateMultiplier:                     1.25,
 			ResponsesImageGenerationRedirectGroupID: &redirectGroupID,
+			WebSearchPricePerCall:                   &webSearchPrice,
 			PeakRateEnabled:                         true,
 			PeakRateMultiplier:                      1.5,
 		},
@@ -86,6 +88,7 @@ func TestAPIKeyAuthSnapshotPreservesMergedImageGenerationFields(t *testing.T) {
 	require.True(t, restored.Group.VideoRateIndependent)
 	require.Equal(t, 1.25, restored.Group.VideoRateMultiplier)
 	require.Equal(t, &redirectGroupID, restored.Group.ResponsesImageGenerationRedirectGroupID)
+	require.Equal(t, &webSearchPrice, restored.Group.WebSearchPricePerCall)
 	require.True(t, restored.Group.PeakRateEnabled)
 	require.Equal(t, 1.5, restored.Group.PeakRateMultiplier)
 }

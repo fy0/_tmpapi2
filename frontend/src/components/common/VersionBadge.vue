@@ -17,7 +17,7 @@ const props = defineProps<{
 
 const appStore = useAppStore()
 
-const pinnedVersion = 'v0.1.151'
+const pinnedVersion = 'v0.1.155'
 const versionPattern = /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
 
 const displayVersion = computed(() => {

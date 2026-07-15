@@ -70,12 +70,14 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 }
 
 func newRollbackTestService(current string, releases []*GitHubRelease) *UpdateService {
-	return NewUpdateService(
+	svc := NewUpdateService(
 		&updateServiceCacheStub{},
 		&updateServiceGitHubClientStub{recentReleases: releases},
 		current,
 		"release",
 	)
+	svc.currentVersion = current
+	return svc
 }
 
 func TestUpdateServiceListRollbackVersionsFiltersAndCaps(t *testing.T) {

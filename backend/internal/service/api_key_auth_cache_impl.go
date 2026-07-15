@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 15 // v15: include group video pricing and Responses image redirect fields
+const apiKeyAuthSnapshotVersion = 16 // v16: include fork image controls and upstream web search pricing
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -271,6 +271,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			VideoPrice720P:                          apiKey.Group.VideoPrice720P,
 			VideoPrice1080P:                         apiKey.Group.VideoPrice1080P,
 			ResponsesImageGenerationRedirectGroupID: apiKey.Group.ResponsesImageGenerationRedirectGroupID,
+			WebSearchPricePerCall:                   apiKey.Group.WebSearchPricePerCall,
 			ClaudeCodeOnly:                          apiKey.Group.ClaudeCodeOnly,
 			FallbackGroupID:                         apiKey.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:         apiKey.Group.FallbackGroupIDOnInvalidRequest,
@@ -355,6 +356,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			VideoPrice720P:                          snapshot.Group.VideoPrice720P,
 			VideoPrice1080P:                         snapshot.Group.VideoPrice1080P,
 			ResponsesImageGenerationRedirectGroupID: snapshot.Group.ResponsesImageGenerationRedirectGroupID,
+			WebSearchPricePerCall:                   snapshot.Group.WebSearchPricePerCall,
 			ClaudeCodeOnly:                          snapshot.Group.ClaudeCodeOnly,
 			FallbackGroupID:                         snapshot.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest:         snapshot.Group.FallbackGroupIDOnInvalidRequest,

@@ -153,8 +153,8 @@ func TestSystemHandlerPerformUpdateAlreadyUpToDateReturnsOK(t *testing.T) {
 func TestSystemHandlerGetVersionDoesNotCheckUpdates(t *testing.T) {
 	updateSvc := &systemHandlerUpdateServiceStub{
 		updateInfo: &service.UpdateInfo{
-			CurrentVersion: "v0.1.151",
-			LatestVersion:  "v0.1.151",
+			CurrentVersion: "v0.1.155",
+			LatestVersion:  "v0.1.155",
 			HasUpdate:      false,
 		},
 	}
@@ -175,7 +175,7 @@ func TestSystemHandlerGetVersionDoesNotCheckUpdates(t *testing.T) {
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	require.Equal(t, "v0.1.151", body.Data.Version)
+	require.Equal(t, "v0.1.155", body.Data.Version)
 }
 
 func TestSystemHandlerPerformUpdateFailureStillReturnsInternalError(t *testing.T) {

@@ -52,6 +52,9 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "usage_logs", "video_count", "integer", 0, false)
 	requireColumn(t, tx, "usage_logs", "video_resolution", "character varying", 10, true)
 	requireColumn(t, tx, "usage_logs", "video_duration_seconds", "integer", 0, true)
+	requireColumn(t, tx, "usage_logs", "long_context_billing_applied", "boolean", 0, false)
+	requireIndex(t, tx, "usage_logs", "idx_usage_logs_api_key_latest_ip")
+	requireColumn(t, tx, "groups", "web_search_price_per_call", "numeric", 0, true)
 	requireConstraintDefinitionContains(
 		t,
 		tx,
@@ -109,7 +112,11 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 
 	// ops_system_logs: API key id index for operational log triage
 	requireColumn(t, tx, "ops_system_logs", "api_key_id", "bigint", 0, true)
+	requireColumn(t, tx, "ops_system_logs", "host", "character varying", 255, true)
 	requireIndex(t, tx, "ops_system_logs", "idx_ops_system_logs_api_key_id_created_at")
+	requireIndex(t, tx, "ops_system_logs", "idx_ops_system_logs_host_created_at")
+	requireConstraintDefinitionContains(t, tx, "channel_monitors", "channel_monitors_provider_check", "'grok'")
+	requireConstraintDefinitionContains(t, tx, "channel_monitor_request_templates", "channel_monitor_request_templates_provider_check", "'grok'")
 
 	// user_allowed_groups table should exist
 	var uagRegclass sql.NullString
