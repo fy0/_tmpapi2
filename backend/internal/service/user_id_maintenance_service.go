@@ -408,7 +408,7 @@ ORDER BY ordinal_position`)
 	if err != nil {
 		return nil, fmt.Errorf("list users columns: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []string
 	for rows.Next() {
@@ -498,7 +498,7 @@ ORDER BY nsp.nspname, cls.relname, att.attname`)
 	if err != nil {
 		return nil, fmt.Errorf("list user fk refs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var refs []userIDMaintenanceFKRef
 	for rows.Next() {
@@ -621,7 +621,7 @@ func queryUserIDMaintenanceSubscriptionGroupIDs(ctx context.Context, q queryer, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var ids []int64
 	for rows.Next() {
 		var id int64
@@ -638,7 +638,7 @@ func queryUserIDMaintenancePlatformQuotaPlatforms(ctx context.Context, q queryer
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var platforms []string
 	for rows.Next() {
 		var platform string
