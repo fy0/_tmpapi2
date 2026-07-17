@@ -68,13 +68,14 @@ func TestAccountTestService_TestAccountConnection_GrokUsesXAIResponses(t *testin
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/13/test", nil)
 
-	err := svc.TestAccountConnection(c, account.ID, "grok", "", AccountTestModeDefault)
+	err := svc.TestAccountConnection(c, account.ID, "grok", "  custom Grok prompt  ", AccountTestModeDefault)
 	require.NoError(t, err)
 
 	require.Equal(t, "https://cli-chat-proxy.grok.com/v1/responses", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer grok-access-token", upstream.lastReq.Header.Get("Authorization"))
 	require.Equal(t, grokCLIVersion, upstream.lastReq.Header.Get("X-Grok-Client-Version"))
 	require.Equal(t, "grok-4.3", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, "custom Grok prompt", gjson.GetBytes(upstream.lastBody, "input").String())
 	require.NotContains(t, rec.Body.String(), "claude")
 	require.Contains(t, rec.Body.String(), `"model":"grok-4.3"`)
 	require.Contains(t, rec.Body.String(), `"type":"test_complete"`)
@@ -118,6 +119,7 @@ func TestAccountTestService_TestAccountConnection_GrokDefaultsEmptyModelTo45(t *
 
 	require.NoError(t, err)
 	require.Equal(t, grokDefaultResponsesModel, gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, defaultAccountTestPrompt, gjson.GetBytes(upstream.lastBody, "input").String())
 	require.Contains(t, recorder.Body.String(), `"model":"grok-4.5"`)
 }
 

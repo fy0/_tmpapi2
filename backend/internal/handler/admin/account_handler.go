@@ -38,6 +38,12 @@ type OAuthHandler struct {
 	oauthService *service.OAuthService
 }
 
+type accountTestServicePort interface {
+	TestAccountConnection(c *gin.Context, accountID int64, modelID string, prompt string, mode string) error
+	ProbeOpenAIAPIKeyResponsesSupport(ctx context.Context, accountID int64)
+	FetchUpstreamSupportedModels(ctx context.Context, account *service.Account) ([]string, error)
+}
+
 // NewOAuthHandler creates a new OAuth handler
 func NewOAuthHandler(oauthService *service.OAuthService) *OAuthHandler {
 	return &OAuthHandler{
@@ -54,7 +60,7 @@ type AccountHandler struct {
 	antigravityOAuthService *service.AntigravityOAuthService
 	rateLimitService        *service.RateLimitService
 	accountUsageService     *service.AccountUsageService
-	accountTestService      *service.AccountTestService
+	accountTestService      accountTestServicePort
 	concurrencyService      *service.ConcurrencyService
 	crsSyncService          *service.CRSSyncService
 	sessionLimitCache       service.SessionLimitCache
@@ -79,6 +85,11 @@ func NewAccountHandler(
 	rpmCache service.RPMCache,
 	tokenCacheInvalidator service.TokenCacheInvalidator,
 ) *AccountHandler {
+	var testServicePort accountTestServicePort
+	if accountTestService != nil {
+		testServicePort = accountTestService
+	}
+
 	return &AccountHandler{
 		adminService:            adminService,
 		oauthService:            oauthService,
@@ -87,7 +98,7 @@ func NewAccountHandler(
 		antigravityOAuthService: antigravityOAuthService,
 		rateLimitService:        rateLimitService,
 		accountUsageService:     accountUsageService,
-		accountTestService:      accountTestService,
+		accountTestService:      testServicePort,
 		concurrencyService:      concurrencyService,
 		crsSyncService:          crsSyncService,
 		sessionLimitCache:       sessionLimitCache,

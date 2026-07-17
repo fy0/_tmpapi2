@@ -127,9 +127,12 @@ func TestAccountTestService_OpenAISuccessPersistsSnapshotFromHeaders(t *testing.
 		Credentials: map[string]any{"access_token": "test-token"},
 	}
 
-	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
+	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "  custom OpenAI prompt  ", "")
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
+	body, err := io.ReadAll(upstream.requests[0].Body)
+	require.NoError(t, err)
+	require.Equal(t, "custom OpenAI prompt", gjson.GetBytes(body, "input.0.content.0.text").String())
 	require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.requests[0].Context()))
 	require.NotEmpty(t, repo.updatedExtra)
 	require.Equal(t, 42.0, repo.updatedExtra["codex_5h_used_percent"])
