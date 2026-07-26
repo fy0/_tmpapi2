@@ -48,6 +48,9 @@ type ChannelMonitorHistory func(*sql.Selector)
 // ChannelMonitorRequestTemplate is the predicate function for channelmonitorrequesttemplate builders.
 type ChannelMonitorRequestTemplate func(*sql.Selector)
 
+// CompositeModelRoute is the predicate function for compositemodelroute builders.
+type CompositeModelRoute func(*sql.Selector)
+
 // CustomHomeLink is the predicate function for customhomelink builders.
 type CustomHomeLink func(*sql.Selector)
 

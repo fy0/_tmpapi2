@@ -42,6 +42,8 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
+	CompositeModelRoute *CompositeModelRouteClient
 	// CustomHomeLink is the client for interacting with the CustomHomeLink builders.
 	CustomHomeLink *CustomHomeLinkClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -241,6 +243,7 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.CustomHomeLink = NewCustomHomeLinkClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)

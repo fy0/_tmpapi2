@@ -13,35 +13,35 @@ describe('VersionBadge', () => {
   it('renders a static version badge from props', () => {
     const wrapper = mount(VersionBadge, {
       props: {
-        version: 'v0.1.155',
+        version: 'v0.1.165',
       },
     })
 
-    expect(wrapper.text()).toBe('v0.1.155')
-    expect(wrapper.attributes('title')).toBe('v0.1.155')
+    expect(wrapper.text()).toBe('v0.1.165')
+    expect(wrapper.attributes('title')).toBe('v0.1.165')
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
   it('renders the pinned version before settings load', () => {
     const wrapper = mount(VersionBadge)
 
-    expect(wrapper.text()).toBe('v0.1.155')
+    expect(wrapper.text()).toBe('v0.1.165')
     expect(wrapper.find('.animate-pulse').exists()).toBe(false)
   })
 
   it('normalizes versions without duplicating the v prefix', () => {
     const wrapper = mount(VersionBadge, {
       props: {
-        version: '0.1.155',
+        version: '0.1.165',
       },
     })
 
-    expect(wrapper.text()).toBe('v0.1.155')
+    expect(wrapper.text()).toBe('v0.1.165')
   })
 
   it('prefers the current version from the app store', () => {
     const appStore = useAppStore()
-    appStore.currentVersion = 'v0.1.155'
+    appStore.currentVersion = 'v0.1.165'
 
     const wrapper = mount(VersionBadge, {
       props: {
@@ -49,7 +49,7 @@ describe('VersionBadge', () => {
       },
     })
 
-    expect(wrapper.text()).toBe('v0.1.155')
+    expect(wrapper.text()).toBe('v0.1.165')
   })
 
   it('ignores branch names from version sources', () => {
@@ -62,6 +62,6 @@ describe('VersionBadge', () => {
       },
     })
 
-    expect(wrapper.text()).toBe('v0.1.155')
+    expect(wrapper.text()).toBe('v0.1.165')
   })
 })

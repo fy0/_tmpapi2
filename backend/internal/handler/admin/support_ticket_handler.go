@@ -71,7 +71,7 @@ func (h *SupportTicketHandler) List(c *gin.Context) {
 }
 
 func (h *SupportTicketHandler) Get(c *gin.Context) {
-	ticketID, ok := parsePositiveIDParam(c, "id")
+	ticketID, ok := parseSupportTicketIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -114,7 +114,7 @@ func (h *SupportTicketHandler) AddMessage(c *gin.Context) {
 		return
 	}
 
-	ticketID, ok := parsePositiveIDParam(c, "id")
+	ticketID, ok := parseSupportTicketIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -141,7 +141,7 @@ func (h *SupportTicketHandler) Update(c *gin.Context) {
 		return
 	}
 
-	ticketID, ok := parsePositiveIDParam(c, "id")
+	ticketID, ok := parseSupportTicketIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -177,7 +177,7 @@ func supportTicketFiltersFromQuery(c *gin.Context) service.SupportTicketListFilt
 	}
 }
 
-func parsePositiveIDParam(c *gin.Context, name string) (int64, bool) {
+func parseSupportTicketIDParam(c *gin.Context, name string) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param(name), 10, 64)
 	if err != nil || id <= 0 {
 		response.BadRequest(c, "Invalid ID")

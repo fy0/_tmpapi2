@@ -61,6 +61,8 @@ type SettingHandler struct {
 	paymentService           *service.PaymentService
 	userAttributeService     *service.UserAttributeService
 	notificationEmailService *service.NotificationEmailService
+	totpService              *service.TotpService
+	userService              *service.UserService
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -111,6 +113,15 @@ func (h *SettingHandler) UpdateCustomHomeLinks(c *gin.Context) {
 	response.Success(c, dto.CustomHomeLinksFromService(links))
 }
 
+// SetStepUpDeps attaches the services backing the step-up switch preconditions
+// (enable requires the acting admin to have TOTP enabled; disable is itself a
+// step-up gated operation), without changing the constructor signature used by
+// existing unit tests.
+func (h *SettingHandler) SetStepUpDeps(totpService *service.TotpService, userService *service.UserService) {
+	h.totpService = totpService
+	h.userService = userService
+}
+
 // GetSettings 获取所有系统设置
 // GET /api/v1/admin/settings
 func (h *SettingHandler) GetSettings(c *gin.Context) {
@@ -159,6 +170,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		InvitationCodeEnabled:                                  settings.InvitationCodeEnabled,
 		TotpEnabled:                                            settings.TotpEnabled,
 		TotpEncryptionKeyConfigured:                            h.settingService.IsTotpEncryptionKeyConfigured(),
+		SessionBindingEnabled:                                  settings.SessionBindingEnabled,
+		StepUpEnabled:                                          settings.StepUpEnabled,
+		AuditLogRetentionDays:                                  settings.AuditLogRetentionDays,
 		LoginAgreementEnabled:                                  settings.LoginAgreementEnabled,
 		LoginAgreementMode:                                     settings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:                                settings.LoginAgreementUpdatedAt,
@@ -174,6 +188,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		TurnstileSiteKey:                                       settings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           settings.TurnstileSecretKeyConfigured,
 		APIKeyACLTrustForwardedIP:                              settings.APIKeyACLTrustForwardedIP,
+		ForwardedClientIPHeaders:                               settings.ForwardedClientIPHeaders,
 		LinuxDoConnectEnabled:                                  settings.LinuxDoConnectEnabled,
 		LinuxDoConnectClientID:                                 settings.LinuxDoConnectClientID,
 		LinuxDoConnectClientSecretConfigured:                   settings.LinuxDoConnectClientSecretConfigured,
@@ -269,6 +284,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateRebateFreezeHours:                             settings.AffiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:                            settings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:                           settings.AffiliateRebatePerInviteeCap,
+		AdminRechargeRebateEnabled:                             settings.AdminRechargeRebateEnabled,
 		DefaultUserRPMLimit:                                    settings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                                   defaultSubscriptions,
 		EnableModelFallback:                                    settings.EnableModelFallback,
@@ -308,6 +324,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		PaymentVisibleMethodWxpaySource:                        settings.PaymentVisibleMethodWxpaySource,
 		PaymentVisibleMethodAlipayEnabled:                      settings.PaymentVisibleMethodAlipayEnabled,
 		PaymentVisibleMethodWxpayEnabled:                       settings.PaymentVisibleMethodWxpayEnabled,
+		OpenAILowUpstreamRatePriorityEnabled:                   settings.OpenAILowUpstreamRatePriorityEnabled,
+		OpenAIOAuthSchedulingRateMultiplier:                    settings.OpenAIOAuthSchedulingRateMultiplier,
 		OpenAIAdvancedSchedulerEnabled:                         settings.OpenAIAdvancedSchedulerEnabled,
 		OpenAIAdvancedSchedulerStickyWeightedEnabled:           settings.OpenAIAdvancedSchedulerStickyWeightedEnabled,
 		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled:     settings.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled,
@@ -319,6 +337,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpenAIAdvancedSchedulerWeightTTFT:                      settings.OpenAIAdvancedSchedulerWeightTTFT,
 		OpenAIAdvancedSchedulerWeightReset:                     settings.OpenAIAdvancedSchedulerWeightReset,
 		OpenAIAdvancedSchedulerWeightQuotaHeadroom:             settings.OpenAIAdvancedSchedulerWeightQuotaHeadroom,
+		OpenAIAdvancedSchedulerWeightUpstreamCost:              settings.OpenAIAdvancedSchedulerWeightUpstreamCost,
 		OpenAIAdvancedSchedulerWeightPreviousResponse:          settings.OpenAIAdvancedSchedulerWeightPreviousResponse,
 		OpenAIAdvancedSchedulerWeightSessionSticky:             settings.OpenAIAdvancedSchedulerWeightSessionSticky,
 		OpenAIAdvancedSchedulerEffectiveLBTopK:                 settings.OpenAIAdvancedSchedulerEffectiveLBTopK,
@@ -329,6 +348,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpenAIAdvancedSchedulerEffectiveWeightTTFT:             settings.OpenAIAdvancedSchedulerEffectiveWeightTTFT,
 		OpenAIAdvancedSchedulerEffectiveWeightReset:            settings.OpenAIAdvancedSchedulerEffectiveWeightReset,
 		OpenAIAdvancedSchedulerEffectiveWeightQuotaHeadroom:    settings.OpenAIAdvancedSchedulerEffectiveWeightQuotaHeadroom,
+		OpenAIAdvancedSchedulerEffectiveWeightUpstreamCost:     settings.OpenAIAdvancedSchedulerEffectiveWeightUpstreamCost,
 		OpenAIAdvancedSchedulerEffectiveWeightPreviousResponse: settings.OpenAIAdvancedSchedulerEffectiveWeightPreviousResponse,
 		OpenAIAdvancedSchedulerEffectiveWeightSessionSticky:    settings.OpenAIAdvancedSchedulerEffectiveWeightSessionSticky,
 		BalanceLowNotifyEnabled:                                settings.BalanceLowNotifyEnabled,
@@ -359,6 +379,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		PaymentCancelRateLimitUnit:                             paymentCfg.CancelRateLimitUnit,
 		PaymentCancelRateLimitMode:                             paymentCfg.CancelRateLimitMode,
 		PaymentAlipayForceQRCode:                               paymentCfg.AlipayForceQRCode,
+		PaymentAlipayMobilePrecreateDeepLink:                   paymentCfg.AlipayMobilePrecreateDeepLink,
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,

@@ -56,6 +56,6 @@ func TestAccountHandlerTestPassesPromptToAccountTestService(t *testing.T) {
 }
 
 func TestNewAccountHandlerPreservesNilAccountTestService(t *testing.T) {
-	handler := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	require.Nil(t, handler.accountTestService)
 }

@@ -39,7 +39,7 @@ func TestForkExtensionRoutesRemainRegistered(t *testing.T) {
 
 	engine := gin.New()
 	v1 := engine.Group("/api/v1")
-	RegisterUserRoutes(v1, handlers, func(c *gin.Context) { c.Next() }, nil)
+	RegisterUserRoutes(v1, handlers, func(c *gin.Context) { c.Next() }, nil, nil)
 	admin := v1.Group("/admin")
 	registerSupportTicketRoutes(admin, handlers)
 	registerInvoiceRoutes(admin, handlers)

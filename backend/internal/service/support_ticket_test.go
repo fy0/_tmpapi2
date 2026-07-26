@@ -101,6 +101,9 @@ type supportTicketUserRepoStub struct {
 func (r *supportTicketUserRepoStub) Create(context.Context, *User) error {
 	panic("unexpected Create call")
 }
+func (r *supportTicketUserRepoStub) CreateWithEmailAliasGuard(context.Context, *User) error {
+	panic("unexpected CreateWithEmailAliasGuard call")
+}
 func (r *supportTicketUserRepoStub) GetByID(_ context.Context, id int64) (*User, error) {
 	user, ok := r.users[id]
 	if !ok {
@@ -163,8 +166,14 @@ func (r *supportTicketUserRepoStub) BatchSetConcurrency(context.Context, []int64
 func (r *supportTicketUserRepoStub) BatchAddConcurrency(context.Context, []int64, int) (int, error) {
 	panic("unexpected BatchAddConcurrency call")
 }
+func (r *supportTicketUserRepoStub) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+	panic("unexpected BatchUpdateLimits call")
+}
 func (r *supportTicketUserRepoStub) ExistsByEmail(context.Context, string) (bool, error) {
 	panic("unexpected ExistsByEmail call")
+}
+func (r *supportTicketUserRepoStub) ExistsByEmailAlias(context.Context, string) (bool, error) {
+	panic("unexpected ExistsByEmailAlias call")
 }
 func (r *supportTicketUserRepoStub) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) {
 	panic("unexpected RemoveGroupFromAllowedGroups call")

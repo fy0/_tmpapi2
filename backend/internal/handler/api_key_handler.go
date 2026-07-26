@@ -49,8 +49,8 @@ type UpdateAPIKeyRequest struct {
 	Name        string    `json:"name"`
 	GroupID     *int64    `json:"group_id"`
 	Status      string    `json:"status" binding:"omitempty,oneof=active inactive"`
-	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单
+	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
+	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
 	IsImageKey  *bool     `json:"is_image_key"` // 设为 [img-key] 绘图用密钥
 	Quota       *float64  `json:"quota"`        // 配额限制 (USD), 0=无限制
 	ExpiresAt   *string   `json:"expires_at"`   // 过期时间 (ISO 8601)
@@ -239,6 +239,8 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	svcReq := service.UpdateAPIKeyRequest{
 		Quota:               req.Quota,
 		ResetQuota:          req.ResetQuota,
+		IPWhitelist:         req.IPWhitelist,
+		IPBlacklist:         req.IPBlacklist,
 		RateLimit5h:         req.RateLimit5h,
 		RateLimit1d:         req.RateLimit1d,
 		RateLimit7d:         req.RateLimit7d,
@@ -247,14 +249,6 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	}
 	if req.Name != "" {
 		svcReq.Name = &req.Name
-	}
-	if req.IPWhitelist != nil {
-		svcReq.IPWhitelist = *req.IPWhitelist
-		svcReq.IPWhitelistSet = true
-	}
-	if req.IPBlacklist != nil {
-		svcReq.IPBlacklist = *req.IPBlacklist
-		svcReq.IPBlacklistSet = true
 	}
 	svcReq.GroupID = req.GroupID
 	if req.Status != "" {

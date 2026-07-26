@@ -1,6 +1,7 @@
 import type { CustomEndpoint, GroupPlatform } from '@/types'
 
 export const OPENAI_CC_SWITCH_CODEX_MODEL = 'gpt-5.5'
+export const GROK_CC_SWITCH_MODEL = 'grok-4.5'
 
 export type CcSwitchClientType = 'claude' | 'gemini'
 
@@ -73,6 +74,11 @@ export function buildCcSwitchMirrorOptions(input: CcSwitchMirrorOptionsInput): C
   return options
 }
 
+function withV1Endpoint(baseUrl: string): string {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  return normalizedBaseUrl.endsWith('/v1') ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`
+}
+
 export function resolveCcSwitchImportConfig(
   platform: GroupPlatform | undefined | null,
   clientType: CcSwitchClientType,
@@ -94,6 +100,12 @@ export function resolveCcSwitchImportConfig(
       return {
         app: 'gemini',
         endpoint: baseUrl
+      }
+    case 'grok':
+      return {
+        app: 'grokbuild',
+        endpoint: withV1Endpoint(baseUrl),
+        model: GROK_CC_SWITCH_MODEL
       }
     default:
       return {
