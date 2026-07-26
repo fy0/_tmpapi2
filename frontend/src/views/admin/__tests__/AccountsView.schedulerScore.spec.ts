@@ -179,7 +179,7 @@ describe('admin AccountsView scheduler score column', () => {
       ],
       total: 3,
       page: 1,
-      page_size: 20,
+      page_size: 50,
       pages: 1
     })
     listWithEtag.mockResolvedValue({
@@ -190,6 +190,14 @@ describe('admin AccountsView scheduler score column', () => {
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
+  })
+
+  it('requests 50 accounts per page by default', async () => {
+    mountView()
+    await flushPromises()
+
+    expect(listAccounts.mock.calls[0]?.[0]).toBe(1)
+    expect(listAccounts.mock.calls[0]?.[1]).toBe(50)
   })
 
   it('falls back to the base score for ungrouped accounts instead of showing a dash', async () => {
