@@ -1,5 +1,15 @@
 <template>
-  <div class="flex items-center gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    <span
+      v-if="isTrustModeEnabled"
+      data-testid="uninterrupted-scheduling-badge"
+      class="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+      :title="t('admin.accounts.status.trustedHint')"
+    >
+      <Icon name="shield" size="xs" :stroke-width="2" />
+      {{ t('admin.accounts.status.trusted') }}
+    </span>
+
     <!-- Rate Limit Display (429) - Two-line layout -->
     <div v-if="isRateLimited" class="flex flex-col items-center gap-1">
       <span class="badge text-xs badge-warning">{{ t('admin.accounts.status.rateLimited') }}</span>
@@ -171,8 +181,19 @@ const emit = defineEmits<{
   (e: 'show-temp-unsched', account: Account): void
 }>()
 
+const isTrustModeEnabled = computed(
+  () => props.account.extra?.uninterrupted_scheduling === true
+)
+
+const effectiveStatus = computed(() =>
+  isTrustModeEnabled.value && props.account.status === 'error'
+    ? 'active'
+    : props.account.status
+)
+
 // Computed: is rate limited (429)
 const isRateLimited = computed(() => {
+  if (isTrustModeEnabled.value) return false
   if (!props.account.rate_limit_reset_at) return false
   return new Date(props.account.rate_limit_reset_at) > new Date()
 })
@@ -185,6 +206,7 @@ type AccountModelStatusItem = {
 
 // Computed: active model statuses (普通模型限流 + 积分耗尽 + 走积分中)
 const activeModelStatuses = computed<AccountModelStatusItem[]>(() => {
+  if (isTrustModeEnabled.value) return []
   const extra = props.account.extra as Record<string, unknown> | undefined
   const modelLimits = extra?.model_rate_limits as
     | Record<string, { rate_limited_at: string; rate_limit_reset_at: string }>
@@ -261,22 +283,25 @@ const formatScopeName = (scope: string): string => {
 
 // Computed: is overloaded (529)
 const isOverloaded = computed(() => {
+  if (isTrustModeEnabled.value) return false
   if (!props.account.overload_until) return false
   return new Date(props.account.overload_until) > new Date()
 })
 
 // Computed: is temp unschedulable
 const isTempUnschedulable = computed(() => {
+  if (isTrustModeEnabled.value) return false
   if (!props.account.temp_unschedulable_until) return false
   return new Date(props.account.temp_unschedulable_until) > new Date()
 })
 
 // Computed: has error status
 const hasError = computed(() => {
-  return props.account.status === 'error'
+  return !isTrustModeEnabled.value && props.account.status === 'error'
 })
 
 const isQuotaExceeded = computed(() => {
+  if (isTrustModeEnabled.value) return false
   const exceeded = (used?: number | null, limit?: number | null) =>
     typeof limit === 'number' && limit > 0 && typeof used === 'number' && used >= limit
   return (
@@ -309,8 +334,8 @@ const statusClass = computed(() => {
   if (isTempUnschedulable.value) {
     return 'badge-warning'
   }
-  if (props.account.status !== 'active') {
-    return props.account.status === 'error' ? 'badge-danger' : 'badge-gray'
+  if (effectiveStatus.value !== 'active') {
+    return effectiveStatus.value === 'error' ? 'badge-danger' : 'badge-gray'
   }
   if (isQuotaExceeded.value) {
     return 'badge-warning'
@@ -329,8 +354,8 @@ const statusText = computed(() => {
   if (isTempUnschedulable.value) {
     return t('admin.accounts.status.tempUnschedulable')
   }
-  if (props.account.status !== 'active') {
-    return t(`admin.accounts.status.${props.account.status}`)
+  if (effectiveStatus.value !== 'active') {
+    return t(`admin.accounts.status.${effectiveStatus.value}`)
   }
   if (isQuotaExceeded.value) {
     return t('admin.accounts.status.quotaExceeded')
@@ -338,7 +363,7 @@ const statusText = computed(() => {
   if (!props.account.schedulable) {
     return t('admin.accounts.status.paused')
   }
-  return t(`admin.accounts.status.${props.account.status}`)
+  return t(`admin.accounts.status.${effectiveStatus.value}`)
 })
 
 const handleTempUnschedClick = () => {

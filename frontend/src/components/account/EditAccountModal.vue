@@ -1227,6 +1227,29 @@
         </div>
       </div>
 
+      <!-- Uninterrupted scheduling trust mode -->
+      <div class="space-y-3 border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <label class="input-label mb-0">{{ t('admin.accounts.uninterruptedScheduling.title') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.uninterruptedScheduling.hint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="uninterruptedScheduling"
+            data-testid="uninterrupted-scheduling-toggle"
+            :aria-label="t('admin.accounts.uninterruptedScheduling.title')"
+          />
+        </div>
+        <div v-if="uninterruptedScheduling" class="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
+          <p class="text-xs text-amber-700 dark:text-amber-400">
+            <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
+            {{ t('admin.accounts.uninterruptedScheduling.warning') }}
+          </p>
+        </div>
+      </div>
+
       <!-- Temp Unschedulable Rules -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
@@ -2798,6 +2821,7 @@ const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist'
 const antigravityWhitelistModels = ref<string[]>([])
 const antigravityModelMappings = ref<ModelMapping[]>([])
 const isSyncingAntigravityUpstream = ref(false)
+const uninterruptedScheduling = ref(false)
 const tempUnschedEnabled = ref(false)
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
 const getModelMappingKey = createStableObjectKeyResolver<ModelMapping>('edit-model-mapping')
@@ -3266,6 +3290,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   mixedScheduling.value = false
   allowOverages.value = false
 	const extra = newAccount.extra as Record<string, unknown> | undefined
+	uninterruptedScheduling.value = extra?.uninterrupted_scheduling === true
 	mixedScheduling.value = extra?.mixed_scheduling === true
 	allowOverages.value = extra?.allow_overages === true
 	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
@@ -4654,6 +4679,16 @@ const handleSubmit = async () => {
       // Quota notify config
       writeQuotaNotifyToExtra(newExtra, 'update')
       updatePayload.extra = newExtra
+    }
+
+    const currentExtra =
+      (updatePayload.extra as Record<string, unknown> | undefined) ??
+      (props.account.extra as Record<string, unknown> | undefined) ??
+      {}
+
+    updatePayload.extra = {
+      ...currentExtra,
+      uninterrupted_scheduling: uninterruptedScheduling.value
     }
 
     const canContinue = await ensureAntigravityMixedChannelConfirmed(async () => {

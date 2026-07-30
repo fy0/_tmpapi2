@@ -292,6 +292,9 @@ func (s *OpenAIGatewayService) applyGrokCredentialAccountFailure(ctx context.Con
 		}
 		return "", context.Canceled
 	}
+	if account.IsTrustModeEnabled() {
+		return "", nil
+	}
 	mutationMu := s.grokCredentialMutationLock(account.ID)
 	if err := mutationMu.Lock(ctx); err != nil {
 		return "", err
@@ -563,7 +566,7 @@ func (s *OpenAIGatewayService) resolveGrokCredentialCASMiss(ctx context.Context,
 }
 
 func (s *OpenAIGatewayService) blockGrokCredentialRuntime(account *Account, until time.Time, reason string) func() {
-	if s == nil || account == nil {
+	if s == nil || account == nil || account.IsTrustModeEnabled() {
 		return func() {}
 	}
 	mu := s.openAIAccountRuntimeBlockLock(account.ID)
@@ -638,6 +641,7 @@ func grokCredentialProxyIDsEqual(left, right *int64) bool {
 }
 
 func (s *OpenAIGatewayService) newGrokCredentialFailover(c *gin.Context, account *Account, class grokCredentialFailureClass) error {
+	class = uninterruptedGrokCredentialFailureClass(account, class)
 	if strings.TrimSpace(class.message) == "" {
 		class.message = "Grok OAuth credentials are unavailable"
 	}
@@ -658,4 +662,15 @@ func (s *OpenAIGatewayService) newGrokCredentialFailover(c *gin.Context, account
 		ClientStatusCode:  http.StatusServiceUnavailable,
 		ClientMessage:     GrokCredentialUnavailableClientMessage,
 	}
+}
+
+func uninterruptedGrokCredentialFailureClass(account *Account, class grokCredentialFailureClass) grokCredentialFailureClass {
+	if account == nil || !account.IsTrustModeEnabled() || class.scope == GatewayFailureScopeRequest {
+		return class
+	}
+	class.scope = GatewayFailureScopeAccount
+	class.action = NextAccountRetry
+	class.permanent = false
+	class.transient = false
+	return class
 }

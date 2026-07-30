@@ -51,6 +51,76 @@ function makeAccount(overrides: Partial<Account>): Account {
 }
 
 describe('AccountStatusIndicator', () => {
+  it('shows fully trusted status and suppresses stale automatic failures', () => {
+    const wrapper = mount(AccountStatusIndicator, {
+      props: {
+        account: makeAccount({
+          status: 'error',
+          error_message: 'stale automatic error',
+          rate_limited_at: '2026-07-11T12:00:00Z',
+          rate_limit_reset_at: '2099-07-11T13:00:00Z',
+          overload_until: '2099-07-11T14:00:00Z',
+          temp_unschedulable_until: '2099-07-11T12:30:00Z',
+          temp_unschedulable_reason: 'legacy cooldown',
+          quota_limit: 1,
+          quota_used: 1,
+          extra: {
+            uninterrupted_scheduling: true,
+            model_rate_limits: {
+              'claude-sonnet-4-5': {
+                rate_limited_at: '2026-03-15T00:00:00Z',
+                rate_limit_reset_at: '2099-03-15T00:00:00Z'
+              }
+            }
+          }
+        })
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-testid="uninterrupted-scheduling-badge"]').text())
+      .toBe('admin.accounts.status.trusted')
+    expect(wrapper.text()).toContain('admin.accounts.status.active')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.error')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.rateLimited')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.overloaded')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.tempUnschedulable')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.quotaExceeded')
+    expect(wrapper.text()).not.toContain('stale automatic error')
+    expect(wrapper.text()).not.toContain('CSon45')
+  })
+
+  it('keeps explicit inactive and paused states visible in fully trusted mode', async () => {
+    const wrapper = mount(AccountStatusIndicator, {
+      props: {
+        account: makeAccount({
+          status: 'inactive',
+          extra: { uninterrupted_scheduling: true }
+        })
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('admin.accounts.status.inactive')
+
+    await wrapper.setProps({
+      account: makeAccount({
+        schedulable: false,
+        extra: { uninterrupted_scheduling: true }
+      })
+    })
+
+    expect(wrapper.text()).toContain('admin.accounts.status.paused')
+  })
+
   it('Grok 账号额度限流时显示自动恢复时间而非临时不可调度', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {

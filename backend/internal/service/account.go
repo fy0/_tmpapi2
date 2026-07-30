@@ -81,6 +81,12 @@ type Account struct {
 	headerOverrideCacheRawSig         uint64
 }
 
+// AccountTrustModeExtraKey stores the per-account uninterrupted scheduling
+// override. The mode bypasses automatic health, quota, expiry, and cooldown
+// exclusions, but it never overrides an administrator's explicit pause or
+// inactive/disabled status.
+const AccountTrustModeExtraKey = "uninterrupted_scheduling"
+
 type OpenAIEndpointCapability string
 
 const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
@@ -136,6 +142,16 @@ func (a *Account) IsActive() bool {
 	return a.Status == StatusActive
 }
 
+// IsTrustModeEnabled reports whether automatic scheduling interruptions are
+// disabled for this account.
+func (a *Account) IsTrustModeEnabled() bool {
+	if a == nil || len(a.Extra) == 0 {
+		return false
+	}
+	enabled, _ := a.Extra[AccountTrustModeExtraKey].(bool)
+	return enabled
+}
+
 // BillingRateMultiplier 返回账号计费倍率。
 // - nil 表示未配置/旧缓存缺字段，按 1.0 处理
 // - 允许 0，表示该账号计费为 0
@@ -164,8 +180,15 @@ func (a *Account) EffectiveLoadFactor() int {
 }
 
 func (a *Account) IsSchedulable() bool {
-	if !a.IsActive() || !a.Schedulable {
+	if a == nil || !a.Schedulable {
 		return false
+	}
+	trustMode := a.IsTrustModeEnabled()
+	if !a.IsActive() && (!trustMode || a.Status != StatusError) {
+		return false
+	}
+	if trustMode {
+		return true
 	}
 	now := time.Now()
 	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
@@ -199,8 +222,15 @@ func (a *Account) IsSchedulable() bool {
 // 手动 Schedulable 开关:spark 影子拥有独立 spark 配额窗口,母账号 global 429(走 RateLimitResetAt)
 // 不应连坐 spark(否则重新耦合影子架构本应解耦的两条 429 道)。nil receiver 返回 false。
 func (a *Account) IsCredentialUsableForShadow() bool {
-	if a == nil || !a.IsActive() {
+	if a == nil {
 		return false
+	}
+	trustMode := a.IsTrustModeEnabled()
+	if !a.IsActive() && (!trustMode || a.Status != StatusError) {
+		return false
+	}
+	if trustMode {
+		return true
 	}
 	now := time.Now()
 	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
@@ -213,14 +243,14 @@ func (a *Account) IsCredentialUsableForShadow() bool {
 }
 
 func (a *Account) IsRateLimited() bool {
-	if a.RateLimitResetAt == nil {
+	if a == nil || a.IsTrustModeEnabled() || a.RateLimitResetAt == nil {
 		return false
 	}
 	return time.Now().Before(*a.RateLimitResetAt)
 }
 
 func (a *Account) IsOverloaded() bool {
-	if a.OverloadUntil == nil {
+	if a == nil || a.IsTrustModeEnabled() || a.OverloadUntil == nil {
 		return false
 	}
 	return time.Now().Before(*a.OverloadUntil)
@@ -372,7 +402,7 @@ func (a *Account) GetCredentialAsInt64(key string) int64 {
 }
 
 func (a *Account) IsTempUnschedulableEnabled() bool {
-	if a.Credentials == nil {
+	if a == nil || a.IsTrustModeEnabled() || a.Credentials == nil {
 		return false
 	}
 	raw, ok := a.Credentials["temp_unschedulable_enabled"]

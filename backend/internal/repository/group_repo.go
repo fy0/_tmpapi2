@@ -876,15 +876,18 @@ const (
 	groupAccountAvailableSQL = `a.deleted_at IS NULL
 				AND a.status = 'active'
 				AND a.schedulable = true
-				AND (a.expires_at IS NULL OR a.expires_at > NOW() OR a.auto_pause_on_expired = FALSE)
-				AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW())
-				AND (a.overload_until IS NULL OR a.overload_until <= NOW())
-				AND (a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW())`
+				AND (` + accountTrustModeEnabledAliasASQL + ` OR (
+					(a.expires_at IS NULL OR a.expires_at > NOW() OR a.auto_pause_on_expired = FALSE)
+					AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW())
+					AND (a.overload_until IS NULL OR a.overload_until <= NOW())
+					AND (a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW())
+				))`
 
 	// 这里沿用历史字段名 RateLimitedAccountCount，但统计的是会让账号暂时退出调度的时间窗口。
 	groupAccountTemporarilyLimitedSQL = `a.deleted_at IS NULL
 				AND a.status = 'active'
 				AND a.schedulable = true
+				AND NOT (` + accountTrustModeEnabledAliasASQL + `)
 				AND (a.expires_at IS NULL OR a.expires_at > NOW() OR a.auto_pause_on_expired = FALSE)
 				AND (
 					a.rate_limit_reset_at > NOW() OR

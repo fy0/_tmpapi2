@@ -71,7 +71,7 @@ func (s *AntigravityGatewayService) applyInternal500Penalty(
 func (s *AntigravityGatewayService) handleInternal500RetryExhausted(
 	ctx context.Context, prefix string, account *Account,
 ) {
-	if s.internal500Cache == nil {
+	if account == nil || account.IsTrustModeEnabled() || s.internal500Cache == nil {
 		return
 	}
 	count, err := s.internal500Cache.IncrementInternal500Count(ctx, account.ID)

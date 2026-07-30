@@ -69,6 +69,12 @@ var schedulerNeutralExtraKeys = map[string]struct{}{
 
 const postgresParameterBatchSize = 50000
 
+const (
+	accountTrustModeJSON             = `{"` + service.AccountTrustModeExtraKey + `":true}`
+	accountTrustModeEnabledSQL       = `COALESCE(extra, '{}'::jsonb) @> '` + accountTrustModeJSON + `'::jsonb`
+	accountTrustModeEnabledAliasASQL = `COALESCE(a.extra, '{}'::jsonb) @> '` + accountTrustModeJSON + `'::jsonb`
+)
+
 // NewAccountRepository 创建账户仓储实例。
 // 这是对外暴露的构造函数，返回接口类型以便于依赖注入。
 func NewAccountRepository(client *dbent.Client, sqlDB *sql.DB, schedulerCache service.SchedulerCache) service.AccountRepository {
@@ -531,6 +537,10 @@ func (r *accountRepository) updateLockedAccount(ctx context.Context, client *dbe
 		builder.SetSessionWindowStatus(account.SessionWindowStatus)
 	} else {
 		builder.ClearSessionWindowStatus()
+	}
+	if account.IsTrustModeEnabled() {
+		builder.ClearTempUnschedulableUntil().
+			ClearTempUnschedulableReason()
 	}
 	if account.Notes == nil {
 		builder.ClearNotes()
@@ -1253,14 +1263,20 @@ func (r *accountRepository) BatchUpdateLastUsed(ctx context.Context, updates map
 }
 
 func (r *accountRepository) SetError(ctx context.Context, id int64, errorMsg string) error {
-	_, err := r.client.Account.Update().
-		Where(dbaccount.IDEQ(id)).
+	updated, err := r.client.Account.Update().
+		Where(
+			dbaccount.IDEQ(id),
+			accountTrustModeDisabledPredicate(),
+		).
 		SetStatus(service.StatusError).
 		SetErrorMessage(errorMsg).
 		SetSchedulable(false).
 		Save(ctx)
 	if err != nil {
 		return err
+	}
+	if updated == 0 {
+		return nil
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue set error failed: account=%d err=%v", id, err)
@@ -1284,6 +1300,7 @@ func (r *accountRepository) SetGrokCredentialErrorIfMatch(
 			updated_at = NOW()
 		WHERE a.id = $3
 			AND a.deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledAliasASQL+`)
 			AND a.status = $4
 			AND a.platform = $5
 			AND a.type = $6
@@ -1344,6 +1361,7 @@ func (r *accountRepository) SetGrokOAuthErrorIfCredentialsUnchanged(
 			updated_at = NOW()
 		WHERE a.id = $3
 			AND a.deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledAliasASQL+`)
 			AND a.platform = $4
 			AND a.type = $5
 			AND a.status = $6
@@ -1465,6 +1483,7 @@ func (r *accountRepository) SetGrokOAuthRefreshErrorIfCredentialsUnchanged(
 			updated_at = NOW()
 		WHERE a.id = $3
 			AND a.deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledAliasASQL+`)
 			AND a.platform = $4
 			AND a.type = $5
 			AND a.status = $6
@@ -1525,6 +1544,7 @@ func (r *accountRepository) SetGrokOAuthRefreshTempUnschedulableIfCredentialsUnc
 			updated_at = NOW()
 		WHERE a.id = $3
 			AND a.deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledAliasASQL+`)
 			AND a.platform = $4
 			AND a.type = $5
 			AND a.status = $6
@@ -1800,10 +1820,7 @@ func (r *accountRepository) schedulableAccountsQuery(now time.Time) *dbent.Accou
 		Where(
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
-			tempUnschedulablePredicate(),
-			notExpiredPredicate(now),
-			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
-			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			automaticSchedulingStatePredicate(now),
 		).
 		Order(dbent.Asc(dbaccount.FieldPriority))
 }
@@ -1858,10 +1875,12 @@ func (r *accountRepository) ListSchedulableCapacityByGroupIDs(ctx context.Contex
 			AND a.deleted_at IS NULL
 			AND a.status = $2
 			AND a.schedulable = TRUE
-			AND (a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= $3)
-			AND (a.expires_at IS NULL OR a.expires_at > $3 OR a.auto_pause_on_expired = FALSE)
-			AND (a.overload_until IS NULL OR a.overload_until <= $3)
-			AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= $3)
+			AND (`+accountTrustModeEnabledAliasASQL+` OR (
+				(a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= $3)
+				AND (a.expires_at IS NULL OR a.expires_at > $3 OR a.auto_pause_on_expired = FALSE)
+				AND (a.overload_until IS NULL OR a.overload_until <= $3)
+				AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= $3)
+			))
 		ORDER BY ag.group_id ASC, ag.priority ASC, a.priority ASC, a.id ASC
 	`, pq.Array(groupIDs), service.StatusActive, time.Now())
 	if err != nil {
@@ -1906,10 +1925,7 @@ func (r *accountRepository) ListSchedulableByPlatform(ctx context.Context, platf
 			dbaccount.PlatformEQ(platform),
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
-			tempUnschedulablePredicate(),
-			notExpiredPredicate(now),
-			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
-			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			automaticSchedulingStatePredicate(now),
 		).
 		Order(dbent.Asc(dbaccount.FieldPriority)).
 		All(ctx)
@@ -1940,10 +1956,7 @@ func (r *accountRepository) ListSchedulableByPlatforms(ctx context.Context, plat
 			dbaccount.PlatformIn(platforms...),
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
-			tempUnschedulablePredicate(),
-			notExpiredPredicate(now),
-			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
-			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			automaticSchedulingStatePredicate(now),
 		).
 		Order(dbent.Asc(dbaccount.FieldPriority)).
 		All(ctx)
@@ -1961,10 +1974,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Conte
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
-			tempUnschedulablePredicate(),
-			notExpiredPredicate(now),
-			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
-			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			automaticSchedulingStatePredicate(now),
 		).
 		Order(dbent.Asc(dbaccount.FieldPriority)).
 		All(ctx)
@@ -1985,10 +1995,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatforms(ctx context.Cont
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
-			tempUnschedulablePredicate(),
-			notExpiredPredicate(now),
-			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
-			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			automaticSchedulingStatePredicate(now),
 		).
 		Order(dbent.Asc(dbaccount.FieldPriority)).
 		All(ctx)
@@ -2052,13 +2059,19 @@ func (r *accountRepository) ListModelAvailabilityCandidates(
 
 func (r *accountRepository) SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error {
 	now := time.Now()
-	_, err := r.client.Account.Update().
-		Where(dbaccount.IDEQ(id)).
+	updated, err := r.client.Account.Update().
+		Where(
+			dbaccount.IDEQ(id),
+			accountTrustModeDisabledPredicate(),
+		).
 		SetRateLimitedAt(now).
 		SetRateLimitResetAt(resetAt).
 		Save(ctx)
 	if err != nil {
 		return err
+	}
+	if updated == 0 {
+		return nil
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue rate limit failed: account=%d err=%v", id, err)
@@ -2075,6 +2088,7 @@ func (r *accountRepository) SetRateLimitedIfLater(ctx context.Context, id int64,
 	updated, err := r.client.Account.Update().
 		Where(
 			dbaccount.IDEQ(id),
+			accountTrustModeDisabledPredicate(),
 			dbaccount.Or(
 				dbaccount.RateLimitResetAtIsNil(),
 				dbaccount.RateLimitResetAtLT(resetAt),
@@ -2087,9 +2101,6 @@ func (r *accountRepository) SetRateLimitedIfLater(ctx context.Context, id int64,
 		return err
 	}
 	if updated == 0 {
-		// This instance may not have observed the later value written elsewhere.
-		// Refresh its local scheduler snapshot even though no outbox event is needed.
-		r.syncSchedulerAccountSnapshot(ctx, id)
 		return nil
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
@@ -2158,7 +2169,9 @@ func (r *accountRepository) SetModelRateLimit(ctx context.Context, id int64, sco
 				true
 			),
 			updated_at = NOW()
-		WHERE id = $3 AND deleted_at IS NULL`,
+		WHERE id = $3
+			AND deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledSQL+`)`,
 		scope,
 		raw,
 		id,
@@ -2172,7 +2185,7 @@ func (r *accountRepository) SetModelRateLimit(ctx context.Context, id int64, sco
 		return err
 	}
 	if affected == 0 {
-		return service.ErrAccountNotFound
+		return nil
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue model rate limit failed: account=%d err=%v", id, err)
@@ -2182,12 +2195,18 @@ func (r *accountRepository) SetModelRateLimit(ctx context.Context, id int64, sco
 }
 
 func (r *accountRepository) SetOverloaded(ctx context.Context, id int64, until time.Time) error {
-	_, err := r.client.Account.Update().
-		Where(dbaccount.IDEQ(id)).
+	updated, err := r.client.Account.Update().
+		Where(
+			dbaccount.IDEQ(id),
+			accountTrustModeDisabledPredicate(),
+		).
 		SetOverloadUntil(until).
 		Save(ctx)
 	if err != nil {
 		return err
+	}
+	if updated == 0 {
+		return nil
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue overload failed: account=%d err=%v", id, err)
@@ -2204,6 +2223,7 @@ func (r *accountRepository) SetTempUnschedulable(ctx context.Context, id int64, 
 			updated_at = NOW()
 		WHERE id = $3
 			AND deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledSQL+`)
 			AND (temp_unschedulable_until IS NULL OR temp_unschedulable_until < $1)
 	`, until, reason, id)
 	if err != nil {
@@ -2241,6 +2261,7 @@ func (r *accountRepository) SetGrokCredentialTempUnschedulableIfMatch(
 			updated_at = NOW()
 		WHERE a.id = $3
 			AND a.deleted_at IS NULL
+			AND NOT (`+accountTrustModeEnabledAliasASQL+`)
 			AND a.status = $4
 			AND a.platform = $5
 			AND a.type = $6
@@ -2414,6 +2435,7 @@ func (r *accountRepository) AutoPauseExpiredAccounts(ctx context.Context, now ti
 			updated_at = NOW()
 		WHERE deleted_at IS NULL
 			AND schedulable = TRUE
+			AND NOT (`+accountTrustModeEnabledSQL+`)
 			AND auto_pause_on_expired = TRUE
 			AND expires_at IS NOT NULL
 			AND expires_at <= $1
@@ -2934,12 +2956,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		preds = append(preds, dbaccount.SchedulableEQ(true))
 		if !opts.ignoreTransientState {
 			now := time.Now()
-			preds = append(preds,
-				tempUnschedulablePredicate(),
-				notExpiredPredicate(now),
-				dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
-				dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
-			)
+			preds = append(preds, automaticSchedulingStatePredicate(now))
 		}
 	}
 
@@ -3048,6 +3065,32 @@ func tempUnschedulablePredicate() dbpredicate.Account {
 			entsql.LTE(col, entsql.Expr("NOW()")),
 		))
 	})
+}
+
+func accountTrustModeEnabledPredicate() dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		expression := "COALESCE(" + s.C(dbaccount.FieldExtra) + ", '{}'::jsonb) @> '" + accountTrustModeJSON + "'::jsonb"
+		s.Where(entsql.ExprP(expression))
+	})
+}
+
+func accountTrustModeDisabledPredicate() dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		expression := "NOT (COALESCE(" + s.C(dbaccount.FieldExtra) + ", '{}'::jsonb) @> '" + accountTrustModeJSON + "'::jsonb)"
+		s.Where(entsql.ExprP(expression))
+	})
+}
+
+func automaticSchedulingStatePredicate(now time.Time) dbpredicate.Account {
+	return dbaccount.Or(
+		accountTrustModeEnabledPredicate(),
+		dbaccount.And(
+			tempUnschedulablePredicate(),
+			notExpiredPredicate(now),
+			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
+			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+		),
+	)
 }
 
 func notExpiredPredicate(now time.Time) dbpredicate.Account {

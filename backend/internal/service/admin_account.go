@@ -452,6 +452,66 @@ func normalizeGrokMediaEligibilityUpdateExtra(account *Account, input *UpdateAcc
 	return normalized, nil
 }
 
+// ValidateAccountTrustModeExtra keeps the scheduling override strictly typed.
+// Treating strings or numbers as truthy here would make an operationally
+// significant switch too easy to enable by accident through the admin API.
+func ValidateAccountTrustModeExtra(extra map[string]any) error {
+	if extra == nil {
+		return nil
+	}
+	raw, exists := extra[AccountTrustModeExtraKey]
+	if !exists {
+		return nil
+	}
+	if _, ok := raw.(bool); !ok {
+		return infraerrors.BadRequest(
+			"ACCOUNT_TRUST_MODE_INVALID",
+			"uninterrupted_scheduling must be a boolean",
+		)
+	}
+	return nil
+}
+
+func prepareAccountTrustModeEnable(account *Account, previousStatus string) {
+	if account == nil {
+		return
+	}
+	if previousStatus == StatusError {
+		// The edit form can submit the stale red status it originally loaded.
+		// A simultaneous explicit inactive/disabled selection remains authoritative.
+		if account.Status == StatusError || account.Status == StatusActive {
+			account.Status = StatusActive
+			account.Schedulable = true
+		}
+		account.ErrorMessage = ""
+	}
+
+	account.RateLimitedAt = nil
+	account.RateLimitResetAt = nil
+	account.OverloadUntil = nil
+	delete(account.Extra, modelRateLimitsKey)
+	delete(account.Extra, "antigravity_quota_scopes")
+}
+
+func (s *adminServiceImpl) clearAccountTrustModeRuntimeState(ctx context.Context, id int64) error {
+	if err := s.accountRepo.ClearRateLimit(ctx, id); err != nil {
+		return err
+	}
+	if err := s.accountRepo.ClearAntigravityQuotaScopes(ctx, id); err != nil {
+		return err
+	}
+	if err := s.accountRepo.ClearModelRateLimits(ctx, id); err != nil {
+		return err
+	}
+	if err := s.accountRepo.ClearTempUnschedulable(ctx, id); err != nil {
+		return err
+	}
+	if s.runtimeBlocker != nil {
+		s.runtimeBlocker.ClearAccountSchedulingBlock(id)
+	}
+	return nil
+}
+
 func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]any) (*Account, error) {
 	// Probe/session state is system-managed. New accounts always start with automatic refresh disabled.
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
@@ -514,6 +574,9 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	if err := ValidateAccountTrustModeExtra(input.Extra); err != nil {
+		return nil, err
+	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
@@ -603,6 +666,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if err != nil {
 		return nil, err
 	}
+	if err := ValidateAccountTrustModeExtra(input.Extra); err != nil {
+		return nil, err
+	}
+	previousTrustMode := account.IsTrustModeEnabled()
+	previousStatus := account.Status
 	var normalizedExtra map[string]any
 	if input.Extra != nil {
 		normalizedExtra, err = normalizeOpenAILongContextBillingUpdateExtra(account, input)
@@ -791,6 +859,12 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if input.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
 	}
+	currentTrustMode := account.IsTrustModeEnabled()
+	trustModeEnabled := !previousTrustMode && currentTrustMode
+	trustModeChanged := previousTrustMode != currentTrustMode
+	if trustModeEnabled {
+		prepareAccountTrustModeEnable(account, previousStatus)
+	}
 
 	// 先验证分组是否存在（在任何写操作之前）
 	if input.GroupIDs != nil {
@@ -825,6 +899,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			}); err != nil {
 				return nil, err
 			}
+		}
+	}
+	if trustModeChanged {
+		if err := s.clearAccountTrustModeRuntimeState(ctx, account.ID); err != nil {
+			return nil, err
 		}
 	}
 

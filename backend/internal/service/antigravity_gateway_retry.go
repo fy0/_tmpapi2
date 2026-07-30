@@ -140,7 +140,7 @@ func (s *AntigravityGatewayService) handleSmartRetry(p antigravityRetryLoopParam
 			p.handleError(p.ctx, p.prefix, p.account, resp.StatusCode, resp.Header, respBody, p.requestedModel, p.groupID, p.sessionHash, p.isStickySession)
 			logger.LegacyPrintf("service.antigravity_gateway", "%s status=%d rate_limited account=%d (no model mapping)", p.prefix, resp.StatusCode, p.account.ID)
 		}
-		s.clearStickySession(p.ctx, p.groupID, p.sessionHash)
+		s.clearStickySession(p.ctx, p.account, p.groupID, p.sessionHash)
 
 		// 返回账号切换信号，让上层切换账号重试
 		return &smartRetryResult{
@@ -302,7 +302,7 @@ func (s *AntigravityGatewayService) handleSmartRetry(p antigravityRetryLoopParam
 		s.setAntigravityModelRateLimits(p.ctx, p.accountRepo, p.account, modelName, p.prefix, resp.StatusCode, resetAt, true)
 
 		// 清除粘性会话绑定，避免下次请求仍命中限流账号
-		s.clearStickySession(p.ctx, p.groupID, p.sessionHash)
+		s.clearStickySession(p.ctx, p.account, p.groupID, p.sessionHash)
 
 		// 返回账号切换信号，让上层切换账号重试
 		return &smartRetryResult{
@@ -863,6 +863,9 @@ func (s *AntigravityGatewayService) setAntigravityModelRateLimits(ctx context.Co
 	if account == nil || repo == nil {
 		return false
 	}
+	if account.IsTrustModeEnabled() {
+		return true
+	}
 	keys := antigravityModelRateLimitKeys(modelName)
 	if len(keys) == 0 {
 		return false
@@ -878,8 +881,8 @@ func (s *AntigravityGatewayService) setAntigravityModelRateLimits(ctx context.Co
 	return success
 }
 
-func (s *AntigravityGatewayService) clearStickySession(ctx context.Context, groupID int64, sessionHash string) {
-	if s == nil || s.cache == nil || strings.TrimSpace(sessionHash) == "" {
+func (s *AntigravityGatewayService) clearStickySession(ctx context.Context, account *Account, groupID int64, sessionHash string) {
+	if s == nil || s.cache == nil || account == nil || account.IsTrustModeEnabled() || strings.TrimSpace(sessionHash) == "" {
 		return
 	}
 	if err := s.cache.DeleteSessionAccountID(ctx, groupID, sessionHash); err != nil {
@@ -1142,7 +1145,7 @@ func (s *AntigravityGatewayService) setModelRateLimitAndClearSession(p *handleMo
 	s.setAntigravityModelRateLimits(p.ctx, s.accountRepo, p.account, info.ModelName, p.prefix, p.statusCode, resetAt, false)
 
 	// 清除粘性会话绑定
-	if p.cache != nil && p.sessionHash != "" {
+	if !p.account.IsTrustModeEnabled() && p.cache != nil && p.sessionHash != "" {
 		_ = p.cache.DeleteSessionAccountID(p.ctx, p.groupID, p.sessionHash)
 	}
 }

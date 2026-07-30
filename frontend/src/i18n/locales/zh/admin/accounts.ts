@@ -329,6 +329,8 @@ export default {
         limited: '限流',
         rateLimited: '限流中',
         overloaded: '过载中',
+        trusted: '完全信任',
+        trustedHint: '自动错误与冷却不会将此账号移出调度。',
         tempUnschedulable: '临时不可调度',
         quotaExceeded: '配额超限',
         unschedulable: '不可调度',
@@ -340,6 +342,11 @@ export default {
         creditsExhaustedUntil: 'AI Credits 已用尽，预计 {time} 恢复',
         overloadedUntil: '负载过重，重置时间：{time}',
         viewTempUnschedDetails: '查看临时不可调度详情'
+      },
+      uninterruptedScheduling: {
+        title: '完全信任模式',
+        hint: '发生自动错误、冷却或配额保护时，仍保持此账号参与调度。',
+        warning: '失败的请求本身仍可能失败；人工暂停、停用、访问策略、并发限制和计费控制仍然有效。'
       },
       tempUnschedulable: {
         title: '临时不可调度',

@@ -131,7 +131,7 @@ func shouldCooldownOpenAITransientUpstreamError(statusCode int, responseBody []b
 }
 
 func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
-	if s == nil || !isOpenAIOAuthAccount(account) {
+	if s == nil || !isOpenAIOAuthAccount(account) || account.IsTrustModeEnabled() {
 		return
 	}
 	// Spark 影子：不按 /responses 429 的 global x-codex-* 信号做内存运行时熔断(同 handle429,外审第8轮 P1)。
@@ -157,7 +157,7 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context
 }
 
 func (s *OpenAIGatewayService) BlockAccountScheduling(account *Account, until time.Time, reason string) {
-	if s == nil || !isOpenAIAccount(account) {
+	if s == nil || !isOpenAIAccount(account) || account.IsTrustModeEnabled() {
 		return
 	}
 	mu := s.openAIAccountRuntimeBlockLock(account.ID)
@@ -223,7 +223,7 @@ func (s *OpenAIGatewayService) ClearAccountSchedulingBlock(accountID int64) {
 }
 
 func (s *OpenAIGatewayService) isOpenAIAccountRuntimeBlocked(account *Account) bool {
-	if s == nil || !isOpenAIAccount(account) {
+	if s == nil || !isOpenAIAccount(account) || account.IsTrustModeEnabled() {
 		return false
 	}
 	mu := s.openAIAccountRuntimeBlockLock(account.ID)
@@ -275,7 +275,7 @@ func openAIAccountModelTransientModel(canonicalModel string) string {
 }
 
 func (s *OpenAIGatewayService) recordOpenAIAccountModelTransientFailure(account *Account, canonicalModel string, now time.Time) openAIAccountModelTransientDecision {
-	if s == nil || account == nil {
+	if s == nil || account == nil || account.IsTrustModeEnabled() {
 		return openAIAccountModelTransientDecision{}
 	}
 	state := s.getOpenAIAccountModelTransientState()
@@ -294,7 +294,7 @@ func (s *OpenAIGatewayService) clearOpenAIAccountModelTransientState(accountID i
 }
 
 func (s *OpenAIGatewayService) isOpenAIAccountModelRuntimeBlocked(account *Account, requestedModel string) bool {
-	if s == nil || account == nil {
+	if s == nil || account == nil || account.IsTrustModeEnabled() {
 		return false
 	}
 	state := s.getOpenAIAccountModelTransientState()

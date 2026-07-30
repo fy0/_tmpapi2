@@ -894,6 +894,72 @@ func TestTokenRefreshService_RefreshWithRetry_NonRetryableErrorAllPlatforms(t *t
 	}
 }
 
+func TestTokenRefreshService_TrustModeFailuresDoNotInterruptScheduling(t *testing.T) {
+	tests := []struct {
+		name        string
+		refreshErr  error
+		maxAttempts int
+	}{
+		{
+			name:        "non-retryable account credential failure",
+			refreshErr:  errors.New("invalid_grant: token revoked"),
+			maxAttempts: 1,
+		},
+		{
+			name:        "retry exhaustion",
+			refreshErr:  errors.New("temporary provider timeout"),
+			maxAttempts: 2,
+		},
+		{
+			name:        "provider containment signal",
+			refreshErr:  &providerCycleContainmentRefreshError{err: errors.New("shared provider unavailable")},
+			maxAttempts: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &tokenRefreshAccountRepo{}
+			invalidator := &tokenCacheInvalidatorStub{}
+			blocker := &tokenRefreshRuntimeBlocker{}
+			cfg := &config.Config{TokenRefresh: config.TokenRefreshConfig{
+				MaxRetries:               tt.maxAttempts,
+				RetryBackoffSeconds:      0,
+				ProviderFailureThreshold: 1,
+			}}
+			service := NewTokenRefreshService(repo, nil, nil, nil, nil, invalidator, nil, cfg, nil)
+			service.SetAccountRuntimeBlocker(blocker)
+			account := &Account{
+				ID:          1600,
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra:       map[string]any{AccountTrustModeExtraKey: true},
+			}
+			refresher := &tokenRefresherStub{err: tt.refreshErr}
+
+			err := service.refreshWithRetry(context.Background(), account, refresher, refresher, time.Hour)
+
+			var uninterruptedErr *accountUninterruptedRefreshError
+			require.ErrorAs(t, err, &uninterruptedErr)
+			require.ErrorIs(t, err, tt.refreshErr)
+			require.Equal(t, tt.maxAttempts, refresher.calls)
+			require.Zero(t, repo.setErrorCalls)
+			require.Zero(t, repo.setTempUnschedCalls)
+			require.Zero(t, invalidator.calls)
+			require.Zero(t, blocker.blockCalls)
+			require.Equal(t, StatusActive, account.Status)
+			require.True(t, account.Schedulable)
+
+			state := &tokenRefreshProviderState{service: service, consecutiveFailures: 1}
+			state.recordResult(err)
+			require.False(t, state.isTripped(), "a trust-mode account failure must not trip the provider breaker")
+			require.Equal(t, 1, state.consecutiveFailures, "a trust-mode failure must not erase other accounts' evidence")
+		})
+	}
+}
+
 func TestTokenRefreshService_RefreshWithRetry_NoRefreshTokenDoesNotTempUnschedule(t *testing.T) {
 	repo := &tokenRefreshAccountRepo{}
 	cfg := &config.Config{

@@ -280,6 +280,73 @@ func TestGetRequestCredentialMapsPermanentGrokOAuthFailureAndRedactsSecrets(t *t
 	require.NotContains(t, events[0].Message, "leaked-refresh")
 }
 
+func TestGetRequestCredentialTrustModeNeverQuarantinesGrokAccount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name       string
+		refreshErr error
+		wantReason GatewayFailureReason
+	}{
+		{
+			name:       "permanent credential failure",
+			refreshErr: infraerrors.New(http.StatusBadGateway, "GROK_OAUTH_TOKEN_REFRESH_FAILED", "invalid_grant"),
+			wantReason: GrokCredentialReasonRevoked,
+		},
+		{
+			name:       "transient credential failure",
+			refreshErr: errors.New("temporary refresh transport failure"),
+			wantReason: GrokCredentialReasonRefreshTransient,
+		},
+	}
+
+	for index, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			account := expiredGrokOAuthAccountForCredentialTest(int64(1700 + index))
+			account.Extra = map[string]any{AccountTrustModeExtraKey: true}
+			repo := &tokenRefreshAccountRepo{}
+			repo.accountsByID = map[int64]*Account{account.ID: account}
+			cache := &grokTokenCacheForProviderTest{lockResult: true}
+			provider := NewGrokTokenProvider(repo, cache)
+			provider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), &tokenRefresherStub{err: tt.refreshErr})
+			svc := &OpenAIGatewayService{accountRepo: repo, grokTokenProvider: provider}
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+			token, kind, err := svc.getRequestCredential(context.Background(), c, account)
+
+			require.Empty(t, token)
+			require.Empty(t, kind)
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.Equal(t, GatewayFailureScopeAccount, failoverErr.Scope)
+			require.Equal(t, tt.wantReason, failoverErr.Reason)
+			require.Equal(t, NextAccountRetry, failoverErr.NextAccountAction)
+			require.True(t, failoverErr.ShouldRetryNextAccount())
+			require.Zero(t, repo.setErrorCalls)
+			require.Zero(t, repo.setTempUnschedCalls)
+			require.Empty(t, cache.deletedKeys)
+			_, runtimeBlocked := svc.openaiAccountRuntimeBlockUntil.Load(account.ID)
+			require.False(t, runtimeBlocked)
+			require.Equal(t, StatusActive, account.Status)
+			require.True(t, account.Schedulable)
+		})
+	}
+
+	t.Run("provider failure remains account scoped", func(t *testing.T) {
+		account := expiredGrokOAuthAccountForCredentialTest(1702)
+		account.Extra = map[string]any{AccountTrustModeExtraKey: true}
+		svc := &OpenAIGatewayService{}
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+		_, _, err := svc.getRequestCredential(context.Background(), c, account)
+
+		var failoverErr *UpstreamFailoverError
+		require.ErrorAs(t, err, &failoverErr)
+		require.Equal(t, GatewayFailureScopeAccount, failoverErr.Scope)
+		require.Equal(t, GrokCredentialReasonProviderConfig, failoverErr.Reason)
+		require.Equal(t, NextAccountRetry, failoverErr.NextAccountAction)
+	})
+}
+
 func TestGetRequestCredentialPermanentMappingsPersistAndInvalidate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {

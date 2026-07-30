@@ -23,6 +23,7 @@ func TestAccountRepository_SetTempUnschedulable_NoRowsAffectedDoesNotWriteOutbox
 	require.NoError(t, err)
 	require.Len(t, exec.execQueries, 1)
 	require.Contains(t, exec.execQueries[0], "UPDATE accounts")
+	require.Contains(t, exec.execQueries[0], service.AccountTrustModeExtraKey)
 	require.NotContains(t, strings.Join(exec.execQueries, "\n"), "scheduler_outbox")
 }
 
@@ -44,6 +45,7 @@ func TestAccountRepository_GrokCredentialConditionalMutationsAreEligibleAndAtomi
 		require.Len(t, exec.execQueries, 1)
 		normalized := normalizeSQLWhitespace(exec.execQueries[0])
 		require.Contains(t, normalized, "WITH updated AS ( UPDATE accounts AS a")
+		require.Contains(t, normalized, service.AccountTrustModeExtraKey)
 		require.Contains(t, normalized, "a.schedulable IS TRUE")
 		require.Contains(t, normalized, "a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW()")
 		require.Contains(t, normalized, "a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW()")
@@ -72,6 +74,7 @@ func TestAccountRepository_GrokCredentialConditionalMutationsAreEligibleAndAtomi
 		require.Len(t, exec.execQueries, 1)
 		normalized := normalizeSQLWhitespace(exec.execQueries[0])
 		require.Contains(t, normalized, "WITH updated AS ( UPDATE accounts AS a")
+		require.Contains(t, normalized, service.AccountTrustModeExtraKey)
 		require.Contains(t, normalized, "a.schedulable IS TRUE")
 		require.Contains(t, normalized, "a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW()")
 		require.Contains(t, normalized, "a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW()")

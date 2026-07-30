@@ -185,7 +185,7 @@ func (s *TokenRefreshService) SetAccountRuntimeBlocker(blocker AccountRuntimeBlo
 }
 
 func (s *TokenRefreshService) notifyAccountSchedulingBlocked(account *Account, until time.Time, reason string) {
-	if s == nil || s.runtimeBlocker == nil || account == nil {
+	if s == nil || s.runtimeBlocker == nil || account == nil || account.IsTrustModeEnabled() {
 		return
 	}
 	s.runtimeBlocker.BlockAccountScheduling(account, until, reason)
@@ -441,6 +441,13 @@ func (p *tokenRefreshProviderState) recordResult(err error) {
 		if !errors.As(err, &attemptTimeoutErr) {
 			return
 		}
+	}
+	var uninterruptedErr *accountUninterruptedRefreshError
+	if errors.As(err, &uninterruptedErr) {
+		// Trust-mode failures are evidence about this account only. Keeping them
+		// out of the provider breaker lets the cycle continue with other accounts
+		// without erasing failure evidence produced by non-trusted accounts.
+		return
 	}
 	var attemptTimeoutErr *refreshAttemptTimeoutError
 	if errors.As(err, &attemptTimeoutErr) {
@@ -960,11 +967,17 @@ func (s *TokenRefreshService) refreshWithRetryWithRateGate(
 		if errors.Is(err, errRefreshSkipped) {
 			return errRefreshSkipped
 		}
+		if account.IsTrustModeEnabled() && (isProviderScopedTerminalRefreshError(err) || isNonRetryableRefreshError(err)) {
+			return &accountUninterruptedRefreshError{err: err}
+		}
 		if isProviderScopedTerminalRefreshError(err) {
 			return err
 		}
 		var stateUnavailableErr *oauthRefreshStateUnavailableError
 		if errors.As(err, &stateUnavailableErr) {
+			if account.IsTrustModeEnabled() {
+				return &accountUninterruptedRefreshError{err: err}
+			}
 			return &providerCycleContainmentRefreshError{err: err}
 		}
 		if isAmbiguousGrokEntitlementRefreshError(account, err) {
@@ -972,6 +985,9 @@ func (s *TokenRefreshService) refreshWithRetryWithRateGate(
 			// entitlement denial. Without explicit entitlement evidence, contain
 			// the provider for this cycle instead of disabling an account on a
 			// possible WAF or shared provider failure.
+			if account.IsTrustModeEnabled() {
+				return &accountUninterruptedRefreshError{err: err}
+			}
 			return &providerCycleContainmentRefreshError{err: err}
 		}
 
@@ -979,6 +995,9 @@ func (s *TokenRefreshService) refreshWithRetryWithRateGate(
 		// account is invalid. Return a typed internal signal so the cycle contains
 		// the provider without mutating account state.
 		if isSharedProviderRefreshError(err) {
+			if account.IsTrustModeEnabled() {
+				return &accountUninterruptedRefreshError{err: err}
+			}
 			return &providerConfigurationRefreshError{err: err}
 		}
 
@@ -1080,6 +1099,9 @@ func (s *TokenRefreshService) refreshWithRetryWithRateGate(
 		"max_retries", maxRetries,
 		"error", logredact.RedactText(lastErr.Error()),
 	)
+	if account.IsTrustModeEnabled() {
+		return &accountUninterruptedRefreshError{err: lastErr}
+	}
 
 	// 设置临时不可调度 10 分钟（不标记 error，保持 status=active 让下个刷新周期能继续尝试）
 	until := time.Now().Add(tokenRefreshTempUnschedDuration)
@@ -1272,6 +1294,10 @@ type providerCycleContainmentRefreshError struct {
 	err error
 }
 
+type accountUninterruptedRefreshError struct {
+	err error
+}
+
 type accountPermanentRefreshError struct {
 	err                     error
 	persistentlyBlocked     bool
@@ -1314,6 +1340,17 @@ func (e *providerCycleContainmentRefreshError) Error() string {
 }
 
 func (e *providerCycleContainmentRefreshError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *accountUninterruptedRefreshError) Error() string {
+	return "trusted account OAuth refresh failed"
+}
+
+func (e *accountUninterruptedRefreshError) Unwrap() error {
 	if e == nil {
 		return nil
 	}

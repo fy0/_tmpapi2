@@ -1238,6 +1238,9 @@ func (s *GatewayService) withWindowCostPrefetch(ctx context.Context, accounts []
 // isAccountSchedulableForQuota 检查账号是否在配额限制内
 // 适用于配置了 quota_limit 的 apikey 和 bedrock 类型账号
 func (s *GatewayService) isAccountSchedulableForQuota(account *Account) bool {
+	if account != nil && account.IsTrustModeEnabled() {
+		return true
+	}
 	if !account.IsAPIKeyOrBedrock() {
 		return true
 	}
@@ -1248,6 +1251,9 @@ func (s *GatewayService) isAccountSchedulableForQuota(account *Account) bool {
 // 仅适用于 Anthropic OAuth/SetupToken 账号
 // 返回 true 表示可调度，false 表示不可调度
 func (s *GatewayService) isAccountSchedulableForWindowCost(ctx context.Context, account *Account, isSticky bool) bool {
+	if account != nil && account.IsTrustModeEnabled() {
+		return true
+	}
 	// 只检查 Anthropic OAuth/SetupToken 账号
 	if !account.IsAnthropicOAuthOrSetupToken() {
 		return true
@@ -1344,6 +1350,9 @@ func (s *GatewayService) withRPMPrefetch(ctx context.Context, accounts []Account
 // isAccountSchedulableForRPM 检查账号是否可根据 RPM 进行调度
 // 仅适用于 Anthropic OAuth/SetupToken 账号
 func (s *GatewayService) isAccountSchedulableForRPM(ctx context.Context, account *Account, isSticky bool) bool {
+	if account != nil && account.IsTrustModeEnabled() {
+		return true
+	}
 	if !account.IsAnthropicOAuthOrSetupToken() {
 		return true
 	}
@@ -1392,6 +1401,9 @@ func (s *GatewayService) IncrementAccountRPM(ctx context.Context, accountID int6
 // sessionID: 会话标识符（使用粘性会话的 hash）
 // 返回 true 表示允许（在限制内或会话已存在），false 表示拒绝（超出限制且是新会话）
 func (s *GatewayService) checkAndRegisterSession(ctx context.Context, account *Account, sessionID string) bool {
+	if account != nil && account.IsTrustModeEnabled() {
+		return true
+	}
 	// 只检查 Anthropic OAuth/SetupToken 账号
 	if !account.IsAnthropicOAuthOrSetupToken() {
 		return true

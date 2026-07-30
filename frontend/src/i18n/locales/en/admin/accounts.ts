@@ -130,6 +130,8 @@ export default {
         limited: 'Limited',
         rateLimited: 'Rate Limited',
         overloaded: 'Overloaded',
+        trusted: 'Fully Trusted',
+        trustedHint: 'Automatic failures and cooldowns do not remove this account from scheduling.',
         tempUnschedulable: 'Temp Unschedulable',
         quotaExceeded: 'Quota Exceeded',
         unschedulable: 'Unschedulable',
@@ -292,6 +294,11 @@ export default {
           exceeded: 'Quota exceeded, account paused',
           normal: 'Quota normal'
         },
+      },
+      uninterruptedScheduling: {
+        title: 'Fully Trusted Mode',
+        hint: 'Keep this account eligible for scheduling through automatic failures, cooldowns, and quota protection.',
+        warning: 'Failed requests can still fail. Manual pause, disablement, access policies, concurrency, and billing controls remain effective.'
       },
       tempUnschedulable: {
         title: 'Temp Unschedulable',

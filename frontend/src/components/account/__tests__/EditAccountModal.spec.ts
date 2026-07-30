@@ -343,6 +343,72 @@ describe('EditAccountModal', () => {
     })
   })
 
+  it('hydrates fully trusted mode for every account type', () => {
+    const account = buildVertexAccount()
+    account.extra = {
+      uninterrupted_scheduling: true
+    }
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="uninterrupted-scheduling-toggle"]')
+
+    expect(toggle.attributes('aria-checked')).toBe('true')
+    expect(wrapper.text()).toContain('admin.accounts.uninterruptedScheduling.warning')
+  })
+
+  it('enables fully trusted mode without resurrecting platform extra fields', async () => {
+    const account = buildAccount()
+    account.extra = {
+      sentinel: 'keep-me',
+      openai_compact_mode: 'force_on'
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const compactModeSelect = wrapper
+      .findAll('select')
+      .find((select) => select.find('option[value="force_on"]').exists())
+
+    expect(compactModeSelect).toBeTruthy()
+    await compactModeSelect!.setValue('auto')
+    await wrapper.get('[data-testid="uninterrupted-scheduling-toggle"]').trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    const extra = updateAccountMock.mock.calls[0]?.[1]?.extra
+    expect(extra?.uninterrupted_scheduling).toBe(true)
+    expect(extra?.sentinel).toBe('keep-me')
+    expect(extra).not.toHaveProperty('openai_compact_mode')
+  })
+
+  it('submits an explicit false when fully trusted mode is disabled', async () => {
+    const account = buildGrokOAuthAccount()
+    account.extra = {
+      uninterrupted_scheduling: true,
+      sentinel: 'keep-me'
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="uninterrupted-scheduling-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('true')
+
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
+      uninterrupted_scheduling: false,
+      sentinel: 'keep-me'
+    })
+  })
+
   it('preserves model mappings when editing the whitelist', async () => {
     const account = buildAccount()
     account.credentials.model_mapping = {

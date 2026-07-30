@@ -125,7 +125,7 @@ func (s *RateLimitService) IsOpenAIAdvancedSchedulerStickyWeightedEnabled(ctx co
 }
 
 func (s *RateLimitService) notifyAccountSchedulingBlocked(account *Account, until time.Time, reason string) {
-	if s == nil || s.runtimeBlocker == nil || account == nil {
+	if s == nil || s.runtimeBlocker == nil || account == nil || account.IsTrustModeEnabled() {
 		return
 	}
 	s.runtimeBlocker.BlockAccountScheduling(account, until, reason)
@@ -151,6 +151,9 @@ const (
 // CheckErrorPolicy 检查自定义错误码和临时不可调度规则。
 // 自定义错误码开启时覆盖后续所有逻辑（包括临时不可调度）。
 func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Account, statusCode int, responseBody []byte, requestedModel ...string) ErrorPolicyResult {
+	if account != nil && account.IsTrustModeEnabled() {
+		return ErrorPolicySkipped
+	}
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
 	if account.IsCustomErrorCodesEnabled() {
 		if account.ShouldHandleErrorCode(statusCode) {
@@ -176,6 +179,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 // HandleUpstreamError 处理上游错误响应，标记账号状态
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) (shouldDisable bool) {
+	if account == nil || account.IsTrustModeEnabled() {
+		return false
+	}
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
 	customErrorCodesEnabled := account.IsCustomErrorCodesEnabled()
 
@@ -1903,7 +1909,7 @@ func (s *RateLimitService) GetTempUnschedStatus(ctx context.Context, accountID i
 }
 
 func (s *RateLimitService) HandleTempUnschedulable(ctx context.Context, account *Account, statusCode int, responseBody []byte, requestedModel ...string) bool {
-	if account == nil {
+	if account == nil || account.IsTrustModeEnabled() {
 		return false
 	}
 	if account.IsPoolMode() && !account.IsCustomErrorCodesEnabled() {
@@ -1917,7 +1923,7 @@ func (s *RateLimitService) HandleTempUnschedulable(ctx context.Context, account 
 }
 
 func (s *RateLimitService) HandleOpenAIImageRateLimit(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte) bool {
-	if s == nil || account == nil || s.accountRepo == nil {
+	if s == nil || account == nil || account.IsTrustModeEnabled() || s.accountRepo == nil {
 		return false
 	}
 	if account.Platform != PlatformOpenAI {
@@ -2035,7 +2041,7 @@ const tempUnschedMessageMaxBytes = 2048
 // cooldown expires, instead of re-selecting an account that can never serve
 // the model.
 func (s *RateLimitService) HandleUpstreamModelNotFound(ctx context.Context, account *Account, requestedModel string, statusCode int, responseBody []byte) bool {
-	if s == nil || account == nil || s.accountRepo == nil {
+	if s == nil || account == nil || account.IsTrustModeEnabled() || s.accountRepo == nil {
 		return false
 	}
 	if !account.ShouldHandleErrorCode(statusCode) {
@@ -2283,7 +2289,7 @@ func truncateTempUnschedMessage(body []byte, maxBytes int) string {
 // 根据系统设置决定是否标记账户为临时不可调度或错误状态
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleStreamTimeout(ctx context.Context, account *Account, model string) bool {
-	if account == nil {
+	if account == nil || account.IsTrustModeEnabled() {
 		return false
 	}
 
