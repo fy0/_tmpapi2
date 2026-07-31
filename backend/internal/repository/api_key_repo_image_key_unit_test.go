@@ -64,7 +64,7 @@ func TestAPIKeyRepositoryImageKeyLifecycle(t *testing.T) {
 	require.False(t, previous.IsImageKey)
 
 	candidate.IsImageKey = false
-	require.NoError(t, repo.Update(ctx, candidate))
+	require.NoError(t, repo.Update(ctx, candidate, service.APIKeyUpdateFields{IsImageKey: true}))
 	updated, err := repo.GetByID(ctx, second.ID)
 	require.NoError(t, err)
 	require.False(t, updated.IsImageKey)

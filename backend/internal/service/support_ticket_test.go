@@ -121,7 +121,7 @@ func (r *supportTicketUserRepoStub) GetByEmail(context.Context, string) (*User, 
 func (r *supportTicketUserRepoStub) GetFirstAdmin(context.Context) (*User, error) {
 	panic("unexpected GetFirstAdmin call")
 }
-func (r *supportTicketUserRepoStub) Update(context.Context, *User) error {
+func (r *supportTicketUserRepoStub) Update(context.Context, *User, UserUpdateFields) error {
 	panic("unexpected Update call")
 }
 func (r *supportTicketUserRepoStub) Delete(context.Context, int64) error {
@@ -156,6 +156,12 @@ func (r *supportTicketUserRepoStub) UpdateBalance(context.Context, int64, float6
 }
 func (r *supportTicketUserRepoStub) DeductBalance(context.Context, int64, float64) error {
 	panic("unexpected DeductBalance call")
+}
+func (r *supportTicketUserRepoStub) AdjustBalance(context.Context, int64, float64) (BalanceChange, error) {
+	panic("unexpected AdjustBalance call")
+}
+func (r *supportTicketUserRepoStub) SetBalance(context.Context, int64, float64) (BalanceChange, error) {
+	panic("unexpected SetBalance call")
 }
 func (r *supportTicketUserRepoStub) UpdateConcurrency(context.Context, int64, int) error {
 	panic("unexpected UpdateConcurrency call")
