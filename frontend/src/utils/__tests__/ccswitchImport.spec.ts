@@ -3,7 +3,8 @@ import {
   GROK_CC_SWITCH_MODEL,
   OPENAI_CC_SWITCH_CODEX_MODEL,
   buildCcSwitchImportDeeplink,
-  buildCcSwitchMirrorOptions
+  buildCcSwitchMirrorOptions,
+  buildCcSwitchProviderName
 } from '@/utils/ccswitchImport'
 import type { GroupPlatform } from '@/types'
 
@@ -95,6 +96,33 @@ describe('ccswitchImport utils', () => {
     ])
   })
 
+  it('builds distinguishable provider names from the site, API key, and mirror', () => {
+    const usName = buildCcSwitchProviderName({
+      siteName: 'Sub2API',
+      apiKeyName: 'production',
+      mirrorName: '优化线路(位于北美)'
+    })
+    const japanName = buildCcSwitchProviderName({
+      siteName: 'Sub2API',
+      apiKeyName: 'production',
+      mirrorName: '优化线路(位于日本)'
+    })
+
+    expect(usName).toBe('Sub2API - production - 优化线路(位于北美)')
+    expect(japanName).toBe('Sub2API - production - 优化线路(位于日本)')
+    expect(usName).not.toBe(japanName)
+  })
+
+  it('trims provider name segments, falls back the site name, and skips empty segments', () => {
+    expect(
+      buildCcSwitchProviderName({
+        siteName: '   ',
+        apiKeyName: '  test key  ',
+        mirrorName: ''
+      })
+    ).toBe('sub2api - test key')
+  })
+
   const baseInput = {
     baseUrl: 'https://api.example.com',
     providerName: 'Sub2API',
@@ -183,6 +211,24 @@ describe('ccswitchImport utils', () => {
     expect(params.get('homepage')).toBe(selectedMirror)
     expect(params.get('endpoint')).toBe(selectedMirror)
     expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+  })
+
+  it('preserves the generated provider name in the import deeplink', () => {
+    const providerName = buildCcSwitchProviderName({
+      siteName: 'Sub2API',
+      apiKeyName: 'production',
+      mirrorName: '优化线路(位于日本)'
+    })
+    const params = paramsFromDeeplink(
+      buildCcSwitchImportDeeplink({
+        ...baseInput,
+        providerName,
+        platform: 'openai',
+        clientType: 'claude'
+      })
+    )
+
+    expect(params.get('name')).toBe('Sub2API - production - 优化线路(位于日本)')
   })
 
   it('uses the selected mirror endpoint for Antigravity client imports', () => {

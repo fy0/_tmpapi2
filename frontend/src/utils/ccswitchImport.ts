@@ -20,6 +20,12 @@ export interface CcSwitchMirrorOptionsInput {
   defaultName: string
 }
 
+export interface CcSwitchProviderNameInput {
+  siteName?: string | null
+  apiKeyName?: string | null
+  mirrorName?: string | null
+}
+
 export interface CcSwitchImportConfig {
   app: string
   endpoint: string
@@ -37,6 +43,11 @@ export interface CcSwitchImportDeeplinkInput {
 
 function normalizeEndpoint(value: string | null | undefined): string {
   return (value || '').trim().replace(/\/+$/, '')
+}
+
+export function buildCcSwitchProviderName(input: CcSwitchProviderNameInput): string {
+  const siteName = input.siteName?.trim() || 'sub2api'
+  return [siteName, input.apiKeyName?.trim(), input.mirrorName?.trim()].filter(Boolean).join(' - ')
 }
 
 export function buildCcSwitchMirrorOptions(input: CcSwitchMirrorOptionsInput): CcSwitchMirrorOption[] {

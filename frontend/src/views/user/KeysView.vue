@@ -1254,8 +1254,10 @@ import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
   buildCcSwitchMirrorOptions,
+  buildCcSwitchProviderName,
   buildCcSwitchImportDeeplink,
-  type CcSwitchClientType
+  type CcSwitchClientType,
+  type CcSwitchMirrorOption
 } from '@/utils/ccswitchImport'
 
 // Helper to format date for datetime-local input
@@ -2038,7 +2040,7 @@ const importToCcswitch = (row: ApiKey) => {
   showCcsImportDialog.value = true
 }
 
-const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType, baseUrl: string) => {
+const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType, mirror: CcSwitchMirrorOption) => {
   const platform = row.group?.platform || 'anthropic'
 
   const usageScript = `({
@@ -2057,9 +2059,13 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType, baseUrl: 
       };
     }
   })`
-  const providerName = (publicSettings.value?.site_name || 'sub2api').trim() || 'sub2api'
+  const providerName = buildCcSwitchProviderName({
+    siteName: publicSettings.value?.site_name,
+    apiKeyName: row.name,
+    mirrorName: mirror.name
+  })
   const deeplink = buildCcSwitchImportDeeplink({
-    baseUrl,
+    baseUrl: mirror.endpoint,
     platform,
     clientType,
     providerName,
@@ -2084,13 +2090,15 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType, baseUrl: 
 
 const confirmCcsImport = () => {
   if (!pendingCcsRow.value) return
-  const selectedEndpoint = selectedCcsMirrorEndpoint.value || ccsMirrorOptions.value[0]?.endpoint || window.location.origin
-  if (!selectedEndpoint) {
+  const selectedMirror =
+    ccsMirrorOptions.value.find((mirror) => mirror.endpoint === selectedCcsMirrorEndpoint.value) ||
+    ccsMirrorOptions.value[0]
+  if (!selectedMirror) {
     appStore.showError(t('keys.ccsImport.selectMirror'))
     return
   }
 
-  executeCcsImport(pendingCcsRow.value, selectedCcsClientType.value, selectedEndpoint)
+  executeCcsImport(pendingCcsRow.value, selectedCcsClientType.value, selectedMirror)
   closeCcsImportDialog()
 }
 

@@ -31,6 +31,7 @@ const {
 
 const messages: Record<string, string> = {
   'common.actions': 'Actions',
+  'common.cancel': 'Cancel',
   'common.name': 'Name',
   'common.refresh': 'Refresh',
   'common.status': 'Status',
@@ -43,6 +44,11 @@ const messages: Record<string, string> = {
   'keys.expiresAt': 'Expires',
   'keys.group': 'Group',
   'keys.id': 'ID',
+  'keys.importToCcSwitch': 'Import to CCS',
+  'keys.ccsImport.description': 'Select an access mirror.',
+  'keys.ccsImport.mirrorSection': 'Access Mirror',
+  'keys.ccsImport.currentSite': 'Main Site',
+  'keys.ccsImport.defaultMirror': 'Default',
   'keys.currentConcurrency': 'Current Concurrency',
   'keys.lastUsedAt': 'Last Used',
   'keys.lastUsedIP': 'Last Used IP',
@@ -179,6 +185,9 @@ const DataTableStub = {
         >
           <slot name="cell-last_used_ip" :value="row.last_used_ip" :row="row" />
         </div>
+        <div data-test="key-actions">
+          <slot name="cell-actions" :row="row" />
+        </div>
       </div>
       <slot name="empty" />
     </div>
@@ -215,6 +224,17 @@ const IconStub = {
   template: '<span data-test="icon">{{ name }}</span>',
 }
 
+const BaseDialogStub = {
+  name: 'BaseDialog',
+  props: ['show'],
+  template: `
+    <div v-if="show" data-test="base-dialog">
+      <slot />
+      <slot name="footer" />
+    </div>
+  `,
+}
+
 const mountView = async () => {
   const wrapper = mount(KeysView, {
     global: {
@@ -223,7 +243,7 @@ const mountView = async () => {
         TablePageLayout: TablePageLayoutStub,
         DataTable: DataTableStub,
         Pagination: PaginationStub,
-        BaseDialog: true,
+        BaseDialog: BaseDialogStub,
         ConfirmDialog: true,
         EmptyState: true,
         Select: SelectStub,
@@ -437,5 +457,60 @@ describe('user KeysView column settings', () => {
       },
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
+  })
+
+  it('imports CCS with the site, API key, and selected mirror in the provider name', async () => {
+    getPublicSettings.mockResolvedValueOnce({
+      site_name: 'Sub2API',
+      api_base_url: 'https://api.example.com',
+      hide_ccs_import_button: false,
+      custom_endpoints: [
+        {
+          name: '优化线路(位于北美)',
+          endpoint: 'https://code-us.example.com',
+          description: ''
+        },
+        {
+          name: '优化线路(位于日本)',
+          endpoint: 'https://code-jp.example.com',
+          description: ''
+        }
+      ]
+    })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const wrapper = await mountView()
+
+    const actionImportButton = wrapper
+      .get('[data-test="key-actions"]')
+      .findAll('button')
+      .find((button) => button.text().includes('Import to CCS'))
+    expect(actionImportButton).toBeDefined()
+    await actionImportButton!.trigger('click')
+
+    const dialog = wrapper.get('[data-test="base-dialog"]')
+    const japanMirrorButton = dialog
+      .findAll('button')
+      .find((button) => button.text().includes('优化线路(位于日本)'))
+    expect(japanMirrorButton).toBeDefined()
+    await japanMirrorButton!.trigger('click')
+
+    vi.useFakeTimers()
+    try {
+      const confirmImportButton = dialog
+        .findAll('button')
+        .find((button) => button.text().includes('Import to CCS'))
+      expect(confirmImportButton).toBeDefined()
+      await confirmImportButton!.trigger('click')
+
+      expect(openSpy).toHaveBeenCalledOnce()
+      const deeplink = String(openSpy.mock.calls[0]?.[0] || '')
+      const params = new URLSearchParams(deeplink.split('?')[1] || '')
+      expect(params.get('name')).toBe('Sub2API - test-key - 优化线路(位于日本)')
+      expect(params.get('endpoint')).toBe('https://code-jp.example.com')
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+      openSpy.mockRestore()
+    }
   })
 })
