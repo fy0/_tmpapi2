@@ -79,6 +79,24 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "usage_logs", "long_context_billing_applied", "boolean", 0, false)
 	requireIndex(t, tx, "usage_logs", "idx_usage_logs_api_key_latest_ip")
 	requireColumn(t, tx, "groups", "web_search_price_per_call", "numeric", 0, true)
+	requireColumn(t, tx, "usage_logs", "upstream_response_model", "character varying", 200, true)
+	requireColumn(t, tx, "usage_logs", "upstream_model_mismatch", "boolean", 0, true)
+	requireIndex(t, tx, "usage_logs", usageLogsUpstreamModelMismatchIndex)
+
+	var mismatchIndexDef string
+	require.NoError(t, tx.QueryRowContext(context.Background(), `
+SELECT pg_get_indexdef(i.indexrelid)
+FROM pg_class idx
+JOIN pg_index i ON i.indexrelid = idx.oid
+JOIN pg_class tbl ON tbl.oid = i.indrelid
+JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+WHERE ns.nspname = 'public'
+  AND tbl.relname = 'usage_logs'
+  AND idx.relname = $1
+`, usageLogsUpstreamModelMismatchIndex).Scan(&mismatchIndexDef))
+	require.Contains(t, mismatchIndexDef, "created_at DESC")
+	require.Contains(t, mismatchIndexDef, "id DESC")
+	require.Contains(t, mismatchIndexDef, "WHERE (upstream_model_mismatch IS TRUE)")
 	requireConstraintDefinitionContains(
 		t,
 		tx,
