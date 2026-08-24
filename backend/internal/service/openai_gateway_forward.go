@@ -39,16 +39,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, errors.New("codex_cli_only restriction: only codex official clients are allowed")
 	}
 
-	responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader))
-	if responsesLite {
-		liteBody, changed, liteErr := normalizeOpenAIResponsesLiteParallelToolCalls(body)
-		if liteErr != nil {
-			return nil, liteErr
-		}
-		if changed {
-			body = liteBody
-		}
-	}
 	normalizedBody, normalized, err := normalizeOpenAICodexCompactReasoningEffortForAccount(c, account, body)
 	if err != nil {
 		return nil, err
@@ -56,7 +46,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if normalized {
 		body = normalizedBody
 	}
-	if account.IsOpenAIOAuth() && responsesLite {
+	if account.IsOpenAIOAuth() && isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) {
 		liteBody, changed, liteErr := normalizeOpenAIResponsesLiteToolsPayload(body)
 		if liteErr != nil {
 			setOpsUpstreamError(c, http.StatusBadRequest, liteErr.Error(), "")

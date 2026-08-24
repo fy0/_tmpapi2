@@ -354,20 +354,6 @@ func normalizeOpenAICodexCompactReasoningEffort(body []byte, effectiveModel stri
 	return normalized, true, nil
 }
 
-// Responses Lite rejects omitted or true parallel_tool_calls, even when tools are present.
-// Normalize it before account routing so API-key and OAuth paths follow the same contract.
-func normalizeOpenAIResponsesLiteParallelToolCalls(body []byte) ([]byte, bool, error) {
-	parallel := gjson.GetBytes(body, "parallel_tool_calls")
-	if parallel.Type == gjson.False {
-		return body, false, nil
-	}
-	normalized, err := sjson.SetBytes(body, "parallel_tool_calls", false)
-	if err != nil {
-		return body, false, fmt.Errorf("normalize Responses Lite parallel_tool_calls: %w", err)
-	}
-	return normalized, true, nil
-}
-
 func resolveOpenAICompactSessionID(c *gin.Context) string {
 	if c != nil {
 		if sessionID := strings.TrimSpace(c.GetHeader("session_id")); sessionID != "" {
