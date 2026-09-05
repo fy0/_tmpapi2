@@ -25,7 +25,7 @@
           {{ siteName }}
         </router-link>
         <!-- Version Badge -->
-        <VersionBadge :version="siteVersion" />
+        <!-- <VersionBadge :version="siteVersion" /> -->
       </div>
     </div>
 
@@ -301,7 +301,7 @@ import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'v
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
-import VersionBadge from '@/components/common/VersionBadge.vue'
+// import VersionBadge from '@/components/common/VersionBadge.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
@@ -387,7 +387,7 @@ const expandedGroups = ref<Set<string>>(new Set())
 // Site settings from appStore (cached, no flicker)
 const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteVersion = computed(() => appStore.siteVersion)
+// const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 const pendingExternalMenuItem = ref<CustomMenuItem | null>(null)
 const externalConfirmMessage = computed(() => {
