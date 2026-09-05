@@ -501,14 +501,15 @@ func TestFetchCodexModelsManifestAPIKeyConvertsStandardOpenAIModelList(t *testin
 
 func TestAdjustAPIKeyCodexModelsManifest(t *testing.T) {
 	tests := []struct {
-		name string
-		body string
-		want string
+		name    string
+		body    string
+		account *Account
+		want    string
 	}{
 		{
 			name: "affected models disable responses lite and preserve unknown fields",
-			body: `{"models":[{"slug":"gpt-6-astra","use_responses_lite":true},{"slug":"gpt-5.6-sol","use_responses_lite":true,"unknown_model":{"enabled":true}},{"slug":"gpt-5.6-terra","use_responses_lite":true},{"slug":"gpt-5.6-luna","use_responses_lite":true}],"unknown_top":{"version":1}}`,
-			want: `{"models":[{"slug":"gpt-6-astra","use_responses_lite":false},{"slug":"gpt-5.6-sol","unknown_model":{"enabled":true},"use_responses_lite":false},{"slug":"gpt-5.6-terra","use_responses_lite":false},{"slug":"gpt-5.6-luna","use_responses_lite":false}],"unknown_top":{"version":1}}`,
+			body: `{"models":[{"slug":"gpt-6","use_responses_lite":true},{"slug":"gpt-6-astra","use_responses_lite":true},{"slug":"gpt-5.6-sol","use_responses_lite":true,"unknown_model":{"enabled":true}},{"slug":"gpt-5.6-terra","use_responses_lite":true},{"slug":"gpt-5.6-luna","use_responses_lite":true}],"unknown_top":{"version":1}}`,
+			want: `{"models":[{"slug":"gpt-6","use_responses_lite":false},{"slug":"gpt-6-astra","use_responses_lite":false},{"slug":"gpt-5.6-sol","unknown_model":{"enabled":true},"use_responses_lite":false},{"slug":"gpt-5.6-terra","use_responses_lite":false},{"slug":"gpt-5.6-luna","use_responses_lite":false}],"unknown_top":{"version":1}}`,
 		},
 		{
 			name: "unaffected model unchanged",
@@ -520,11 +521,27 @@ func TestAdjustAPIKeyCodexModelsManifest(t *testing.T) {
 			body: `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false},{"slug":"gpt-5.6-terra"},null,"gpt-5.6-luna",{"slug":17,"use_responses_lite":true}]}`,
 			want: `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":false},{"slug":"gpt-5.6-terra"},null,"gpt-5.6-luna",{"slug":17,"use_responses_lite":true}]}`,
 		},
+		{
+			name: "Astra variant disables responses lite",
+			body: `{"models":[{"slug":"gpt-6-astra-2026-09-01","use_responses_lite":true}]}`,
+			want: `{"models":[{"slug":"gpt-6-astra-2026-09-01","use_responses_lite":false}]}`,
+		},
+		{
+			name: "mapped Astra target disables responses lite",
+			body: `{"models":[{"slug":"public-astra","use_responses_lite":true},{"slug":"public-other","use_responses_lite":true}]}`,
+			account: &Account{Credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"public-astra": "gpt-6-astra-2026-09-01",
+					"public-other": "gpt-5.6-codex",
+				},
+			}},
+			want: `{"models":[{"slug":"public-astra","use_responses_lite":false},{"slug":"public-other","use_responses_lite":true}]}`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := adjustAPIKeyCodexModelsManifest([]byte(tt.body))
+			got, err := adjustAPIKeyCodexModelsManifest([]byte(tt.body), tt.account)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, string(got))
 		})
