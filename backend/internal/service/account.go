@@ -272,6 +272,13 @@ func (a *Account) IsOAuth() bool {
 	return a.Type == AccountTypeOAuth || a.Type == AccountTypeSetupToken
 }
 
+// IsOpenAIOAuthLike reports OpenAI credentials that use the ChatGPT/Codex
+// upstream (OAuth access token or setup-token), as opposed to apikey accounts
+// that hit api.openai.com.
+func (a *Account) IsOpenAIOAuthLike() bool {
+	return a != nil && a.IsOpenAI() && (a.Type == AccountTypeOAuth || a.Type == AccountTypeSetupToken)
+}
+
 // IsPrivacySet 检查账号的 privacy 是否已成功设置。
 // OpenAI: privacy_mode == "training_off"
 // Antigravity: privacy_mode == "privacy_set"
