@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import HomeView from '../HomeView.vue'
@@ -137,6 +138,7 @@ function mountHome() {
 
 describe('HomeView mirror cards', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     stores.authStore.isAuthenticated = false
     stores.authStore.isAdmin = false
     stores.authStore.user = null

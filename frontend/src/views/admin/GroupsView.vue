@@ -146,7 +146,13 @@
                       ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
                       : value === 'grok'
                         ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                        : value === 'kimi'
+                          ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
+                          : value === 'zhipu'
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                            : value === 'deepseek'
+                              ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
               ]"
             >
               <PlatformIcon :platform="value" size="xs" />
@@ -1594,9 +1600,9 @@
             </div>
           </div>
         </div>
-        <!-- OpenAI Live 开关（仅 openai 平台） -->
+        <!-- Codex Live 开关（OpenAI 与 Composite 平台） -->
         <div
-          v-if="createForm.platform === 'openai'"
+          v-if="supportsLivePlatform(createForm.platform)"
           class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
         >
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -1627,9 +1633,9 @@
           </p>
         </div>
 
-        <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
+        <!-- OpenAI Messages 调度配置（OpenAI 与 Composite 平台） -->
         <div
-          v-if="createForm.platform === 'openai'"
+          v-if="supportsMessagesDispatchPlatform(createForm.platform)"
           class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
         >
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -1668,7 +1674,13 @@
             {{ t("admin.groups.openaiMessages.allowDispatchHint") }}
           </p>
 
-          <div v-if="createForm.allow_messages_dispatch" class="mt-3">
+          <div
+            v-if="
+              createForm.platform === 'openai' &&
+              createForm.allow_messages_dispatch
+            "
+            class="mt-3"
+          >
             <div
               class="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-dark-600 dark:bg-dark-800"
             >
@@ -3335,9 +3347,9 @@
             </div>
           </div>
         </div>
-        <!-- OpenAI Live 开关（仅 openai 平台） -->
+        <!-- Codex Live 开关（OpenAI 与 Composite 平台） -->
         <div
-          v-if="editForm.platform === 'openai'"
+          v-if="supportsLivePlatform(editForm.platform)"
           class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
         >
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -3368,9 +3380,9 @@
           </p>
         </div>
 
-        <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
+        <!-- OpenAI Messages 调度配置（OpenAI 与 Composite 平台） -->
         <div
-          v-if="editForm.platform === 'openai'"
+          v-if="supportsMessagesDispatchPlatform(editForm.platform)"
           class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
         >
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -3409,7 +3421,12 @@
             {{ t("admin.groups.openaiMessages.allowDispatchHint") }}
           </p>
 
-          <div v-if="editForm.allow_messages_dispatch" class="mt-3">
+          <div
+            v-if="
+              editForm.platform === 'openai' && editForm.allow_messages_dispatch
+            "
+            class="mt-3"
+          >
             <div
               class="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-dark-600 dark:bg-dark-800"
             >
@@ -4003,7 +4020,13 @@
                           ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
                           : group.platform === 'grok'
                             ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100'
-                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                            : group.platform === 'kimi'
+                              ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
+                              : group.platform === 'zhipu'
+                                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                                : group.platform === 'deepseek'
+                                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
                   ]"
                 >
                   {{ t("admin.groups.platforms." + group.platform) }}
@@ -4448,6 +4471,10 @@ import type {
   GroupPlatform,
   SubscriptionType,
 } from "@/types";
+import {
+  CONCRETE_PLATFORM_OPTIONS,
+  GROUP_PLATFORM_OPTIONS,
+} from "@/constants/platforms";
 import type { Column } from "@/components/common/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import TablePageLayout from "@/components/layout/TablePageLayout.vue";
@@ -4467,6 +4494,7 @@ import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
 import type { PricingFormEntry } from "@/components/admin/channel/types";
 import {
   apiIntervalsToForm,
+  createDefaultTimePricingForm,
   formIntervalsToAPI,
   mTokToPerToken,
   perTokenToMTok,
@@ -4483,6 +4511,7 @@ import {
   messagesDispatchConfigToFormState,
   messagesDispatchFormStateToConfig,
   resetMessagesDispatchFormState,
+  supportsMessagesDispatchPlatform,
   type MessagesDispatchMappingRow,
 } from "./groupsMessagesDispatch";
 import {
@@ -4526,6 +4555,9 @@ import {
   videoModelPriceFamilyRows,
 } from "./groupsVideoModelPricing";
 
+const supportsLivePlatform = (platform: string): boolean =>
+  platform === "openai" || platform === "composite";
+
 const emptyGroupPricing = (): PricingFormEntry => ({
   models: [],
   billing_mode: "token",
@@ -4537,6 +4569,7 @@ const emptyGroupPricing = (): PricingFormEntry => ({
   image_output_price: null,
   per_request_price: null,
   intervals: [],
+  time_pricing: createDefaultTimePricingForm(),
 });
 
 const addGroupPricing = (entries: PricingFormEntry[]) =>
@@ -4556,6 +4589,7 @@ const groupPricingFromAPI = (
     image_output_price: perTokenToMTok(entry.image_output_price),
     per_request_price: entry.per_request_price,
     intervals: apiIntervalsToForm(entry.intervals || []),
+    time_pricing: createDefaultTimePricingForm(),
   }));
 
 const groupPricingToAPI = (
@@ -4579,6 +4613,7 @@ const groupPricingToAPI = (
         entry.billing_mode === "token"
           ? []
           : formIntervalsToAPI(entry.intervals || []),
+      time_pricing: null,
     }));
 
 const { t } = useI18n();
@@ -4759,31 +4794,15 @@ const exclusiveOptions = computed(() => [
   { value: "false", label: t("admin.groups.nonExclusive") },
 ]);
 
-const platformOptions = computed(() => [
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "gemini", label: "Gemini" },
-  { value: "antigravity", label: "Antigravity" },
-  { value: "grok", label: "Grok" },
-  { value: "composite", label: "Composite" },
-]);
+const platformOptions = computed(() => [...GROUP_PLATFORM_OPTIONS]);
 
 const platformFilterOptions = computed(() => [
   { value: "", label: t("admin.groups.allPlatforms") },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "gemini", label: "Gemini" },
-  { value: "antigravity", label: "Antigravity" },
-  { value: "grok", label: "Grok" },
-  { value: "composite", label: "Composite" },
+  ...GROUP_PLATFORM_OPTIONS,
 ]);
 
 const compositeRoutePlatformOptions = computed(() => [
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "gemini", label: "Gemini" },
-  { value: "antigravity", label: "Antigravity" },
-  { value: "grok", label: "Grok" },
+  ...CONCRETE_PLATFORM_OPTIONS,
 ]);
 
 const compositeRouteEndpointOptions = computed(() => [
@@ -6144,7 +6163,7 @@ const handleCreateGroup = async () => {
     }
   } catch (error: any) {
     appStore.showError(
-      error.response?.data?.detail || t("admin.groups.failedToCreate"),
+      extractApiErrorMessage(error, t("admin.groups.failedToCreate")),
     );
     console.error("Error creating group:", error);
     // Don't advance tour on error
@@ -6422,7 +6441,7 @@ const handleUpdateGroup = async () => {
     loadGroups();
   } catch (error: any) {
     appStore.showError(
-      error.response?.data?.detail || t("admin.groups.failedToUpdate"),
+      extractApiErrorMessage(error, t("admin.groups.failedToUpdate")),
     );
     console.error("Error updating group:", error);
   } finally {
@@ -6722,9 +6741,13 @@ watch(
     if (!["anthropic", "antigravity"].includes(newVal)) {
       createForm.fallback_group_id_on_invalid_request = null;
     }
-    if (newVal !== "openai") {
+    if (!supportsMessagesDispatchPlatform(newVal)) {
       resetMessagesDispatchFormState(createForm);
+    }
+    if (newVal !== "openai") {
       createForm.responses_image_generation_redirect_group_id = null;
+    }
+    if (!supportsLivePlatform(newVal)) {
       createForm.allow_live = false;
     }
     if (!isProfitControlPlatform(newVal)) {
@@ -6771,9 +6794,13 @@ watch(
     if (!["anthropic", "antigravity"].includes(newVal)) {
       editForm.fallback_group_id_on_invalid_request = null;
     }
-    if (newVal !== "openai") {
+    if (!supportsMessagesDispatchPlatform(newVal)) {
       resetMessagesDispatchFormState(editForm);
+    }
+    if (newVal !== "openai") {
       editForm.responses_image_generation_redirect_group_id = null;
+    }
+    if (!supportsLivePlatform(newVal)) {
       editForm.allow_live = false;
     }
     if (!isProfitControlPlatform(newVal)) {

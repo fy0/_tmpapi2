@@ -33,6 +33,10 @@ func (s *recordingAccountTestService) FetchUpstreamSupportedModels(context.Conte
 	return nil, nil
 }
 
+func (s *recordingAccountTestService) SyncUpstreamModelCatalog(context.Context, *service.Account) (*service.UpstreamModelCatalog, error) {
+	return nil, nil
+}
+
 func TestAccountHandlerTestPassesPromptToAccountTestService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	testService := &recordingAccountTestService{}
