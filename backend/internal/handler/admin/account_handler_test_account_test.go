@@ -19,7 +19,7 @@ type recordingAccountTestService struct {
 	mode      string
 }
 
-func (s *recordingAccountTestService) TestAccountConnection(_ *gin.Context, accountID int64, modelID string, prompt string, mode string) error {
+func (s *recordingAccountTestService) TestAccountConnection(_ *gin.Context, accountID int64, modelID string, prompt string, mode string, opts ...service.AccountTestOptions) error {
 	s.accountID = accountID
 	s.modelID = modelID
 	s.prompt = prompt

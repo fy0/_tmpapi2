@@ -551,3 +551,82 @@ func TestToUsageFields_ResponseModelSourcePassesThrough(t *testing.T) {
 	require.Equal(t, int64(4), fields.ChannelID)
 	require.Equal(t, BillingModelSourceResponse, fields.BillingModelSource)
 }
+
+func TestGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurchargedRequest(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
+	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
+	cheaper, pricier, _, pricierCost := orderedResponseBillingModels(t, svc.billingService, tokens, anthropicCheapFixtureModel, anthropicPriceyFixtureModel)
+
+	const searchCalls = 2
+	searchCost := svc.billingService.CalculateSearchCost(searchCalls, nil, 1.1)
+	require.NotNil(t, searchCost)
+	require.Greater(t, searchCost.ActualCost, 0.0, "夹具附加费必须非零，否则断言分不出两条分支")
+
+	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
+		Result: &ForwardResult{
+			RequestID:             "gateway_response_model_search_surcharge",
+			Usage:                 ClaudeUsage{InputTokens: 100, OutputTokens: 50},
+			Model:                 pricier,
+			UpstreamResponseModel: cheaper,
+			SearchCount:           searchCalls,
+			Duration:              time.Second,
+		},
+		APIKey:  &APIKey{ID: 501, Quota: 100},
+		User:    &User{ID: 601},
+		Account: &Account{ID: 701},
+		ChannelUsageFields: ChannelUsageFields{
+			ChannelID:          9,
+			OriginalModel:      pricier,
+			ChannelMappedModel: pricier,
+			BillingModelSource: BillingModelSourceResponse,
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	want := pricierCost.ActualCost + searchCost.ActualCost
+	require.InDelta(t, want, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, want, userRepo.lastAmount, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurcharge(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	tokens := UsageTokens{InputTokens: 20, OutputTokens: 10}
+	cheaper, pricier, _, pricierCost := orderedResponseBillingModels(t, svc.billingService, tokens, openAICheapFixtureModel, openAIPriceyFixtureModel)
+
+	const searchCalls = 3
+	searchCost := svc.billingService.CalculateSearchCost(searchCalls, nil, 1.1)
+	require.NotNil(t, searchCost)
+	require.Greater(t, searchCost.ActualCost, 0.0, "夹具附加费必须非零，否则断言分不出两条分支")
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:             "openai_response_model_search_surcharge",
+			Model:                 pricier,
+			UpstreamModel:         pricier,
+			UpstreamResponseModel: cheaper,
+			SearchCount:           searchCalls,
+			Usage:                 OpenAIUsage{InputTokens: 20, OutputTokens: 10},
+			Duration:              time.Second,
+		},
+		APIKey:  &APIKey{ID: 10},
+		User:    &User{ID: 20},
+		Account: &Account{ID: 30},
+		ChannelUsageFields: ChannelUsageFields{
+			ChannelID:          9,
+			OriginalModel:      pricier,
+			ChannelMappedModel: pricier,
+			BillingModelSource: BillingModelSourceResponse,
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	want := pricierCost.ActualCost + searchCost.ActualCost
+	require.InDelta(t, want, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, want, userRepo.lastAmount, 1e-12)
+}
