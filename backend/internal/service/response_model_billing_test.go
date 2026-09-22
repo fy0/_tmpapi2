@@ -498,7 +498,7 @@ func TestResponseModelBillingAdoptable(t *testing.T) {
 
 // Web search is billed per call independently of the declared response model.
 
-func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurchargedRequest(t *testing.T) {
+func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForWebSearch(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
