@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +31,10 @@ func (s *recordingAccountTestService) TestAccountConnection(_ *gin.Context, acco
 func (s *recordingAccountTestService) ProbeOpenAIAPIKeyResponsesSupport(context.Context, int64) {}
 
 func (s *recordingAccountTestService) FetchUpstreamSupportedModels(context.Context, *service.Account) ([]string, error) {
+	return nil, nil
+}
+
+func (s *recordingAccountTestService) FetchOpenAIAccountModels(context.Context, *service.Account) ([]openai.Model, error) {
 	return nil, nil
 }
 
