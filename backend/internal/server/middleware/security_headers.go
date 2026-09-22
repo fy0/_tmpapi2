@@ -18,6 +18,10 @@ const (
 	NonceTemplate = "__CSP_NONCE__"
 	// CloudflareInsightsDomain is the domain for Cloudflare Web Analytics
 	CloudflareInsightsDomain = "https://static.cloudflareinsights.com"
+	// TencentCaptchaDomain is the Tencent Captcha 2.0 Web SDK domain.
+	TencentCaptchaDomain = "https://turing.captcha.qcloud.com"
+	// TencentCaptchaStaticDomain is the Tencent Captcha static asset domain.
+	TencentCaptchaStaticDomain = "https://*.captcha.gtimg.com"
 	// StripeDomain is the domain for Stripe.js SDK
 	StripeDomain = "https://*.stripe.com"
 	// AirwallexStaticDomain 是 Airwallex 生产环境 SDK 脚本域名。
@@ -37,6 +41,9 @@ var requiredCSPDirectiveValues = []struct {
 	value     string
 }{
 	{"script-src", CloudflareInsightsDomain},
+	{"script-src", TencentCaptchaDomain},
+	{"frame-src", TencentCaptchaDomain},
+	{"style-src", TencentCaptchaStaticDomain},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
 	{"script-src", AirwallexStaticDomain},
