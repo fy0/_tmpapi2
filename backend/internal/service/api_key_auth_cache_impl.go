@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 18 // v18: include fork image redirects plus upstream Live and reasoning policy
+const apiKeyAuthSnapshotVersion = 19 // v19: include fork image redirects and upstream profit control fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -400,7 +400,6 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			VideoPrice480P:                          apiKey.Group.VideoPrice480P,
 			VideoPrice720P:                          apiKey.Group.VideoPrice720P,
 			VideoPrice1080P:                         apiKey.Group.VideoPrice1080P,
-			ResponsesImageGenerationRedirectGroupID: apiKey.Group.ResponsesImageGenerationRedirectGroupID,
 			WebSearchPricePerCall:                   apiKey.Group.WebSearchPricePerCall,
 			ClaudeCodeOnly:                          apiKey.Group.ClaudeCodeOnly,
 			FallbackGroupID:                         apiKey.Group.FallbackGroupID,
@@ -421,6 +420,10 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			PeakStart:                               apiKey.Group.PeakStart,
 			PeakEnd:                                 apiKey.Group.PeakEnd,
 			PeakRateMultiplier:                      apiKey.Group.PeakRateMultiplier,
+			ProfitControlEnabled:                    apiKey.Group.ProfitControlEnabled,
+			ProfitMinMargin:                         apiKey.Group.ProfitMinMargin,
+			ProfitSafetyBuffer:                      apiKey.Group.ProfitSafetyBuffer,
+			ResponsesImageGenerationRedirectGroupID: apiKey.Group.ResponsesImageGenerationRedirectGroupID,
 		}
 	}
 	return snapshot
@@ -488,7 +491,6 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			VideoPrice480P:                          snapshot.Group.VideoPrice480P,
 			VideoPrice720P:                          snapshot.Group.VideoPrice720P,
 			VideoPrice1080P:                         snapshot.Group.VideoPrice1080P,
-			ResponsesImageGenerationRedirectGroupID: snapshot.Group.ResponsesImageGenerationRedirectGroupID,
 			WebSearchPricePerCall:                   snapshot.Group.WebSearchPricePerCall,
 			ClaudeCodeOnly:                          snapshot.Group.ClaudeCodeOnly,
 			FallbackGroupID:                         snapshot.Group.FallbackGroupID,
@@ -509,6 +511,10 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			PeakStart:                               snapshot.Group.PeakStart,
 			PeakEnd:                                 snapshot.Group.PeakEnd,
 			PeakRateMultiplier:                      snapshot.Group.PeakRateMultiplier,
+			ProfitControlEnabled:                    snapshot.Group.ProfitControlEnabled,
+			ProfitMinMargin:                         snapshot.Group.ProfitMinMargin,
+			ProfitSafetyBuffer:                      snapshot.Group.ProfitSafetyBuffer,
+			ResponsesImageGenerationRedirectGroupID: snapshot.Group.ResponsesImageGenerationRedirectGroupID,
 		}
 	}
 	s.compileAPIKeyIPRules(apiKey)

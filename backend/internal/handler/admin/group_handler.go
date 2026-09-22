@@ -118,17 +118,20 @@ type CreateGroupRequest struct {
 	PeakStart                               string   `json:"peak_start"`
 	PeakEnd                                 string   `json:"peak_end"`
 	PeakRateMultiplier                      *float64 `json:"peak_rate_multiplier"`
+	ProfitControlEnabled                    bool     `json:"profit_control_enabled"`
+	ProfitMinMargin                         *float64 `json:"profit_min_margin"`
+	ProfitSafetyBuffer                      *float64 `json:"profit_safety_buffer"`
 	ImagePrice1K                            *float64 `json:"image_price_1k"`
 	ImagePrice2K                            *float64 `json:"image_price_2k"`
 	ImagePrice4K                            *float64 `json:"image_price_4k"`
 	VideoPrice480P                          *float64 `json:"video_price_480p"`
 	VideoPrice720P                          *float64 `json:"video_price_720p"`
 	VideoPrice1080P                         *float64 `json:"video_price_1080p"`
-	ResponsesImageGenerationRedirectGroupID *int64   `json:"responses_image_generation_redirect_group_id"`
 	WebSearchPricePerCall                   *float64 `json:"web_search_price_per_call"`
 	ClaudeCodeOnly                          bool     `json:"claude_code_only"`
 	FallbackGroupID                         *int64   `json:"fallback_group_id"`
 	FallbackGroupIDOnInvalidRequest         *int64   `json:"fallback_group_id_on_invalid_request"`
+	ResponsesImageGenerationRedirectGroupID *int64   `json:"responses_image_generation_redirect_group_id"`
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
@@ -178,17 +181,20 @@ type UpdateGroupRequest struct {
 	PeakStart                               *string  `json:"peak_start"`
 	PeakEnd                                 *string  `json:"peak_end"`
 	PeakRateMultiplier                      *float64 `json:"peak_rate_multiplier"`
+	ProfitControlEnabled                    *bool    `json:"profit_control_enabled"`
+	ProfitMinMargin                         *float64 `json:"profit_min_margin"`
+	ProfitSafetyBuffer                      *float64 `json:"profit_safety_buffer"`
 	ImagePrice1K                            *float64 `json:"image_price_1k"`
 	ImagePrice2K                            *float64 `json:"image_price_2k"`
 	ImagePrice4K                            *float64 `json:"image_price_4k"`
 	VideoPrice480P                          *float64 `json:"video_price_480p"`
 	VideoPrice720P                          *float64 `json:"video_price_720p"`
 	VideoPrice1080P                         *float64 `json:"video_price_1080p"`
-	ResponsesImageGenerationRedirectGroupID *int64   `json:"responses_image_generation_redirect_group_id"`
 	WebSearchPricePerCall                   *float64 `json:"web_search_price_per_call"`
 	ClaudeCodeOnly                          *bool    `json:"claude_code_only"`
 	FallbackGroupID                         *int64   `json:"fallback_group_id"`
 	FallbackGroupIDOnInvalidRequest         *int64   `json:"fallback_group_id_on_invalid_request"`
+	ResponsesImageGenerationRedirectGroupID *int64   `json:"responses_image_generation_redirect_group_id"`
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled *bool              `json:"model_routing_enabled"`
@@ -477,6 +483,13 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// platform 是 omitempty：预校验必须用与 CreateGroup 落库一致的归一化平台，
+	// 否则省略 platform 的请求会被误判成「平台不支持利润控制」。
+	if err := service.ValidateProfitControlConfig(service.NormalizeGroupPlatform(req.Platform), req.ProfitControlEnabled, float64ValueOrDefault(req.ProfitMinMargin, 0), float64ValueOrDefault(req.ProfitSafetyBuffer, 0)); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
 		Name:                                    req.Name,
 		Description:                             req.Description,
@@ -499,13 +512,15 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		PeakStart:                               req.PeakStart,
 		PeakEnd:                                 req.PeakEnd,
 		PeakRateMultiplier:                      req.PeakRateMultiplier,
+		ProfitControlEnabled:                    req.ProfitControlEnabled,
+		ProfitMinMargin:                         req.ProfitMinMargin,
+		ProfitSafetyBuffer:                      req.ProfitSafetyBuffer,
 		ImagePrice1K:                            req.ImagePrice1K,
 		ImagePrice2K:                            req.ImagePrice2K,
 		ImagePrice4K:                            req.ImagePrice4K,
 		VideoPrice480P:                          req.VideoPrice480P,
 		VideoPrice720P:                          req.VideoPrice720P,
 		VideoPrice1080P:                         req.VideoPrice1080P,
-		ResponsesImageGenerationRedirectGroupID: req.ResponsesImageGenerationRedirectGroupID,
 		WebSearchPricePerCall:                   req.WebSearchPricePerCall,
 		ClaudeCodeOnly:                          req.ClaudeCodeOnly,
 		FallbackGroupID:                         req.FallbackGroupID,
@@ -525,6 +540,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		MaxReasoningEffort:                      req.MaxReasoningEffort,
 		ReasoningEffortMappings:                 req.ReasoningEffortMappings,
 		CopyAccountsFromGroupIDs:                req.CopyAccountsFromGroupIDs,
+		ResponsesImageGenerationRedirectGroupID: req.ResponsesImageGenerationRedirectGroupID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -619,13 +635,15 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		PeakStart:                               req.PeakStart,
 		PeakEnd:                                 req.PeakEnd,
 		PeakRateMultiplier:                      req.PeakRateMultiplier,
+		ProfitControlEnabled:                    req.ProfitControlEnabled,
+		ProfitMinMargin:                         req.ProfitMinMargin,
+		ProfitSafetyBuffer:                      req.ProfitSafetyBuffer,
 		ImagePrice1K:                            req.ImagePrice1K,
 		ImagePrice2K:                            req.ImagePrice2K,
 		ImagePrice4K:                            req.ImagePrice4K,
 		VideoPrice480P:                          req.VideoPrice480P,
 		VideoPrice720P:                          req.VideoPrice720P,
 		VideoPrice1080P:                         req.VideoPrice1080P,
-		ResponsesImageGenerationRedirectGroupID: req.ResponsesImageGenerationRedirectGroupID,
 		WebSearchPricePerCall:                   req.WebSearchPricePerCall,
 		ClaudeCodeOnly:                          req.ClaudeCodeOnly,
 		FallbackGroupID:                         req.FallbackGroupID,
@@ -645,6 +663,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		MaxReasoningEffort:                      req.MaxReasoningEffort,
 		ReasoningEffortMappings:                 req.ReasoningEffortMappings,
 		CopyAccountsFromGroupIDs:                req.CopyAccountsFromGroupIDs,
+		ResponsesImageGenerationRedirectGroupID: req.ResponsesImageGenerationRedirectGroupID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

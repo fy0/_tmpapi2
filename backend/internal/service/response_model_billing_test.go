@@ -496,60 +496,17 @@ func TestResponseModelBillingAdoptable(t *testing.T) {
 	}
 }
 
-// --- 按次/按量计费请求一律不采纳（门的调用点接线） ---
-//
-// 搜索附加费是叠加在 token 成本之上的，所以"采纳与否"会体现在最终金额上，本用例因此
-// 能真正区分两条分支。语音（AudioUsage）走的是与模型无关的按量单价，采纳与否金额相同，
-// 无法用金额断言区分，故只由 TestResponseModelBillingDeclaration 覆盖门本身。
-
-func TestGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurchargedRequest(t *testing.T) {
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
-	cheaper, pricier, _, pricierCost := orderedResponseBillingModels(t, svc.billingService, tokens, anthropicCheapFixtureModel, anthropicPriceyFixtureModel)
-
-	const searchCalls = 2
-	searchCost := svc.billingService.CalculateSearchCost(searchCalls, nil, 1.1)
-	require.NotNil(t, searchCost)
-	require.Greater(t, searchCost.ActualCost, 0.0, "夹具附加费必须非零，否则断言分不出两条分支")
-
-	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
-		Result: &ForwardResult{
-			RequestID:             "gateway_response_model_search_surcharge",
-			Usage:                 ClaudeUsage{InputTokens: 100, OutputTokens: 50},
-			Model:                 pricier,
-			UpstreamResponseModel: cheaper,
-			SearchCount:           searchCalls,
-			Duration:              time.Second,
-		},
-		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
-		Account: &Account{ID: 701},
-		ChannelUsageFields: ChannelUsageFields{
-			ChannelID:          9,
-			OriginalModel:      pricier,
-			ChannelMappedModel: pricier,
-			BillingModelSource: BillingModelSourceResponse,
-		},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	want := pricierCost.ActualCost + searchCost.ActualCost
-	require.InDelta(t, want, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, want, userRepo.lastAmount, 1e-12)
-}
+// Web search is billed per call independently of the declared response model.
 
 func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurchargedRequest(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
 	tokens := UsageTokens{InputTokens: 20, OutputTokens: 10}
-	cheaper, pricier, _, pricierCost := orderedResponseBillingModels(t, svc.billingService, tokens, openAICheapFixtureModel, openAIPriceyFixtureModel)
+	cheaper, pricier, _, _ := orderedResponseBillingModels(t, svc.billingService, tokens, openAICheapFixtureModel, openAIPriceyFixtureModel)
 
 	const searchCalls = 3
-	searchCost := svc.billingService.CalculateSearchCost(searchCalls, nil, 1.1)
+	searchCost := svc.billingService.CalculateWebSearchCost(searchCalls, nil, 1.1)
 	require.NotNil(t, searchCost)
 	require.Greater(t, searchCost.ActualCost, 0.0, "夹具附加费必须非零，否则断言分不出两条分支")
 
@@ -559,7 +516,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurcharged
 			Model:                 pricier,
 			UpstreamModel:         pricier,
 			UpstreamResponseModel: cheaper,
-			SearchCount:           searchCalls,
+			WebSearchCalls:        searchCalls,
 			Usage:                 OpenAIUsage{InputTokens: 20, OutputTokens: 10},
 			Duration:              time.Second,
 		},
@@ -576,7 +533,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurcharged
 
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
-	want := pricierCost.ActualCost + searchCost.ActualCost
+	want := searchCost.ActualCost
 	require.InDelta(t, want, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, want, userRepo.lastAmount, 1e-12)
 }

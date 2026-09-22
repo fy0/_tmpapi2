@@ -147,7 +147,9 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 	}
 	out := &AdminGroup{
 		Group:                                   groupFromServiceBase(g),
-		ResponsesImageGenerationRedirectGroupID: g.ResponsesImageGenerationRedirectGroupID,
+		ProfitControlEnabled:                    g.ProfitControlEnabled,
+		ProfitMinMargin:                         g.ProfitMinMargin,
+		ProfitSafetyBuffer:                      g.ProfitSafetyBuffer,
 		ModelRouting:                            g.ModelRouting,
 		ModelRoutingEnabled:                     g.ModelRoutingEnabled,
 		MCPXMLInject:                            g.MCPXMLInject,
@@ -159,6 +161,7 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 		ActiveAccountCount:                      g.ActiveAccountCount,
 		RateLimitedAccountCount:                 g.RateLimitedAccountCount,
 		SortOrder:                               g.SortOrder,
+		ResponsesImageGenerationRedirectGroupID: g.ResponsesImageGenerationRedirectGroupID,
 	}
 	if len(g.AccountGroups) > 0 {
 		out.AccountGroups = make([]AccountGroup, 0, len(g.AccountGroups))
