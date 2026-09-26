@@ -49,6 +49,9 @@ frontend/**/*.spec.tsx
 frontend/**/*.test.jsx
 frontend/**/*.test.ts
 frontend/**/*.test.tsx
+# The production build runs check:i18n; keep its test and Vitest setup.
+!frontend/src/i18n/__tests__/localeKeyCompleteness.spec.ts
+!frontend/src/__tests__/setup.ts
 coverage/
 .nyc_output/
 
