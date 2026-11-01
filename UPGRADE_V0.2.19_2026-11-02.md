@@ -43,24 +43,40 @@
 
 - 路径：D:\codes\2026\sub2api-upgrade-v0219-build\sub2api.exe
 - 构建：go build -o 目标路径 ./cmd/server
-- 体积：164332032 字节。
-- SHA-256：5ECD1F3C847A898AAD9DBAC67E5F0340C5D15DD0DABD39D0D0253595ADF179F6。
+- 体积：164340224 字节。
+- SHA-256：1C8CF72AC78611F4DA1AC6AFEAE6738FB7B5CEF602E68E16B5431738FC878D54。
 - 服务端已嵌入新构建的前端资源。
 
 ## 数据库上线门禁
 
 本次新增 8 个 SQL 迁移文件：
-- 242_drop_platform_check_constraints.sql
-- 242_group_i18n.sql
-- 243_gemini_cached_contents.sql
-- 244_gemini_cached_contents_channel_usage.sql
-- 245_gemini_cached_contents_mutation_lease.sql
-- 246_enable_gemini_image_generation_groups.sql
-- 247_scoped_admin_api_keys.sql
-- 248_group_image_count_billing.sql
+- 249_drop_platform_check_constraints.sql
+- 250_group_i18n.sql
+- 251_gemini_cached_contents.sql
+- 252_gemini_cached_contents_channel_usage.sql
+- 253_gemini_cached_contents_mutation_lease.sql
+- 254_enable_gemini_image_generation_groups.sql
+- 255_scoped_admin_api_keys.sql
+- 256_group_image_count_billing.sql
 
 Fork 已存在 241 及此前的迁移，未覆盖旧的 SQL 内容和校验和。迁移器通过 filename 与 SHA-256 跟踪历史迁移，禁止将 Fork 历史迁移重新编号。
 
 **尚未做真实 PostgreSQL 升级演练。** 当前运行环境没有 Docker / PostgreSQL / psql 命令或数据库连接。本次验收覆盖代码编译、单元测试和前端构建，不能替代真实数据库迁移及生产网关、支付与业务数据的验证。
 
 部署前必须先备份 PostgreSQL、Redis、配置与密钥，并用生产备份的隔离副本完整执行历史迁移，核对 schema_migrations、工单、发票、图片密钥、主页链接、管理员权限及新增图片计费。在模拟回滚后，再评估正式部署。数据库结构可能前进，不能假定旧二进制直接回退就能恢复全部功能。
+## 2026-11-02 迁移序列补正
+
+本次初版升级曾直接沿用上游 242–248 的文件名，这不符合 Fork 后续迁移独立编号的维护要求。
+
+已核对 Fork 0.2.13 共有 298 个 SQL 文件，上游同版本有 291 个，差额为 Fork 自定义的 7 个 SQL 文件。Fork 曾将 154–195 区间中部分迁移顺延至 161–212，而双方在 213–241 的文件名再次趋同。为确保后续演进不直接复用上游迁移编号，本次把 8 个新增迁移分配到 249–256（原上游 242–248 前缀留空），未来新迁移从 **257** 起按 Fork 序列顺延，不应直接使用上游文件名。所有这 8 个 SQL 文件都只改名，字节及 SHA-256 与初次合入的上游版本完全一致。
+
+迁移执行器增加了严格的旧文件名兼容表：若某数据库在初次未顺延版本中已经运行相同 SQL，且 schema_migrations 的旧文件名 checksum 与当前嵌入 SQL 一致，则仅添加保留 applied_at 的新文件名元数据记录，不重跑 SQL，也不删除旧记录；遇到未知 checksum、读写错误会终止并告警。未运行过旧文件名的数据库直接执行 249–256。此兼容逻辑经单元测试覆盖，但仍须在真实 PostgreSQL 备份副本上演练。
+
+严禁改动已经发布并可能执行过的 Fork 旧迁移 001–241。部署前需要备份并确认历史 schema_migrations（尤其 242–248 的旧文件名）及 PostgreSQL 实际结构、数据；如发现不一致，停止部署并人工处理。
+## 发布工件安全更正（P0）
+
+本次对 AGENTS.md、note.md、README_CN.md、README.md、DEV_GUIDE.md、deploy/README.md 均增加强制数据库迁移编号与上线阻断提示，并解除根 AGENTS.md 的 Git 忽略以使它随版本传播。
+
+先前生成的未顺延 Windows 工件（SHA-256 为 5ECD1F3C847A898AAD9DBAC67E5F0340C5D15DD0DABD39D0D0253595ADF179F6）已移至 D:\codes\2026\sub2api-upgrade-v0219-build\sub2api.UNSAFE_UNSHIFTED_DO_NOT_DEPLOY.blocked（仅作事故分析保留，不可部署）。
+
+目前 D:\codes\2026\sub2api-upgrade-v0219-build\sub2api.exe 已重新构建，SHA-256 为 1C8CF72AC78611F4DA1AC6AFEAE6738FB7B5CEF602E68E16B5431738FC878D54，包含 Fork 249–256 迁移及 checksum 严格别名兼容。但此工件仍仅用于代码与测试验收，生产 PostgreSQL 升级模拟/回滚验证尚缺失，部署依然 BLOCKED。

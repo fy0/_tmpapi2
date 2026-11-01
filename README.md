@@ -18,6 +18,14 @@ English | [中文](README_CN.md) | [日本語](README_JA.md)
 
 </div>
 
+## 🚨 Fork PostgreSQL migration gate (P0 — mandatory before deployment)
+
+**This Fork has a different historical migration sequence from upstream Wei-Shaw/sub2api. NEVER deploy an unmodified upstream image, copy upstream migration filenames verbatim, or treat a green build/test run as evidence that the production database can be migrated safely.** Duplicated or reordered SQL, or mismatched migration checksums, can cause startup failures or destructive database changes.
+
+- Do not rename or edit historical Fork migrations 001–241. The eight newly merged upstream SQL migrations were renumbered to Fork **249–256**. The next Fork migration must start at **257**, always following the current Fork migration sequence rather than upstream filenames.
+- Before any production rollout, back up PostgreSQL and rehearse the upgrade and rollback on an isolated database snapshot. Inspect schema_migrations, including any old unshifted 242–248 names, and require exact SQL checksums. Do not manually reset migration records or rerun the same SQL.
+- **The v0.2.19 code builds and tests pass, but no real PostgreSQL migration rehearsal has been completed; production deployment is BLOCKED.** Pre-renumbering v0.2.19 builds must not be deployed.
+- Mandatory references: [AGENTS.md](AGENTS.md), [note.md](note.md), [Fork migration rules](backend/migrations/FORK_SEQUENCE.md), [upgrade report](UPGRADE_V0.2.19_2026-11-02.md).
 ## ⚠️ Important Notice
 
 Please read the following carefully before using this project:

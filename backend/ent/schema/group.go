@@ -44,7 +44,7 @@ func (Group) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "text"}),
-		// 名称与描述的界面语言译文 (added by migration 242)
+		// 名称与描述的界面语言译文 (added by migration 250)
 		field.JSON("i18n", domain.GroupI18n{}).
 			Default(domain.GroupI18n{}).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).

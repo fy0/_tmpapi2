@@ -51,7 +51,7 @@ func TestMigration242DropsPlatformCheckConstraints(t *testing.T) {
 	require.True(t, platformConstraintExists(t, ctx, client, "user_platform_quotas", "user_platform_quotas_platform_check"))
 	require.True(t, platformConstraintExists(t, ctx, client, "composite_model_routes", "composite_model_routes_target_platform_check"))
 
-	migrationSQL, err := dbmigrations.FS.ReadFile("242_drop_platform_check_constraints.sql")
+	migrationSQL, err := dbmigrations.FS.ReadFile("249_drop_platform_check_constraints.sql")
 	require.NoError(t, err)
 	for range 2 {
 		_, err = client.ExecContext(ctx, string(migrationSQL))

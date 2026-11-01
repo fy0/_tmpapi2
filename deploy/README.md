@@ -1,3 +1,11 @@
+
+## P0 — Fork database migrations: production deployment BLOCKED until verified
+
+This directory is also used in a customized Fork. The Fork migration history is NOT interchangeable with upstream Wei-Shaw/sub2api. Historical 001–241 migrations are immutable; the eight new v0.2.19 SQL migrations use Fork filenames 249–256, and future changes start at 257.
+
+**DO NOT deploy an upstream image or an older v0.2.19 artifact containing unshifted 242–248 migrations.** Verify schema_migrations filenames and checksums against the actual target PostgreSQL database, back up all database/Redis/configuration/secret data, and run migrations + rollback on an isolated PostgreSQL snapshot before production approval. Green unit tests and successful builds are insufficient. If previous unshifted 242–248 records exist, use the strict checksum-verified alias logic; never manually delete or reset migration history.
+
+Read ../AGENTS.md, ../note.md, ../backend/migrations/FORK_SEQUENCE.md, and ../UPGRADE_V0.2.19_2026-11-02.md before deploying this Fork.
 # Sub2API Deployment Files
 
 This directory contains files for deploying Sub2API on Linux servers and Apple-silicon Macs.

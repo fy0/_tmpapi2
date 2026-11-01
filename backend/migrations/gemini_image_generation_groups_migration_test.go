@@ -8,7 +8,7 @@ import (
 )
 
 func TestEnableGeminiImageGenerationGroupsMigration(t *testing.T) {
-	content, err := FS.ReadFile("246_enable_gemini_image_generation_groups.sql")
+	content, err := FS.ReadFile("254_enable_gemini_image_generation_groups.sql")
 	require.NoError(t, err)
 
 	var statements []string

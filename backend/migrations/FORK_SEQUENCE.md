@@ -1,0 +1,9 @@
+# Fork migration sequence policy
+
+1. A migration filename is a durable database identity, stored in schema_migrations with a SHA-256 checksum. Never edit, rename, reorder, or delete an already-applied Fork migration.
+2. This Fork added seven business-specific SQL files (154–160) relative to upstream v0.2.13 and renumbered a subset of upstream migrations (161–212); later names through 241 are shared. Compare by filenames **and** SQL checksums, not numeric prefixes alone.
+3. The upstream v0.2.15–v0.2.19 SQL files were reassigned to Fork-only numbers 249–256 (all original SQL bytes preserved). Upstream 242–248 are reserved and MUST NOT be reintroduced under their upstream names.
+4. The next new Fork migration is **257**. For every future upstream upgrade, assign each new migration a distinct monotonically increasing Fork number after the latest existing Fork SQL migration; migrate dependent hard-coded filename references and add a sequence regression test. Do not treat matching names as evidence that two migrations have the same history.
+5. A database that ran the initial unshifted v0.2.19 upgrade may have schema_migrations entries with upstream 242–248 filenames. The migrations runner recognizes precisely these old-name aliases only when their content checksum matches; it adds a new-name metadata record without executing the SQL again, preserving the original applied_at and old entry.
+6. The presence of old aliases must be checked before any production deployment. An unknown checksum is an error requiring manual investigation; never bypass checksum checks. Rehearse the migration on an isolated real PostgreSQL snapshot before deploying.
+7. Preserve the source and meaning of historical migration names on subsequent upstream merges. Run TestForkV0219MigrationsFollowExistingSequence and full migration unit tests after each upgrade.
