@@ -1,0 +1,20 @@
+# note.md — Sub2API Fork 任务与生产风险台账
+
+## 2026-11-02：P0 数据库迁移顺延（必须先读）
+
+**警告：此 Fork 的迁移文件名与 Wei-Shaw/sub2api 上游历史部分不一致。未经正确顺延、迁移校验和核验及真实数据库演练，禁止将升级构建部署生产。**
+
+- Fork v0.2.13 比对应上游多 7 项 SQL；历史有上游 154–195 → Fork 161–212 的局部迁移顺延；后段 213–241 的部分迁移又与上游同名，不能想当然用一个统一偏移量。
+- 上游 v0.2.15–v0.2.19 八个新迁移被重新编号为 Fork **249、250、251、252、253、254、255、256**；对应的上游 242–248 名称不得再嵌入。**不能预先规定下一次的迁移编号**：下一批须依据届时上游新增文件编号、Fork 当前已占用编号及迁移依赖关系重新规划，保持严格向后顺延、不复用旧编号。SQL 内容保持与上游相同。
+- backend/migrations/FORK_SEQUENCE.md 保存可复用规则；backend/migrations/fork_v0219_sequence_test.go 阻止未来意外复用；backend/internal/repository/migrations_fork_aliases.go 提供严格 checksum 别名兼容，避免此前未顺延 v0.2.19 已执行记录导致重复执行。
+- 已通过迁移专项测试、所有 Go 包完整测试；前端 typecheck、ESLint、正式 build 和 Vitest 380 文件/3048 用例通过。
+- **未完成**：真实 PostgreSQL 升级及回滚演练，生产库 schema_migrations、实际表结构核对，真实镜像/部署环境测试。上线许可：**BLOCKED**。
+- **旧构建警告**：任何在上述顺延修复提交之前生成的 v0.2.19 可执行程序或镜像都可能包含 242–248 的旧文件名，不能部署。修复后必须重建发布工件，并核对内置迁移版本。
+- **已处理**：旧本地生成程序已移至带 UNSAFE_UNSHIFTED_DO_NOT_DEPLOY 的 .blocked 文件名；新程序已重建（SHA-256 1C8CF72AC78611F4DA1AC6AFEAE6738FB7B5CEF602E68E16B5431738FC878D54），但仍须等待真实 PostgreSQL 升级演练，禁止部署。
+
+## 后续继续时必须检查
+
+1. 先读根 AGENTS.md、本文件及 backend/migrations/FORK_SEQUENCE.md、UPGRADE_V0.2.19_2026-11-02.md；核对当前 HEAD 和现有未提交改动，禁止 reset。
+2. 检查新增迁移与已执行 schema_migrations 的冲突、偏移和 checksum；确保本地旧迁移不变；从新旧上游差异和 Fork 现有迁移共同计算安全起点，为每个新 SQL 重新映射独立编号；编号允许必要的空档，严禁写死下一次起点。
+3. 先运行迁移顺序/兼容单元测试及所有 Go 测试；如能使用隔离 PostgreSQL，执行升级模拟及回滚验证后才能考虑部署。
+4. 所有需要数据库迁移的变更必须更新本台账并给出明确是否允许上线的结论。

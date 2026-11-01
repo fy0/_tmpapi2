@@ -195,6 +195,11 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		// 这是一种防篡改机制：如果有人修改了已应用的迁移文件，系统会拒绝启动。
 		sum := sha256.Sum256([]byte(content))
 		checksum := hex.EncodeToString(sum[:])
+		// Retain a verified alias if the initial v0.2.19 build ran the same SQL
+		// under an upstream filename. The database records are preserved.
+		if err := adoptForkMigrationAlias(ctx, lockConn, name, checksum); err != nil {
+			return fmt.Errorf("adopt migration %s: %w", name, err)
+		}
 
 		// 检查该迁移是否已经应用
 		var existing string
