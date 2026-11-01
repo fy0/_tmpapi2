@@ -11,7 +11,7 @@ import (
 
 // Fork v0.2.13 contains seven migrations absent from the matching upstream
 // release. Reserve upstream prefixes 242-248 and assign one new numeric prefix
-// per migration starting at 249; the next Fork migration starts at 257.
+// per migration in this release (249-256); future numbers are determined anew.
 func TestForkV0219MigrationsFollowExistingSequence(t *testing.T) {
 	entries, err := FS.ReadDir(".")
 	require.NoError(t, err)
@@ -47,6 +47,11 @@ func TestForkV0219MigrationsFollowExistingSequence(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 249+i, number, fmt.Sprintf("Fork migration %s must have its own ordinal", item.name))
 	}
+	// The mapping above is immutable historical state, not a future allocation
+	// rule. Later upgrades may leave gaps when upstream prefixes jump: only
+	// prevent collisions with already committed Fork assignments.
+	futurePrefixes := make(map[int]string)
+	lastKnown := index[expected[len(expected)-1].name]
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
@@ -60,7 +65,16 @@ func TestForkV0219MigrationsFollowExistingSequence(t *testing.T) {
 			"upstream-only migration prefix %03d must remain reserved in the Fork: %s", number, entry.Name())
 		if number >= 249 && number <= 256 {
 			require.Equal(t, expected[number-249].name, entry.Name(),
-				"Fork prefix %03d is already allocated; future migrations start at 257", number)
+				"Fork prefix %03d is already allocated; future releases must recalculate their numbering", number)
+		}
+		if number > 256 {
+			require.Greater(t, index[entry.Name()], lastKnown,
+				"future Fork migration must sort after existing releases")
+			if existing, exists := futurePrefixes[number]; exists {
+				t.Errorf("future Fork prefix %d is assigned twice (%s and %s); map each new upstream SQL independently",
+					number, existing, entry.Name())
+			}
+			futurePrefixes[number] = entry.Name()
 		}
 	}
 }
