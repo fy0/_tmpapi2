@@ -791,9 +791,10 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 	return aggregator
 }
 
-// ProvideSettingService wires SettingService with group reader, proxy repo and homepage link repo.
-func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, customHomeLinkRepo CustomHomeLinkRepository, cfg *config.Config) *SettingService {
+// ProvideSettingService wires group, proxy, custom homepage link and scoped admin key repositories.
+func ProvideSettingService(scopedKeys ScopedAdminKeyRepository, settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, customHomeLinkRepo CustomHomeLinkRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
+	svc.scopedAdminKeyRepo = scopedKeys
 	svc.SetDefaultSubscriptionGroupReader(groupRepo)
 	svc.SetProxyRepository(proxyRepo)
 	svc.SetCustomHomeLinkRepository(customHomeLinkRepo)
