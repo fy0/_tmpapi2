@@ -15,7 +15,7 @@
 
 ## 当前基线（2026-11-02）
 
-- 原始 main 位于 D:/codes/2026/sub2api，保留 v0.2.13 之前的 Fork 历史；独立升级工作区 D:/codes/2026/sub2api-upgrade-v0219，分支 upgrade/sub2api-v0.2.19-20261102。
+- 主仓库位于 D:/codes/2026/sub2api；本轮升级前 main 的基线为 96d0e5241（Fork v0.2.13），在独立工作区 D:/codes/2026/sub2api-upgrade-v0219 的 upgrade/sub2api-v0.2.19-20261102 分支完成 v0.2.19 升级。后续以实际 main HEAD 为准核对合并结果，必须保留历史和未跟踪文件。
 - 已把本批上游新增 SQL 从原 242–248 顺延成 Fork 249–256（SQL 字节不改）。249–256 是本批历史映射，不是以后版本的起始号；下批需根据届时的上游与 Fork 高水位重新计算。
 - Go 全量测试、前端构建及 Vitest 测试均通过，但**尚未进行真实 PostgreSQL 快照升级演练，不得宣称可直接生产部署**。
 - 详细依据与兼容机制参见 backend/migrations/FORK_SEQUENCE.md 和 UPGRADE_V0.2.19_2026-11-02.md。

@@ -6,7 +6,7 @@
 - 独立 worktree：D:\codes\2026\sub2api-upgrade-v0219。
 - 分支：upgrade/sub2api-v0.2.19-20261102。
 - 官方上游：Wei-Shaw/sub2api，目标标签 v0.2.19。
-- 原始 main 和未跟踪文件 nul 未改动；未推送远程或部署生产服务。
+- 升级合并前主仓库 main 仍为 v0.2.13，原始未跟踪文件 nul 必须原样保留。此次升级获得授权后合并回本地 main，但不推送远程、不部署生产服务。
 
 ## 逐版合并
 
