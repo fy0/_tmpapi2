@@ -205,7 +205,7 @@ func (h *APIKeyHandler) GetImageKey(c *gin.Context) {
 	keyValue := key.Key
 	response.Success(c, ImageKeyResponse{
 		Key:    &keyValue,
-		APIKey: dto.APIKeyFromService(key),
+		APIKey: dto.APIKeyFromService(key).Localized(c.GetHeader("Accept-Language")),
 	})
 }
 
