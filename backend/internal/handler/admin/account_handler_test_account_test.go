@@ -42,6 +42,10 @@ func (s *recordingAccountTestService) SyncUpstreamModelCatalog(context.Context, 
 	return nil, nil
 }
 
+func (s *recordingAccountTestService) GetGrokModelDiagnostics(context.Context, *service.Account) *service.GrokModelDiagnostics {
+	return nil
+}
+
 func TestAccountHandlerTestPassesPromptToAccountTestService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	testService := &recordingAccountTestService{}

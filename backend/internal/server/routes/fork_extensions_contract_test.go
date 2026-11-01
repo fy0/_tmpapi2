@@ -43,7 +43,7 @@ func TestForkExtensionRoutesRemainRegistered(t *testing.T) {
 	admin := v1.Group("/admin")
 	registerSupportTicketRoutes(admin, handlers)
 	registerInvoiceRoutes(admin, handlers)
-	registerSettingsRoutes(admin, handlers)
+	registerSettingsRoutes(admin, handlers, func(c *gin.Context) { c.Next() })
 	registerSystemRoutes(admin, handlers)
 
 	registered := make(map[routeContract]struct{})

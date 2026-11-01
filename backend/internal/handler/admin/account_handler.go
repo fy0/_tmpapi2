@@ -46,6 +46,7 @@ type accountTestServicePort interface {
 	FetchUpstreamSupportedModels(ctx context.Context, account *service.Account) ([]string, error)
 	FetchOpenAIAccountModels(ctx context.Context, account *service.Account) ([]openai.Model, error)
 	SyncUpstreamModelCatalog(ctx context.Context, account *service.Account) (*service.UpstreamModelCatalog, error)
+	GetGrokModelDiagnostics(ctx context.Context, account *service.Account) *service.GrokModelDiagnostics
 }
 
 // NewOAuthHandler creates a new OAuth handler
