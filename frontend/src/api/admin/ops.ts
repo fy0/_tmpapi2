@@ -900,7 +900,9 @@ export interface OpsSystemLogSinkHealth {
   last_error?: string
 }
 
-export interface OpsErrorLog {
+import type { GatewayRequestMetadata } from '@/types'
+
+export interface OpsErrorLog extends GatewayRequestMetadata {
   id: number
   created_at: string
 
@@ -1093,6 +1095,8 @@ export async function getOpenAITokenStats(
 export type OpsErrorListView = 'errors' | 'excluded' | 'all'
 
 export type OpsErrorListQueryParams = {
+  conversation_id?: string
+  conversation_id_source?: string
   page?: number
   page_size?: number
   time_range?: string

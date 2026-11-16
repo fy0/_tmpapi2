@@ -3,7 +3,7 @@
     <div class="space-y-6">
       <UsageStatsCards :stats="usageStats" />
       <!-- Charts Section -->
-      <div class="space-y-4">
+      <div v-if="!filters.conversation_id" class="space-y-4">
         <div class="card p-4">
           <div class="flex flex-wrap items-center gap-4">
             <div class="flex items-center gap-2">
@@ -332,6 +332,9 @@ const applyRouteQueryFilters = () => {
   filters.value = {
     ...filters.value,
     user_id: queryUserId,
+    api_key_id: getNumericQueryValue(route.query.api_key_id),
+    conversation_id: getSingleQueryValue(route.query.conversation_id),
+    conversation_id_source: getSingleQueryValue(route.query.conversation_id_source),
     start_date: startDate.value,
     end_date: endDate.value
   }
@@ -652,6 +655,7 @@ const allColumns = computed(() => [
   { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
   { key: 'request_id', label: t('admin.usage.requestId'), sortable: false },
+  { key: 'conversation_id', label: t('admin.usage.conversationId'), sortable: false },
   { key: 'upstream_request_id', label: t('admin.usage.upstreamRequestId'), sortable: false },
   { key: 'user_agent', label: t('usage.userAgent'), sortable: false },
   { key: 'ip_address', label: t('admin.usage.ipAddress'), sortable: false }
@@ -703,6 +707,7 @@ const errAllColumns = computed(() => [
   { key: 'category', label: t('usage.errors.category') },
   { key: 'status', label: t('admin.ops.errorLog.status') },
   { key: 'message', label: t('admin.ops.errorLog.message') },
+  { key: 'conversation_id', label: t('admin.usage.conversationId') },
   { key: 'created_at', label: t('admin.ops.errorLog.time') },
   { key: 'user_agent', label: t('usage.userAgent') },
   { key: 'client_ip', label: t('admin.ops.errorLog.ip') },
@@ -826,6 +831,8 @@ const loadAdminErrors = async () => {
       end_time: toRFC3339(filters.value.end_date, true),
       user_id: filters.value.user_id ?? undefined,
       api_key_id: filters.value.api_key_id ?? undefined,
+      conversation_id: filters.value.conversation_id || undefined,
+      conversation_id_source: filters.value.conversation_id_source || undefined,
       account_id: filters.value.account_id ?? undefined,
       group_id: filters.value.group_id ?? undefined,
       model: filters.value.model || undefined,
@@ -881,6 +888,12 @@ onUnmounted(() => { abortController?.abort(); exportAbortController?.abort(); do
 
 watch(modelDistributionSource, (source) => {
   void loadModelStats(source)
+})
+
+watch(() => route.query, () => {
+  applyRouteQueryFilters()
+  void loadRouteUserFilterLabel()
+  applyFilters()
 })
 
 defineExpose({ requestedModelStats, refreshData })

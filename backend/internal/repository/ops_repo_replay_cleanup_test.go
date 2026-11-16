@@ -30,7 +30,7 @@ func TestOpsErrorLogInsertDoesNotPersistRequestReplayFields(t *testing.T) {
 	disallowedFields := []string{
 		"RequestBodyJSON",
 		"RequestBodyTruncated",
-		"RequestBodyBytes",
+		// Byte count is now safe observation metadata, never request replay data.
 		"RequestHeadersJSON",
 		"IsRetryable",
 		"RetryCount",

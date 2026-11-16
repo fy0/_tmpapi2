@@ -104,6 +104,8 @@ func (h *OpsHandler) GetErrorLogs(c *gin.Context) {
 	}
 
 	filter := &service.OpsErrorLogFilter{Page: page, PageSize: pageSize}
+	filter.ConversationID = strings.TrimSpace(c.Query("conversation_id"))
+	filter.ConversationIDSource = strings.TrimSpace(c.Query("conversation_id_source"))
 
 	if !startTime.IsZero() {
 		filter.StartTime = &startTime
@@ -234,6 +236,8 @@ func (h *OpsHandler) ListRequestErrors(c *gin.Context) {
 	}
 
 	filter := &service.OpsErrorLogFilter{Page: page, PageSize: pageSize}
+	filter.ConversationID = strings.TrimSpace(c.Query("conversation_id"))
+	filter.ConversationIDSource = strings.TrimSpace(c.Query("conversation_id_source"))
 	if !startTime.IsZero() {
 		filter.StartTime = &startTime
 	}
@@ -379,6 +383,8 @@ func (h *OpsHandler) ListRequestErrorUpstreamErrors(c *gin.Context) {
 	}
 
 	filter := &service.OpsErrorLogFilter{Page: page, PageSize: pageSize}
+	filter.ConversationID = strings.TrimSpace(c.Query("conversation_id"))
+	filter.ConversationIDSource = strings.TrimSpace(c.Query("conversation_id_source"))
 	if !startTime.IsZero() {
 		filter.StartTime = &startTime
 	}
@@ -462,6 +468,8 @@ func (h *OpsHandler) ListUpstreamErrors(c *gin.Context) {
 	}
 
 	filter := &service.OpsErrorLogFilter{Page: page, PageSize: pageSize}
+	filter.ConversationID = strings.TrimSpace(c.Query("conversation_id"))
+	filter.ConversationIDSource = strings.TrimSpace(c.Query("conversation_id_source"))
 	if !startTime.IsZero() {
 		filter.StartTime = &startTime
 	}

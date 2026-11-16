@@ -1076,6 +1076,7 @@ func (state *opsCaptureWriterState) shouldCapture() bool {
 // - Streaming errors after the response has started (SSE) may still need explicit logging.
 func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		service.BindGatewayRequestObservation(c)
 		originalWriter := c.Writer
 		w := acquireOpsCaptureWriter(originalWriter)
 		w.setContext(c)
@@ -1567,6 +1568,9 @@ func logOpsStreamErrorValue(c *gin.Context, ops *service.OpsService, wireStatus 
 	if !streamErr.RequestScoped {
 		applyOpsUpstreamFieldsFromContext(c, entry)
 	}
+	if streamErr.Turn > 0 {
+		entry.GatewayRequestMetadata = streamErr.GatewayRequestMetadata
+	}
 	if streamErr.Turn > 0 && !streamErr.RequestScoped {
 		applyOpsStreamErrorSnapshot(entry, streamErr)
 	}
@@ -1686,6 +1690,7 @@ func applyOpsUpstreamFieldsFromContext(c *gin.Context, entry *service.OpsInsertE
 	if c == nil || entry == nil {
 		return
 	}
+	entry.GatewayRequestMetadata = service.FinishGatewayRequestObservation(c, "")
 	if v, ok := c.Get(service.OpsUpstreamStatusCodeKey); ok {
 		switch t := v.(type) {
 		case int:

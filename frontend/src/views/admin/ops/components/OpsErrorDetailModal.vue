@@ -12,6 +12,10 @@
     </div>
 
     <div v-else class="space-y-6 p-6">
+      <section class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+        <h3 class="mb-2 text-sm font-medium">{{ t('admin.usage.conversationId') }}</h3>
+        <GatewayConversationCell :row="detail" />
+      </section>
       <!-- Summary -->
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
@@ -229,6 +233,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import GatewayConversationCell from '@/components/admin/usage/GatewayConversationCell.vue'
 import { useAppStore } from '@/stores'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'

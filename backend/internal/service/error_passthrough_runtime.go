@@ -1,6 +1,10 @@
 package service
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/Wei-Shaw/sub2api/internal/model"
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
 
 const errorPassthroughServiceContextKey = "error_passthrough_service"
 
@@ -52,15 +56,21 @@ func applyErrorPassthroughRule(
 	}
 
 	status = upstreamStatus
-	if !rule.PassthroughCode && rule.ResponseCode != nil {
+	if rule.EffectiveAction() == model.ErrorActionRewrite && !rule.PassthroughCode && rule.ResponseCode != nil {
 		status = *rule.ResponseCode
 	}
 
 	errMsg = ExtractUpstreamErrorMessage(responseBody)
-	if !rule.PassthroughBody && rule.CustomMessage != nil {
+	if rule.EffectiveAction() == model.ErrorActionRewrite && !rule.PassthroughBody && rule.CustomMessage != nil {
 		errMsg = *rule.CustomMessage
 	}
 
+	// This adapter runs after the retry boundary (including committed streams).
+	// A retry action here is terminal, never permission to replay emitted output.
+	if rule.EffectiveAction() == model.ErrorActionRetry {
+		status = http.StatusServiceUnavailable
+		errMsg = "Upstream service temporarily unavailable; recovery is not safe or is exhausted"
+	}
 	// 命中 skip_monitoring 时在 context 中标记，供 ops_error_logger 跳过记录。
 	if rule.SkipMonitoring {
 		c.Set(OpsSkipPassthroughKey, true)

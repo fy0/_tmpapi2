@@ -50,6 +50,20 @@ func (_c *ErrorPassthroughRuleCreate) SetNillableUpdatedAt(v *time.Time) *ErrorP
 	return _c
 }
 
+// SetAction sets the "action" field.
+func (_c *ErrorPassthroughRuleCreate) SetAction(v string) *ErrorPassthroughRuleCreate {
+	_c.mutation.SetAction(v)
+	return _c
+}
+
+// SetNillableAction sets the "action" field if the given value is not nil.
+func (_c *ErrorPassthroughRuleCreate) SetNillableAction(v *string) *ErrorPassthroughRuleCreate {
+	if v != nil {
+		_c.SetAction(*v)
+	}
+	return _c
+}
+
 // SetName sets the "name" field.
 func (_c *ErrorPassthroughRuleCreate) SetName(v string) *ErrorPassthroughRuleCreate {
 	_c.mutation.SetName(v)
@@ -243,6 +257,10 @@ func (_c *ErrorPassthroughRuleCreate) defaults() {
 		v := errorpassthroughrule.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Action(); !ok {
+		v := errorpassthroughrule.DefaultAction
+		_c.mutation.SetAction(v)
+	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		v := errorpassthroughrule.DefaultEnabled
 		_c.mutation.SetEnabled(v)
@@ -276,6 +294,14 @@ func (_c *ErrorPassthroughRuleCreate) check() error {
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "ErrorPassthroughRule.updated_at"`)}
+	}
+	if _, ok := _c.mutation.Action(); !ok {
+		return &ValidationError{Name: "action", err: errors.New(`ent: missing required field "ErrorPassthroughRule.action"`)}
+	}
+	if v, ok := _c.mutation.Action(); ok {
+		if err := errorpassthroughrule.ActionValidator(v); err != nil {
+			return &ValidationError{Name: "action", err: fmt.Errorf(`ent: validator failed for field "ErrorPassthroughRule.action": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "ErrorPassthroughRule.name"`)}
@@ -342,6 +368,10 @@ func (_c *ErrorPassthroughRuleCreate) createSpec() (*ErrorPassthroughRule, *sqlg
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(errorpassthroughrule.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if value, ok := _c.mutation.Action(); ok {
+		_spec.SetField(errorpassthroughrule.FieldAction, field.TypeString, value)
+		_node.Action = value
 	}
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(errorpassthroughrule.FieldName, field.TypeString, value)
@@ -456,6 +486,18 @@ func (u *ErrorPassthroughRuleUpsert) SetUpdatedAt(v time.Time) *ErrorPassthrough
 // UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
 func (u *ErrorPassthroughRuleUpsert) UpdateUpdatedAt() *ErrorPassthroughRuleUpsert {
 	u.SetExcluded(errorpassthroughrule.FieldUpdatedAt)
+	return u
+}
+
+// SetAction sets the "action" field.
+func (u *ErrorPassthroughRuleUpsert) SetAction(v string) *ErrorPassthroughRuleUpsert {
+	u.Set(errorpassthroughrule.FieldAction, v)
+	return u
+}
+
+// UpdateAction sets the "action" field to the value that was provided on create.
+func (u *ErrorPassthroughRuleUpsert) UpdateAction() *ErrorPassthroughRuleUpsert {
+	u.SetExcluded(errorpassthroughrule.FieldAction)
 	return u
 }
 
@@ -719,6 +761,20 @@ func (u *ErrorPassthroughRuleUpsertOne) SetUpdatedAt(v time.Time) *ErrorPassthro
 func (u *ErrorPassthroughRuleUpsertOne) UpdateUpdatedAt() *ErrorPassthroughRuleUpsertOne {
 	return u.Update(func(s *ErrorPassthroughRuleUpsert) {
 		s.UpdateUpdatedAt()
+	})
+}
+
+// SetAction sets the "action" field.
+func (u *ErrorPassthroughRuleUpsertOne) SetAction(v string) *ErrorPassthroughRuleUpsertOne {
+	return u.Update(func(s *ErrorPassthroughRuleUpsert) {
+		s.SetAction(v)
+	})
+}
+
+// UpdateAction sets the "action" field to the value that was provided on create.
+func (u *ErrorPassthroughRuleUpsertOne) UpdateAction() *ErrorPassthroughRuleUpsertOne {
+	return u.Update(func(s *ErrorPassthroughRuleUpsert) {
+		s.UpdateAction()
 	})
 }
 
@@ -1182,6 +1238,20 @@ func (u *ErrorPassthroughRuleUpsertBulk) SetUpdatedAt(v time.Time) *ErrorPassthr
 func (u *ErrorPassthroughRuleUpsertBulk) UpdateUpdatedAt() *ErrorPassthroughRuleUpsertBulk {
 	return u.Update(func(s *ErrorPassthroughRuleUpsert) {
 		s.UpdateUpdatedAt()
+	})
+}
+
+// SetAction sets the "action" field.
+func (u *ErrorPassthroughRuleUpsertBulk) SetAction(v string) *ErrorPassthroughRuleUpsertBulk {
+	return u.Update(func(s *ErrorPassthroughRuleUpsert) {
+		s.SetAction(v)
+	})
+}
+
+// UpdateAction sets the "action" field to the value that was provided on create.
+func (u *ErrorPassthroughRuleUpsertBulk) UpdateAction() *ErrorPassthroughRuleUpsertBulk {
+	return u.Update(func(s *ErrorPassthroughRuleUpsert) {
+		s.UpdateAction()
 	})
 }
 

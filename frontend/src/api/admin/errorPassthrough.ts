@@ -5,10 +5,13 @@
 
 import { apiClient } from '../client'
 
+export type ErrorRuleAction = 'passthrough' | 'rewrite' | 'retry'
+
 /**
  * Error passthrough rule interface
  */
 export interface ErrorPassthroughRule {
+  action?: ErrorRuleAction // optional while reading a pre-migration server
   id: number
   name: string
   enabled: boolean
@@ -31,6 +34,7 @@ export interface ErrorPassthroughRule {
  * Create rule request
  */
 export interface CreateRuleRequest {
+  action?: ErrorRuleAction
   name: string
   enabled?: boolean
   priority?: number
@@ -50,6 +54,7 @@ export interface CreateRuleRequest {
  * Update rule request
  */
 export interface UpdateRuleRequest {
+  action?: ErrorRuleAction
   name?: string
   enabled?: boolean
   priority?: number

@@ -1305,6 +1305,10 @@ export default {
 
     // Error Passthrough Rules
     errorPassthrough: {
+      actionLabel: '处理动作',
+      actionLabels: { passthrough: '原样透传，不重试', rewrite: '改写返回，不重试', retry: '内部重试' },
+      defaultRecoveryHint: '没有匹配规则时，OpenAI 兼容生成请求会默认恢复上游 499 等瞬时错误；按优先级仅执行第一条匹配规则。',
+      retryHint: '复用请求级有限重试预算，不新增独立次数开关。客户端取消、超时或已有有效输出时不重放；耗尽后返回协议对应的最终错误。',
       title: '错误透传规则',
       description: '配置上游错误如何返回给客户端',
       createRule: '创建规则',

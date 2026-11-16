@@ -63,7 +63,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 
 	payload := s.buildOpenAIWSCreatePayload(reqBody, account)
-	payloadStrategy, removedKeys := applyOpenAIWSRetryPayloadStrategy(payload, attempt)
+	strategyAttempt := attempt
+	if lastFailureReason == "gateway_recovery" {
+		strategyAttempt = 1
+	}
+	payloadStrategy, removedKeys := applyOpenAIWSRetryPayloadStrategy(payload, strategyAttempt)
 	turnState := ""
 	turnMetadata := ""
 	if c != nil && c.Request != nil {
@@ -199,7 +203,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		account.ProxyID != nil && account.Proxy != nil,
 	)
 
-	acquireCtx, acquireCancel := context.WithTimeout(ctx, s.openAIWSAcquireTimeout())
+	recovery := beginGatewayWSRecoveryAttempt(c, account, gatewayWSPayloadBytes(payload), storeDisabled && previousResponseID != "")
+	defer recovery.finish()
+	acquireCtx, acquireCancel := context.WithTimeout(ctx, gatewayWSRecoveryReadTimeout(c, s.openAIWSAcquireTimeout(), time.Now(), false))
 	defer acquireCancel()
 
 	lease, err := s.getOpenAIWSConnPool().Acquire(acquireCtx, openAIWSAcquireRequest{
@@ -219,6 +225,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}(),
 	})
 	if err != nil {
+		if decided := recovery.recover(err, nil, nil, false); decided != nil {
+			return nil, decided
+		}
 		var agentDialErr *openAIWSDialError
 		if s.isAgentIdentityAccount(ctx, account) && errors.As(err, &agentDialErr) && isAgentIdentityTaskInvalidWSDialError(agentDialErr) && agentTaskRecoveryTried != nil && !*agentTaskRecoveryTried {
 			*agentTaskRecoveryTried = true
@@ -259,6 +268,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	// cleanExit 标记正常终端事件退出，此时上游不会再发送帧，连接可安全归还复用。
 	// 所有异常路径（读写错误、error 事件等）已在各自分支中提前调用 MarkBroken，
 	// 因此 defer 中只需处理正常退出时不 MarkBroken 即可。
+	if recovery != nil {
+		recovery.status = http.StatusSwitchingProtocols
+	}
 	cleanExit := false
 	defer func() {
 		if !cleanExit {
@@ -344,6 +356,10 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 
 	if err := lease.WriteJSONWithContextTimeout(ctx, payload, s.openAIWSWriteTimeout()); err != nil {
 		lease.MarkBroken()
+		if decided := recovery.recover(err, lease.HandshakeHeaders(), nil, false); decided != nil {
+			return nil, decided
+		}
+		lease.MarkBroken()
 		logOpenAIWSModeInfo(
 			"write_request_fail account_id=%d conn_id=%s cause=%s payload_bytes=%d",
 			account.ID,
@@ -376,6 +392,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		mappedModelBytes = []byte(mappedModel)
 	}
 	bufferedStreamEvents := make([][]byte, 0, 4)
+	bufferedBytes := 0
+	preludeStarted := time.Now()
+	semanticOutput := false
 	eventCount := 0
 	tokenEventCount := 0
 	terminalEventCount := 0
@@ -539,6 +558,9 @@ readLoop:
 					currentReadTimeout = remaining
 				}
 			}
+			if !clientDisconnected {
+				currentReadTimeout = gatewayWSRecoveryReadTimeout(c, currentReadTimeout, preludeStarted, semanticOutput || wroteDownstream)
+			}
 			message, readErr = lease.ReadMessageWithContextTimeout(upstreamReadCtx, currentReadTimeout)
 			if readErr == nil {
 				if documents, repaired := splitOpenAIConcatenatedJSONDocuments(message); repaired {
@@ -598,6 +620,9 @@ readLoop:
 					continue
 				}
 				break
+			}
+			if decided := recovery.recover(readErr, lease.HandshakeHeaders(), nil, wroteDownstream || semanticOutput); decided != nil {
+				return nil, decided
 			}
 			if !wroteDownstream {
 				return nil, wrapOpenAIWSFallback(classifyOpenAIWSReadFallbackReason(readErr), readErr)
@@ -666,6 +691,15 @@ readLoop:
 		}
 		imageCounter.AddSSEData(message)
 
+		if eventType == "error" || eventType == "response.failed" {
+			if decided := recovery.recover(nil, lease.HandshakeHeaders(), message, wroteDownstream || semanticOutput); decided != nil {
+				lease.MarkBroken()
+				return nil, decided
+			}
+		} else {
+			recovery.observeOutput(message, eventType)
+			semanticOutput = semanticOutput || gatewayRecoveryStreamStartsOutput(string(message), eventType)
+		}
 		if eventType == "error" || eventType == "response.failed" {
 			markOpenAICyberPolicyEvent(c, message, http.StatusOK, usage)
 		}
@@ -742,11 +776,12 @@ readLoop:
 		if reqStream {
 			// 在首个 token 前先缓冲事件（如 response.created），
 			// 以便上游早期断连时仍可安全回退到 HTTP，不给下游发送半截流。
-			shouldBuffer := firstTokenMs == nil && !isTokenEvent && !isTerminalEvent
+			shouldBuffer := !semanticOutput && !wroteDownstream && !isTerminalEvent && bufferedBytes+len(message) <= 64<<10 && time.Since(preludeStarted) < 30*time.Second
 			if shouldBuffer {
 				buffered := make([]byte, len(message))
 				copy(buffered, message)
 				bufferedStreamEvents = append(bufferedStreamEvents, buffered)
+				bufferedBytes += len(buffered)
 				bufferedEventCount++
 				if debugEnabled && shouldLogOpenAIWSBufferedEvent(bufferedEventCount) {
 					logOpenAIWSModeDebug(
@@ -760,6 +795,7 @@ readLoop:
 					)
 				}
 			} else {
+				recovery.stopReplay()
 				flushBufferedStreamEvents(eventType)
 				emitStreamMessage(message, isTerminalEvent)
 			}

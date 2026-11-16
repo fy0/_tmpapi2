@@ -898,6 +898,7 @@ var (
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "action", Type: field.TypeString, Size: 16, Default: ""},
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "priority", Type: field.TypeInt, Default: 0},
@@ -921,12 +922,12 @@ var (
 			{
 				Name:    "errorpassthroughrule_enabled",
 				Unique:  false,
-				Columns: []*schema.Column{ErrorPassthroughRulesColumns[4]},
+				Columns: []*schema.Column{ErrorPassthroughRulesColumns[5]},
 			},
 			{
 				Name:    "errorpassthroughrule_priority",
 				Unique:  false,
-				Columns: []*schema.Column{ErrorPassthroughRulesColumns[5]},
+				Columns: []*schema.Column{ErrorPassthroughRulesColumns[6]},
 			},
 		},
 	}
@@ -1037,7 +1038,7 @@ var (
 			{
 				Name:    "group_sort_order",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[51]},
+				Columns: []*schema.Column{GroupsColumns[52]},
 			},
 			{
 				Name:    "idx_groups_duplicate_operation_id_active",

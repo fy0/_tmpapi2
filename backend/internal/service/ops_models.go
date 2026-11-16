@@ -23,6 +23,7 @@ type OpsSystemLog struct {
 }
 
 type OpsErrorLog struct {
+	GatewayRequestMetadata
 	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 
@@ -102,6 +103,8 @@ type OpsErrorLogDetail struct {
 }
 
 type OpsErrorLogFilter struct {
+	ConversationID string
+	ConversationIDSource string
 	StartTime *time.Time
 	EndTime   *time.Time
 

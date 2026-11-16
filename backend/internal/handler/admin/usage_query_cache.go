@@ -11,6 +11,8 @@ import (
 var usageStatsCache = newSnapshotCache(30 * time.Second)
 
 type usageStatsCacheKeyData struct {
+	ConversationID        string `json:"conversation_id"`
+	ConversationIDSource  string `json:"conversation_id_source"`
 	StartTime             string `json:"start_time"`
 	EndTime               string `json:"end_time"`
 	UserID                int64  `json:"user_id"`
@@ -36,6 +38,8 @@ func usageStatsCacheKey(filters usagestats.UsageLogFilters) string {
 		end = filters.EndTime.UTC().Format(time.RFC3339)
 	}
 	return mustMarshalDashboardCacheKey(usageStatsCacheKeyData{
+		ConversationID:        filters.ConversationID,
+		ConversationIDSource:  filters.ConversationIDSource,
 		StartTime:             start,
 		EndTime:               end,
 		UserID:                filters.UserID,

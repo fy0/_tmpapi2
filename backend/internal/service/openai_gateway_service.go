@@ -908,6 +908,10 @@ func resolveOpenAIWSFallbackErrorResponse(err error) (statusCode int, errType st
 }
 
 func (s *OpenAIGatewayService) writeOpenAIWSFallbackErrorResponse(c *gin.Context, account *Account, wsErr error) bool {
+	var decided *UpstreamFailoverError
+	if errors.As(wsErr, &decided) && decided.RecoveryHandled {
+		return false
+	}
 	if c == nil || c.Writer == nil || c.Writer.Written() {
 		return false
 	}

@@ -18,6 +18,15 @@ func scopedAdminUsageLogResponse(record *service.UsageLog) gin.H {
 	flat.User, flat.APIKey, flat.Group, flat.Subscription, flat.Account = nil, nil, nil, nil, nil
 	usage := dto.UsageLogFromServiceAdmin(&flat)
 	return gin.H{
+		"conversation_id":              usage.ConversationID,
+		"conversation_id_source":       usage.ConversationIDSource,
+		"downstream_request_id":        usage.DownstreamRequestID,
+		"downstream_status_code":       usage.DownstreamStatusCode,
+		"request_body_bytes":           usage.RequestBodyBytes,
+		"request_started_at":           usage.RequestStartedAt,
+		"request_ended_at":             usage.RequestEndedAt,
+		"attempt_count":                usage.AttemptCount,
+		"recovery_outcome":             usage.RecoveryOutcome,
 		"id":                           usage.ID,
 		"user_id":                      usage.UserID,
 		"api_key_id":                   usage.APIKeyID,

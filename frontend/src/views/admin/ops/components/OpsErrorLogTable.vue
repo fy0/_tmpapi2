@@ -14,6 +14,9 @@
         @sort="onSort"
         @rowClick="(row) => emit('openErrorDetail', row.id)"
       >
+        <template #cell-conversation_id="{ row }">
+          <GatewayConversationCell :row="row" />
+        </template>
         <template #cell-created_at="{ row }">
           <span
             class="text-sm text-gray-600 dark:text-gray-400"
@@ -184,6 +187,7 @@ import { useI18n } from 'vue-i18n'
 import DataTable from '@/components/common/DataTable.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import GatewayConversationCell from '@/components/admin/usage/GatewayConversationCell.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import IpGeoBatchToolbar from '@/components/common/IpGeoBatchToolbar.vue'
 import type { OpsErrorLog } from '@/api/admin/ops'
@@ -208,6 +212,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'category', label: t('usage.errors.category') },
   { key: 'status', label: t('admin.ops.errorLog.status'), sortable: true },
   { key: 'message', label: t('admin.ops.errorLog.message') },
+  { key: 'conversation_id', label: t('admin.usage.conversationId') },
   { key: 'created_at', label: t('admin.ops.errorLog.time'), sortable: true },
   { key: 'user_agent', label: t('usage.userAgent') },
   { key: 'client_ip', label: t('admin.ops.errorLog.ip') },

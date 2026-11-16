@@ -256,7 +256,7 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
 		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
 	}
-	return base
+	return service.CopyGatewayRequestObservation(parent, base)
 }
 
 // wrapUsageRecordTaskContext 包装计费任务：复制请求级 context 值，并接管请求的在途余额预留引用。
@@ -265,6 +265,10 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecordTask) (service.UsageRecordTask, func()) {
 	if task == nil {
 		return nil, func() {}
+	}
+	// Snapshot before enqueue: later WebSocket turns cannot change this usage row.
+	if parent != nil {
+		parent = service.CopyGatewayRequestObservation(parent, parent)
 	}
 	done := func() {}
 	if parent != nil {
@@ -1954,6 +1958,11 @@ func (h *OpenAIGatewayHandler) anthropicStreamingAwareError(c *gin.Context, stat
 
 // handleAnthropicFailoverExhausted maps upstream failover errors to Anthropic format.
 func (h *OpenAIGatewayHandler) handleAnthropicFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, streamStarted bool) {
+	if failoverErr != nil && failoverErr.RecoveryHandled {
+		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+		h.anthropicStreamingAwareError(c, failoverErr.ClientStatusCode, "api_error", failoverErr.ClientMessage, streamStarted || c.Writer.Written())
+		return
+	}
 	if failoverErr != nil {
 		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
 	}
@@ -3314,6 +3323,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			ReasoningEffortMappings:     reasoningEffortMappings,
 			TurnStarted:                 recordTurnStart,
 			BeforeRequest: func(turn int, payload []byte, originalModel string) error {
+				service.BeginGatewayRequestTurn(c, turn, payload)
 				c.Set(securityAuditWSTurnContextKey, turn)
 				service.BeginOpsStreamTurn(c, turn)
 				setCyberTurnBody(turn, payload)
@@ -3428,6 +3438,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return checkSimpleModeTurnBilling()
 			},
 			AfterTurn: func(turn int, result *service.OpenAIForwardResult, turnErr error) {
+				service.CompleteGatewayRequestObservation(c)
 				turnStart := getTurnStart(turn)
 				cyberBlockBody := takeCyberTurnBody(turn)
 				// 每次 attempt 都清 cyber mark；failover 链结束前保留 recorded guard，
@@ -3872,6 +3883,13 @@ func (h *OpenAIGatewayHandler) handleConcurrencyError(c *gin.Context, err error,
 }
 
 func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, streamStarted bool) {
+	if failoverErr != nil && failoverErr.RecoveryHandled {
+		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+		// The original fault was matched once, before any write or retry. Do not
+		// reinterpret a rewritten status as another failover/rule input.
+		h.handleStreamingAwareError(c, failoverErr.ClientStatusCode, "upstream_error", failoverErr.ClientMessage, streamStarted || c.Writer.Written())
+		return
+	}
 	if failoverErr == nil {
 		h.handleFailoverExhaustedSimple(c, http.StatusBadGateway, streamStarted)
 		return
@@ -4366,6 +4384,19 @@ func closeOpenAIWSFailoverExhausted(c *gin.Context, conn *coderws.Conn, failover
 		}
 	}
 
+	if failoverErr != nil && failoverErr.RecoveryHandled {
+		intendedStatus, message = failoverErr.ClientStatusCode, failoverErr.ClientMessage
+		errorType, errorCode = "upstream_error", "upstream_recovery_failed"
+		if intendedStatus == http.StatusServiceUnavailable {
+			closeStatus = coderws.StatusTryAgainLater
+		}
+		if conn != nil && c != nil && c.Request.Context().Err() == nil {
+			payload, _ := json.Marshal(gin.H{"type": "error", "status": intendedStatus, "error": gin.H{"type": errorType, "code": errorCode, "message": message}})
+			writeCtx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+			_ = conn.Write(writeCtx, coderws.MessageText, payload)
+			cancel()
+		}
+	}
 	service.MarkOpsStreamFailure(c, errorType, errorCode, message, intendedStatus)
 	closeOpenAIClientWS(conn, closeStatus, message)
 }

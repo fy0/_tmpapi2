@@ -53,6 +53,7 @@ func (r *errorPassthroughRepository) Create(ctx context.Context, rule *model.Err
 		SetEnabled(rule.Enabled).
 		SetPriority(rule.Priority).
 		SetMatchMode(rule.MatchMode).
+		SetAction(rule.EffectiveAction()).
 		SetPassthroughCode(rule.PassthroughCode).
 		SetPassthroughBody(rule.PassthroughBody).
 		SetSkipMonitoring(rule.SkipMonitoring)
@@ -90,6 +91,7 @@ func (r *errorPassthroughRepository) Update(ctx context.Context, rule *model.Err
 		SetEnabled(rule.Enabled).
 		SetPriority(rule.Priority).
 		SetMatchMode(rule.MatchMode).
+		SetAction(rule.EffectiveAction()).
 		SetPassthroughCode(rule.PassthroughCode).
 		SetPassthroughBody(rule.PassthroughBody).
 		SetSkipMonitoring(rule.SkipMonitoring)
@@ -141,6 +143,7 @@ func (r *errorPassthroughRepository) Delete(ctx context.Context, id int64) error
 // toModel 将 Ent 实体转换为服务模型
 func (r *errorPassthroughRepository) toModel(e *ent.ErrorPassthroughRule) *model.ErrorPassthroughRule {
 	rule := &model.ErrorPassthroughRule{
+		Action:          e.Action,
 		ID:              int64(e.ID),
 		Name:            e.Name,
 		Enabled:         e.Enabled,
@@ -165,6 +168,8 @@ func (r *errorPassthroughRepository) toModel(e *ent.ErrorPassthroughRule) *model
 	if e.Description != nil {
 		rule.Description = e.Description
 	}
+
+	rule.Action = rule.EffectiveAction()
 
 	// 确保切片不为 nil
 	if rule.ErrorCodes == nil {

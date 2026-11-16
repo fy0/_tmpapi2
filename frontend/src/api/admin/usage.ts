@@ -117,6 +117,8 @@ export async function list(
  * @returns Usage statistics
  */
 export async function getStats(params: {
+  conversation_id?: string
+  conversation_id_source?: string
   user_id?: number
   api_key_id?: number
   account_id?: number

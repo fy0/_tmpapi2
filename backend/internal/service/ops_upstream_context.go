@@ -184,6 +184,7 @@ func IsOpsRequestScopedError(c *gin.Context) bool {
 // 由于 HTTP 状态码停留在 2xx，ops_error_logger 中间件在 status<400 分支消费该标记并
 // 补记错误日志；标记方是 handler.handleStreamingAwareError 或各 service 的带内检测。
 type OpsStreamError struct {
+	GatewayRequestMetadata GatewayRequestMetadata
 	// ErrType 是写入 SSE 帧的对客错误类型（如 rate_limit_error / upstream_error / api_error）。
 	ErrType string
 	// Code 是可选的稳定错误分类；用于既保留通用 OpenAI error.type，又向客户端和 Ops
@@ -223,6 +224,7 @@ func BeginOpsStreamTurn(c *gin.Context, turn int) {
 		return
 	}
 	c.Set(OpsStreamTurnKey, turn)
+	c.Set(OpsStreamErrorKey, nil)
 	// Rule and attempt state is turn-scoped on a long-lived WS connection.
 	c.Set(OpsSkipPassthroughKey, false)
 	c.Set(OpsUpstreamErrorsKey, []*OpsUpstreamErrorEvent{})
@@ -275,6 +277,7 @@ func markOpsStreamError(c *gin.Context, streamErr OpsStreamError) {
 	if !streamErr.RequestScoped {
 		streamErr.SkipMonitoring = currentOpsFailureSkipMonitoring(c)
 	}
+	streamErr.GatewayRequestMetadata = FinishGatewayRequestObservation(c, "failed_after_output")
 	snapshotOpsStreamErrorContext(c, &streamErr)
 	if GetOpenAIClientTransport(c) == OpenAIClientTransportWS {
 		if value, ok := c.Get(OpsStreamTurnKey); ok {
@@ -422,7 +425,14 @@ func setOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage
 // OpsUpstreamErrorEvent describes one upstream error attempt during a single gateway request.
 // It is stored in ops_error_logs.upstream_errors as a JSON array.
 type OpsUpstreamErrorEvent struct {
-	AtUnixMs int64 `json:"at_unix_ms,omitempty"`
+	ConversationID       string `json:"conversation_id,omitempty"`
+	ConversationIDSource string `json:"conversation_id_source,omitempty"`
+	DownstreamRequestID  string `json:"downstream_request_id,omitempty"`
+	Attempt              int    `json:"attempt,omitempty"`
+	RuleID               int64  `json:"rule_id,omitempty"`
+	Action               string `json:"action,omitempty"`
+	RecoveryOutcome      string `json:"recovery_outcome,omitempty"`
+	AtUnixMs             int64  `json:"at_unix_ms,omitempty"`
 
 	// Passthrough 表示本次请求是否命中“原样透传（仅替换认证）”分支。
 	// 该字段用于排障与灰度评估；存入 JSON，不涉及 DB schema 变更。
@@ -484,6 +494,14 @@ const (
 func appendOpsUpstreamError(c *gin.Context, ev OpsUpstreamErrorEvent) {
 	if c == nil {
 		return
+	}
+	if c.Request != nil {
+		metadata := GatewayRequestMetadataFromContext(c.Request.Context())
+		ev.ConversationID, ev.ConversationIDSource = metadata.ConversationID, metadata.ConversationIDSource
+		ev.DownstreamRequestID = metadata.DownstreamRequestID
+		if ev.Attempt == 0 {
+			ev.Attempt = metadata.AttemptCount
+		}
 	}
 	if ev.AtUnixMs <= 0 {
 		ev.AtUnixMs = time.Now().UnixMilli()

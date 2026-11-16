@@ -189,6 +189,8 @@ func (h *UsageHandler) List(c *gin.Context) {
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
 	}
 	filters := usagestats.UsageLogFilters{
+		ConversationID:        strings.TrimSpace(c.Query("conversation_id")),
+		ConversationIDSource:  strings.TrimSpace(c.Query("conversation_id_source")),
 		UserID:                userID,
 		APIKeyID:              apiKeyID,
 		AccountID:             accountID,
@@ -345,6 +347,8 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 
 	// Build filters and call GetStatsWithFilters
 	filters := usagestats.UsageLogFilters{
+		ConversationID:        strings.TrimSpace(c.Query("conversation_id")),
+		ConversationIDSource:  strings.TrimSpace(c.Query("conversation_id_source")),
 		UserID:                userID,
 		APIKeyID:              apiKeyID,
 		AccountID:             accountID,

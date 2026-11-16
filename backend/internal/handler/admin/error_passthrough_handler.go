@@ -21,6 +21,7 @@ func NewErrorPassthroughHandler(service *service.ErrorPassthroughService) *Error
 
 // CreateErrorPassthroughRuleRequest 创建规则请求
 type CreateErrorPassthroughRuleRequest struct {
+	Action          string   `json:"action"`
 	Name            string   `json:"name" binding:"required"`
 	Enabled         *bool    `json:"enabled"`
 	Priority        int      `json:"priority"`
@@ -38,6 +39,7 @@ type CreateErrorPassthroughRuleRequest struct {
 
 // UpdateErrorPassthroughRuleRequest 更新规则请求（部分更新，所有字段可选）
 type UpdateErrorPassthroughRuleRequest struct {
+	Action          *string  `json:"action"`
 	Name            *string  `json:"name"`
 	Enabled         *bool    `json:"enabled"`
 	Priority        *int     `json:"priority"`
@@ -96,6 +98,7 @@ func (h *ErrorPassthroughHandler) Create(c *gin.Context) {
 	}
 
 	rule := &model.ErrorPassthroughRule{
+		Action:     req.Action,
 		Name:       req.Name,
 		Priority:   req.Priority,
 		ErrorCodes: req.ErrorCodes,
@@ -183,6 +186,7 @@ func (h *ErrorPassthroughHandler) Update(c *gin.Context) {
 
 	// 部分更新：只更新请求中提供的字段
 	rule := &model.ErrorPassthroughRule{
+		Action:          existing.Action,
 		ID:              id,
 		Name:            existing.Name,
 		Enabled:         existing.Enabled,
@@ -249,6 +253,14 @@ func (h *ErrorPassthroughHandler) Update(c *gin.Context) {
 	}
 	if rule.Platforms == nil {
 		rule.Platforms = []string{}
+	}
+
+	if req.Action != nil {
+		rule.Action = *req.Action
+	} else if req.PassthroughCode != nil || req.PassthroughBody != nil {
+		// Old clients only know the two passthrough flags. A flag edit is an
+		// explicit legacy behavior edit; an enabled-only PATCH preserves action.
+		rule.Action = ""
 	}
 
 	updated, err := h.service.Update(c.Request.Context(), rule)

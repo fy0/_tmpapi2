@@ -584,6 +584,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		var bridgeAccountFailoverInput []json.RawMessage
 		bridgeAccountFailoverInputExists := false
 		for turn := 1; ; turn++ {
+			BeginGatewayRequestTurn(c, turn, currentBridgePayload.rawForHash)
 			if turn > 1 && hooks != nil && hooks.BeforeRequest != nil {
 				if err := hooks.BeforeRequest(turn, currentBridgePayload.rawForHash, currentBridgePayload.originalModel); err != nil {
 					return err
@@ -859,24 +860,39 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 
 	agentTaskRecoveryTried := false
-	var acquireTurnLease func(int, string, bool, bool) (*openAIWSConnLease, error)
-	acquireTurnLease = func(turn int, preferred string, forcePreferredConn bool, forceNewConn bool) (*openAIWSConnLease, error) {
+	var acquireTurnLease func(int, string, bool, bool, []byte) (*openAIWSConnLease, error)
+	acquireTurnLease = func(turn int, preferred string, forcePreferredConn bool, forceNewConn bool, payload []byte) (*openAIWSConnLease, error) {
 		req := cloneOpenAIWSAcquireRequest(baseAcquireReq)
 		req.PreferredConnID = strings.TrimSpace(preferred)
 		req.ForcePreferredConn = forcePreferredConn
 		// dedicated 模式下每次获取均新建连接，避免跨会话复用残留上下文；
 		// 上游读写失败后的重试同样新建，避免再拿到同批陈旧的空闲连接。
 		req.ForceNewConn = dedicatedMode || forceNewConn
-		acquireCtx, acquireCancel := context.WithTimeout(ctx, acquireTimeout)
+		acquireCtx, acquireCancel := context.WithTimeout(ctx, gatewayWSRecoveryReadTimeout(c, acquireTimeout, time.Now(), false))
 		lease, acquireErr := pool.Acquire(acquireCtx, req)
 		acquireCancel()
+		if acquireErr != nil {
+			recovery := beginGatewayWSRecoveryAttempt(c, account, payload, forcePreferredConn)
+			decided := recovery.recover(acquireErr, nil, nil, false)
+			recovery.finish()
+			var retry *gatewayWSRecoveryRetry
+			if errors.As(decided, &retry) {
+				if err := waitGatewayWSRecovery(ctx, c, retry.delay); err != nil {
+					return nil, err
+				}
+				return acquireTurnLease(turn, preferred, forcePreferredConn, true, payload)
+			}
+			if decided != nil {
+				return nil, decided
+			}
+		}
 		var dialErr *openAIWSDialError
 		if acquireErr != nil && s.isAgentIdentityAccount(ctx, account) && errors.As(acquireErr, &dialErr) && isAgentIdentityTaskInvalidWSDialError(dialErr) && !agentTaskRecoveryTried {
 			agentTaskRecoveryTried = true
 			if recoveryErr := s.recoverAgentIdentityTask(ctx, account, account.GetCredential("task_id")); recoveryErr != nil {
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", recoveryErr)
 			}
-			return acquireTurnLease(turn, preferred, forcePreferredConn, forceNewConn)
+			return acquireTurnLease(turn, preferred, forcePreferredConn, forceNewConn, payload)
 		}
 		if acquireErr != nil {
 			if isOpenAIWSSessionPreempted(ctx) {
@@ -963,7 +979,17 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		turnStart := time.Now()
 		wroteDownstream := false
+		recovery := beginGatewayWSRecoveryAttempt(c, account, payload, storeDisabled && openAIWSPayloadStringFromRaw(payload, "previous_response_id") != "")
+		defer recovery.finish()
+		if recovery != nil {
+			recovery.status = http.StatusSwitchingProtocols
+		}
+		prelude := gatewayWSRecoveryPrelude{started: turnStart}
 		if err := lease.WriteJSONWithContextTimeout(ctx, json.RawMessage(payload), s.openAIWSWriteTimeout()); err != nil {
+			lease.MarkBroken()
+			if decided := recovery.recover(err, lease.HandshakeHeaders(), nil, false); decided != nil {
+				return nil, decided
+			}
 			return nil, wrapOpenAIWSIngressTurnError(
 				"write_upstream",
 				fmt.Errorf("write upstream websocket request: %w", err),
@@ -1011,9 +1037,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 		}
 		for {
-			upstreamMessage, readErr := lease.ReadMessageWithContextTimeout(ctx, s.openAIWSReadTimeout())
+			upstreamMessage, readErr := lease.ReadMessageWithContextTimeout(ctx, gatewayWSRecoveryReadTimeout(c, s.openAIWSReadTimeout(), turnStart, wroteDownstream || prelude.committed))
 			if readErr != nil {
 				lease.MarkBroken()
+				if decided := recovery.recover(readErr, lease.HandshakeHeaders(), nil, wroteDownstream || prelude.committed); decided != nil {
+					return nil, decided
+				}
 				return nil, wrapOpenAIWSIngressTurnError(
 					"read_upstream",
 					fmt.Errorf("read upstream websocket event: %w", readErr),
@@ -1038,6 +1067,14 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			if openAIWSMessageShouldParseUsage(eventType, upstreamMessage) {
 				parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)
+			}
+			if eventType == "error" || eventType == "response.failed" {
+				if decided := recovery.recover(nil, lease.HandshakeHeaders(), upstreamMessage, wroteDownstream || prelude.committed); decided != nil {
+					lease.MarkBroken()
+					return nil, decided
+				}
+			} else {
+				recovery.observeOutput(upstreamMessage, eventType)
 			}
 			if eventType == "error" || eventType == "response.failed" {
 				markOpenAICyberPolicyEvent(c, upstreamMessage, http.StatusOK, &usage)
@@ -1185,7 +1222,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						clientMessage = rewritten
 					}
 				}
-				if err := writeClientMessage(clientMessage); err != nil {
+				if err := prelude.write(clientMessage, eventType, writeClientMessage); err != nil {
 					if isOpenAIWSClientDisconnectError(err) {
 						clientDisconnected = true
 						closeStatus, closeReason := summarizeOpenAIWSReadCloseError(err)
@@ -1205,7 +1242,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						)
 					}
 				} else {
-					wroteDownstream = true
+					wroteDownstream = prelude.committed
+					if wroteDownstream {
+						recovery.stopReplay()
+					}
 					markOpenAIWSClientVisibleFailure(c, eventType, upstreamMessage)
 				}
 			}
@@ -1462,6 +1502,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		return true
 	}
 	for {
+		if !skipBeforeTurn {
+			BeginGatewayRequestTurn(c, turn, currentClientPayload)
+		}
 		if turn > 1 && !skipBeforeTurn && hooks != nil && hooks.BeforeRequest != nil {
 			if err := hooks.BeforeRequest(turn, currentClientPayload, currentOriginalModel); err != nil {
 				return err
@@ -1666,7 +1709,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		forcePreferredConn := isStrictAffinityTurn(currentPayload)
 		if sessionLease == nil {
-			acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn, turnRetry > 0)
+			acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn, turnRetry > 0, currentPayload)
 			if acquireErr != nil {
 				return fmt.Errorf("acquire upstream websocket: %w", acquireErr)
 			}
@@ -1774,7 +1817,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				}
 				resetSessionLease(true)
 
-				acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn, false)
+				acquiredLease, acquireErr := acquireTurnLease(turn, preferredConnID, forcePreferredConn, false, currentPayload)
 				if acquireErr != nil {
 					return fmt.Errorf("acquire upstream websocket after preflight ping fail: %w", acquireErr)
 				}
@@ -1808,11 +1851,50 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 
-		result, relayErr := sendAndRelay(turn, sessionLease, currentPayload, currentPayloadBytes, currentOriginalModel, currentImageBillingModel, currentImageSizeTier, currentImageInputSize, currentRequestedReasoningEffort)
+		// Recovery retries this exact prepared turn, without rerunning admission,
+		// tool/continuation repair, normalization, or releasing billing slots.
+		preparedHeaders := cloneHeader(baseAcquireReq.Headers)
+		var result *OpenAIForwardResult
+		var relayErr error
+		for {
+			result, relayErr = sendAndRelay(turn, sessionLease, currentPayload, currentPayloadBytes, currentOriginalModel, currentImageBillingModel, currentImageSizeTier, currentImageInputSize, currentRequestedReasoningEffort)
+			var retry *gatewayWSRecoveryRetry
+			if !errors.As(relayErr, &retry) {
+				break
+			}
+			resetSessionLease(true)
+			if waitErr := waitGatewayWSRecovery(ctx, c, retry.delay); waitErr != nil {
+				relayErr = waitErr
+				break
+			}
+			baseAcquireReq.Headers = cloneHeader(preparedHeaders)
+			var acquireErr error
+			sessionLease, acquireErr = acquireTurnLease(turn, preferredConnID, forcePreferredConn, true, currentPayload)
+			if acquireErr != nil {
+				relayErr = acquireErr
+				break
+			}
+			sessionConnID = strings.TrimSpace(sessionLease.ConnID())
+			if storeDisabled {
+				pinSessionConn(sessionConnID)
+			}
+		}
 		if relayErr != nil {
 			lastTurnClean = false
+			var decided *UpstreamFailoverError
+			if errors.As(relayErr, &decided) && decided.RecoveryHandled {
+				if hooks != nil && hooks.AfterTurn != nil {
+					hooks.AfterTurn(turn, nil, decided)
+				}
+				if sessionLease != nil {
+					sessionLease.MarkBroken()
+				}
+				return decided
+			}
 			if isOpenAIWSSessionPreempted(ctx) {
-				sessionLease.MarkBroken()
+				if sessionLease != nil {
+					sessionLease.MarkBroken()
+				}
 				return errOpenAIWSSessionPreempted
 			}
 			var rejectedFieldErr *openAIWSRejectedFieldRetryError
@@ -1835,7 +1917,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if hooks != nil && hooks.AfterTurn != nil {
 				hooks.AfterTurn(turn, nil, finalErr)
 			}
-			sessionLease.MarkBroken()
+			if sessionLease != nil {
+				sessionLease.MarkBroken()
+			}
 			return finalErr
 		}
 		turnRetry = 0

@@ -22,6 +22,8 @@ type ErrorPassthroughRule struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Action holds the value of the "action" field.
+	Action string `json:"action,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Enabled holds the value of the "enabled" field.
@@ -62,7 +64,7 @@ func (*ErrorPassthroughRule) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case errorpassthroughrule.FieldID, errorpassthroughrule.FieldPriority, errorpassthroughrule.FieldResponseCode:
 			values[i] = new(sql.NullInt64)
-		case errorpassthroughrule.FieldName, errorpassthroughrule.FieldMatchMode, errorpassthroughrule.FieldCustomMessage, errorpassthroughrule.FieldDescription:
+		case errorpassthroughrule.FieldAction, errorpassthroughrule.FieldName, errorpassthroughrule.FieldMatchMode, errorpassthroughrule.FieldCustomMessage, errorpassthroughrule.FieldDescription:
 			values[i] = new(sql.NullString)
 		case errorpassthroughrule.FieldCreatedAt, errorpassthroughrule.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -98,6 +100,12 @@ func (_m *ErrorPassthroughRule) assignValues(columns []string, values []any) err
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
+			}
+		case errorpassthroughrule.FieldAction:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field action", values[i])
+			} else if value.Valid {
+				_m.Action = value.String
 			}
 		case errorpassthroughrule.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -227,6 +235,9 @@ func (_m *ErrorPassthroughRule) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("action=")
+	builder.WriteString(_m.Action)
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

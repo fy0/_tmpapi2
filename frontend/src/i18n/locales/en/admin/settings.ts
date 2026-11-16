@@ -1311,6 +1311,10 @@ export default {
 
     // Error Passthrough Rules
     errorPassthrough: {
+      actionLabel: 'Action',
+      actionLabels: { passthrough: 'Pass through, do not retry', rewrite: 'Rewrite, do not retry', retry: 'Retry internally' },
+      defaultRecoveryHint: 'Without a matching rule, OpenAI-compatible generation requests recover transient upstream failures such as HTTP 499 by default. Only the first matching rule runs, in priority order.',
+      retryHint: 'Uses the shared bounded request retry budget. Cancellation, deadlines and meaningful output prevent replay. Exhaustion returns a protocol-appropriate terminal error.',
       title: 'Error Passthrough Rules',
       description: 'Configure how upstream errors are returned to clients',
       createRule: 'Create Rule',

@@ -62,6 +62,7 @@ type OpsRepository interface {
 }
 
 type OpsInsertErrorLogInput struct {
+	GatewayRequestMetadata
 	RequestID       string
 	ClientRequestID string
 

@@ -1,5 +1,11 @@
 # Sub2API Fork 逐版本升级记录（2026-11-02）
 
+## 2026-11-10 后续变更：499 恢复
+
+本次 499 恢复变更新增 `257_error_passthrough_rule_action.sql`、`258_gateway_conversation_observation.sql`、`259_gateway_conversation_indexes_notx.sql`。编号经上游最高 248 与本批之前 Fork 最高 256 核对后分配；历史迁移及 checksum 别名不变。新索引非事务并发创建，历史会话标识保留 NULL。
+
+下文旧程序的 hash 和旧验收结果不能作为本次变更已构建或部署的证明。本次实现/验证说明见 `GATEWAY_499_RECOVERY.md`。没有替换生产程序，没有执行真实生产数据库迁移；数据库上线许可仍为 **BLOCKED**。
+
 ## 升级边界
 
 - 原始仓库：D:\codes\2026\sub2api，main 基线 96d0e5241（v0.2.13）。

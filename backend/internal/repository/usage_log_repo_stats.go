@@ -656,8 +656,16 @@ func (r *usageLogRepository) GetGlobalStats(ctx context.Context, startTime, endT
 
 // GetStatsWithFilters gets usage statistics with optional filters
 func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters UsageLogFilters) (*UsageStats, error) {
-	conditions := make([]string, 0, 9)
-	args := make([]any, 0, 9)
+	conditions := make([]string, 0, 11)
+	args := make([]any, 0, 11)
+	if id := strings.TrimSpace(filters.ConversationID); id != "" {
+		conditions = append(conditions, fmt.Sprintf("conversation_id = $%d", len(args)+1))
+		args = append(args, id)
+	}
+	if source := strings.TrimSpace(filters.ConversationIDSource); source != "" {
+		conditions = append(conditions, fmt.Sprintf("conversation_id_source = $%d", len(args)+1))
+		args = append(args, source)
+	}
 
 	if filters.UserID > 0 {
 		conditions = append(conditions, fmt.Sprintf("user_id = $%d", len(args)+1))

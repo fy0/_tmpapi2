@@ -17,6 +17,8 @@
         </button>
       </div>
 
+      <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.errorPassthrough.defaultRecoveryHint') }}</p>
+
       <!-- Rules Table -->
       <div v-if="loading" class="flex items-center justify-center py-8">
         <Icon name="refresh" size="lg" class="animate-spin text-gray-400" />
@@ -126,28 +128,19 @@
               </td>
               <td class="px-3 py-2">
                 <div class="text-xs space-y-0.5">
-                  <div class="flex items-center gap-1">
-                    <Icon
-                      :name="rule.passthrough_code ? 'checkCircle' : 'xCircle'"
-                      size="xs"
-                      :class="rule.passthrough_code ? 'text-green-500' : 'text-gray-400'"
-                    />
-                    <span class="text-gray-600 dark:text-gray-400">
+                  <div class="font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.errorPassthrough.actionLabels.' + effectiveAction(rule)) }}
+                  </div>
+                  <template v-if="effectiveAction(rule) === 'rewrite'">
+                    <div class="text-gray-600 dark:text-gray-400">
                       {{ t('admin.errorPassthrough.code') }}:
                       {{ rule.passthrough_code ? t('admin.errorPassthrough.passthrough') : (rule.response_code || '-') }}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <Icon
-                      :name="rule.passthrough_body ? 'checkCircle' : 'xCircle'"
-                      size="xs"
-                      :class="rule.passthrough_body ? 'text-green-500' : 'text-gray-400'"
-                    />
-                    <span class="text-gray-600 dark:text-gray-400">
+                    </div>
+                    <div class="text-gray-600 dark:text-gray-400">
                       {{ t('admin.errorPassthrough.body') }}:
                       {{ rule.passthrough_body ? t('admin.errorPassthrough.passthrough') : t('admin.errorPassthrough.custom') }}
-                    </span>
-                  </div>
+                    </div>
+                  </template>
                   <div v-if="rule.skip_monitoring" class="flex items-center gap-1">
                     <Icon
                       name="checkCircle"
@@ -328,7 +321,12 @@
             {{ t('admin.errorPassthrough.form.responseBehavior') }}
           </h4>
 
-          <div class="grid grid-cols-2 gap-3">
+          <label class="input-label" for="error-rule-action">{{ t('admin.errorPassthrough.actionLabel') }}</label>
+          <select id="error-rule-action" v-model="form.action" class="input mb-3" data-testid="error-rule-action">
+            <option v-for="action in actionOptions" :key="action.value" :value="action.value">{{ action.label }}</option>
+          </select>
+          <p v-if="form.action === 'retry'" class="input-hint mb-2">{{ t('admin.errorPassthrough.retryHint') }}</p>
+          <div v-if="form.action === 'rewrite'" class="grid grid-cols-2 gap-3" data-testid="error-rule-rewrite-options">
             <div>
               <label class="flex items-center gap-1.5">
                 <input
@@ -435,7 +433,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'
 import { adminAPI } from '@/api/admin'
-import type { ErrorPassthroughRule } from '@/api/admin/errorPassthrough'
+import type { ErrorPassthroughRule, ErrorRuleAction } from '@/api/admin/errorPassthrough'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -468,6 +466,7 @@ const errorCodesInput = ref('')
 const keywordsInput = ref('')
 
 const form = reactive({
+  action: 'passthrough' as ErrorRuleAction,
   name: '',
   enabled: true,
   priority: 0,
@@ -480,6 +479,13 @@ const form = reactive({
   skip_monitoring: false,
   description: null as string | null
 })
+
+const effectiveAction = (rule: ErrorPassthroughRule): ErrorRuleAction =>
+  rule.action || (rule.passthrough_code && rule.passthrough_body ? 'passthrough' : 'rewrite')
+
+const actionOptions = computed(() => (['passthrough', 'rewrite', 'retry'] as const).map(value => ({
+  value, label: t('admin.errorPassthrough.actionLabels.' + value)
+})))
 
 const matchModeOptions = computed(() => [
   { value: 'any', label: t('admin.errorPassthrough.matchMode.any'), description: t('admin.errorPassthrough.matchMode.anyHint') },
@@ -508,6 +514,7 @@ const loadRules = async () => {
 }
 
 const resetForm = () => {
+  form.action = 'passthrough'
   form.name = ''
   form.enabled = true
   form.priority = 0
@@ -531,6 +538,7 @@ const closeFormModal = () => {
 }
 
 const handleEdit = (rule: ErrorPassthroughRule) => {
+  form.action = effectiveAction(rule)
   editingRule.value = rule
   form.name = rule.name
   form.enabled = rule.enabled
@@ -586,6 +594,7 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     const data = {
+      action: form.action,
       name: form.name.trim(),
       enabled: form.enabled,
       priority: form.priority,

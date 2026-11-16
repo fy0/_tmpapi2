@@ -64,6 +64,11 @@ func UpdatedAt(v time.Time) predicate.ErrorPassthroughRule {
 	return predicate.ErrorPassthroughRule(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
+// Action applies equality check predicate on the "action" field. It's identical to ActionEQ.
+func Action(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldEQ(FieldAction, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.ErrorPassthroughRule {
 	return predicate.ErrorPassthroughRule(sql.FieldEQ(FieldName, v))
@@ -192,6 +197,71 @@ func UpdatedAtLT(v time.Time) predicate.ErrorPassthroughRule {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.ErrorPassthroughRule {
 	return predicate.ErrorPassthroughRule(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// ActionEQ applies the EQ predicate on the "action" field.
+func ActionEQ(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldEQ(FieldAction, v))
+}
+
+// ActionNEQ applies the NEQ predicate on the "action" field.
+func ActionNEQ(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldNEQ(FieldAction, v))
+}
+
+// ActionIn applies the In predicate on the "action" field.
+func ActionIn(vs ...string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldIn(FieldAction, vs...))
+}
+
+// ActionNotIn applies the NotIn predicate on the "action" field.
+func ActionNotIn(vs ...string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldNotIn(FieldAction, vs...))
+}
+
+// ActionGT applies the GT predicate on the "action" field.
+func ActionGT(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldGT(FieldAction, v))
+}
+
+// ActionGTE applies the GTE predicate on the "action" field.
+func ActionGTE(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldGTE(FieldAction, v))
+}
+
+// ActionLT applies the LT predicate on the "action" field.
+func ActionLT(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldLT(FieldAction, v))
+}
+
+// ActionLTE applies the LTE predicate on the "action" field.
+func ActionLTE(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldLTE(FieldAction, v))
+}
+
+// ActionContains applies the Contains predicate on the "action" field.
+func ActionContains(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldContains(FieldAction, v))
+}
+
+// ActionHasPrefix applies the HasPrefix predicate on the "action" field.
+func ActionHasPrefix(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldHasPrefix(FieldAction, v))
+}
+
+// ActionHasSuffix applies the HasSuffix predicate on the "action" field.
+func ActionHasSuffix(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldHasSuffix(FieldAction, v))
+}
+
+// ActionEqualFold applies the EqualFold predicate on the "action" field.
+func ActionEqualFold(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldEqualFold(FieldAction, v))
+}
+
+// ActionContainsFold applies the ContainsFold predicate on the "action" field.
+func ActionContainsFold(v string) predicate.ErrorPassthroughRule {
+	return predicate.ErrorPassthroughRule(sql.FieldContainsFold(FieldAction, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.

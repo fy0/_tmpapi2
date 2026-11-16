@@ -297,6 +297,13 @@ type migrationConnection interface {
 
 func prepareNonTransactionalMigration(ctx context.Context, db migrationConnection, name string) error {
 	switch name {
+	case "259_gateway_conversation_indexes_notx.sql":
+		for _, indexName := range []string{"idx_usage_logs_conversation_scope", "idx_ops_error_logs_conversation_scope"} {
+			if err := dropInvalidIndexIfPresent(ctx, db, indexName); err != nil {
+				return err
+			}
+		}
+		return nil
 	case paymentOrdersOutTradeNoUniqueMigration:
 		return preparePaymentOrdersOutTradeNoUniqueMigration(ctx, db)
 	case schedulerOutboxPendingDedupKeyMigration:

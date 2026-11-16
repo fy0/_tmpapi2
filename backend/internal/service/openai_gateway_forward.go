@@ -882,7 +882,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		retryBudget := s.openAIWSRetryTotalBudget()
 		retryStartedAt := time.Now()
 	wsRetryLoop:
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
+		for attempt := 1; attempt <= maxAttempts || wsLastFailureReason == "gateway_recovery"; attempt++ {
 			wsAttempts = attempt
 			wsResult, wsErr = s.forwardOpenAIWSV2(
 				ctx,
@@ -903,6 +903,19 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				&agentTaskRecoveryTried,
 			)
 			if wsErr == nil {
+				break
+			}
+			var recoveryRetry *gatewayWSRecoveryRetry
+			if errors.As(wsErr, &recoveryRetry) {
+				wsLastFailureReason = "gateway_recovery"
+				if waitErr := waitGatewayWSRecovery(ctx, c, recoveryRetry.delay); waitErr != nil {
+					wsErr = waitErr
+					break
+				}
+				continue
+			}
+			var recoveryFinal *UpstreamFailoverError
+			if errors.As(wsErr, &recoveryFinal) && recoveryFinal.RecoveryHandled {
 				break
 			}
 			if c != nil && c.Writer != nil && c.Writer.Written() {
@@ -1061,7 +1074,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 		// Send request
 		upstreamStart := time.Now()
-		resp, err := s.doOpenAIUpstream(upstreamReq, proxyURL, account)
+		resp, err := s.doOpenAIUpstreamWithRecovery(c, upstreamReq, proxyURL, account)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if headerGuard != nil && headerGuard.stopHeaderWait() {
 			if resp != nil && resp.Body != nil {

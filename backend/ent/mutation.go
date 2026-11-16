@@ -21509,6 +21509,7 @@ type ErrorPassthroughRuleMutation struct {
 	id                *int64
 	created_at        *time.Time
 	updated_at        *time.Time
+	action            *string
 	name              *string
 	enabled           *bool
 	priority          *int
@@ -21701,6 +21702,42 @@ func (m *ErrorPassthroughRuleMutation) OldUpdatedAt(ctx context.Context) (v time
 // ResetUpdatedAt resets all changes to the "updated_at" field.
 func (m *ErrorPassthroughRuleMutation) ResetUpdatedAt() {
 	m.updated_at = nil
+}
+
+// SetAction sets the "action" field.
+func (m *ErrorPassthroughRuleMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *ErrorPassthroughRuleMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the ErrorPassthroughRule entity.
+// If the ErrorPassthroughRule object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ErrorPassthroughRuleMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *ErrorPassthroughRuleMutation) ResetAction() {
+	m.action = nil
 }
 
 // SetName sets the "name" field.
@@ -22372,12 +22409,15 @@ func (m *ErrorPassthroughRuleMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ErrorPassthroughRuleMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.created_at != nil {
 		fields = append(fields, errorpassthroughrule.FieldCreatedAt)
 	}
 	if m.updated_at != nil {
 		fields = append(fields, errorpassthroughrule.FieldUpdatedAt)
+	}
+	if m.action != nil {
+		fields = append(fields, errorpassthroughrule.FieldAction)
 	}
 	if m.name != nil {
 		fields = append(fields, errorpassthroughrule.FieldName)
@@ -22430,6 +22470,8 @@ func (m *ErrorPassthroughRuleMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case errorpassthroughrule.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case errorpassthroughrule.FieldAction:
+		return m.Action()
 	case errorpassthroughrule.FieldName:
 		return m.Name()
 	case errorpassthroughrule.FieldEnabled:
@@ -22469,6 +22511,8 @@ func (m *ErrorPassthroughRuleMutation) OldField(ctx context.Context, name string
 		return m.OldCreatedAt(ctx)
 	case errorpassthroughrule.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case errorpassthroughrule.FieldAction:
+		return m.OldAction(ctx)
 	case errorpassthroughrule.FieldName:
 		return m.OldName(ctx)
 	case errorpassthroughrule.FieldEnabled:
@@ -22517,6 +22561,13 @@ func (m *ErrorPassthroughRuleMutation) SetField(name string, value ent.Value) er
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUpdatedAt(v)
+		return nil
+	case errorpassthroughrule.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
 		return nil
 	case errorpassthroughrule.FieldName:
 		v, ok := value.(string)
@@ -22730,6 +22781,9 @@ func (m *ErrorPassthroughRuleMutation) ResetField(name string) error {
 	case errorpassthroughrule.FieldUpdatedAt:
 		m.ResetUpdatedAt()
 		return nil
+	case errorpassthroughrule.FieldAction:
+		m.ResetAction()
+		return nil
 	case errorpassthroughrule.FieldName:
 		m.ResetName()
 		return nil
@@ -22865,6 +22919,8 @@ type GroupMutation struct {
 	addimage_price_2k                               *float64
 	image_price_4k                                  *float64
 	addimage_price_4k                               *float64
+	responses_image_generation_redirect_group_id    *int64
+	addresponses_image_generation_redirect_group_id *int64
 	batch_image_discount_multiplier                 *float64
 	addbatch_image_discount_multiplier              *float64
 	batch_image_hold_multiplier                     *float64
@@ -22947,8 +23003,6 @@ type GroupMutation struct {
 	done                                            bool
 	oldValue                                        func(context.Context) (*Group, error)
 	predicates                                      []predicate.Group
-	responses_image_generation_redirect_group_id    *int64
-	addresponses_image_generation_redirect_group_id *int64
 }
 
 var _ ent.Mutation = (*GroupMutation)(nil)
@@ -26813,7 +26867,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 68)
+	fields := make([]string, 0, 69)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}

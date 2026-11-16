@@ -694,7 +694,11 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	if requestedModel == "" {
 		requestedModel = l.Model
 	}
+	metadata := l.GatewayRequestMetadata
+	// Account/model/rule details of internal attempts remain administrator-only.
+	metadata.Attempts = nil
 	return UsageLog{
+		GatewayRequestMetadata:    metadata,
 		ID:                        l.ID,
 		UserID:                    l.UserID,
 		APIKeyID:                  l.APIKeyID,
@@ -768,6 +772,7 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		return nil
 	}
 	usageLog := usageLogFromServiceUser(l)
+	usageLog.GatewayRequestMetadata = l.GatewayRequestMetadata
 	usageLog.UpstreamEndpoint = l.UpstreamEndpoint
 	return &AdminUsageLog{
 		UsageLog:                usageLog,

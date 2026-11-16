@@ -168,6 +168,11 @@
           <Select v-model="filters.status_code" :options="statusCodeOptions" @change="emitChange" />
         </div>
 
+        <div v-if="mode !== 'ranking'" class="w-full sm:w-auto sm:min-w-[240px]">
+          <label class="input-label" for="usage-conversation-filter">{{ t('admin.usage.conversationId') }}</label>
+          <input id="usage-conversation-filter" v-model.trim="filters.conversation_id" class="input w-full" maxlength="255" :placeholder="t('admin.usage.conversationFilterHint')" @change="filters.conversation_id_source = undefined; emitChange()" @keyup.enter="emitChange" />
+        </div>
+
         <!-- Group Filter -->
         <div class="w-full sm:w-auto sm:min-w-[200px]">
           <label class="input-label">{{ t('admin.usage.group') }}</label>

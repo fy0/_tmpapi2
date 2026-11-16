@@ -35,6 +35,20 @@ func (_u *ErrorPassthroughRuleUpdate) SetUpdatedAt(v time.Time) *ErrorPassthroug
 	return _u
 }
 
+// SetAction sets the "action" field.
+func (_u *ErrorPassthroughRuleUpdate) SetAction(v string) *ErrorPassthroughRuleUpdate {
+	_u.mutation.SetAction(v)
+	return _u
+}
+
+// SetNillableAction sets the "action" field if the given value is not nil.
+func (_u *ErrorPassthroughRuleUpdate) SetNillableAction(v *string) *ErrorPassthroughRuleUpdate {
+	if v != nil {
+		_u.SetAction(*v)
+	}
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *ErrorPassthroughRuleUpdate) SetName(v string) *ErrorPassthroughRuleUpdate {
 	_u.mutation.SetName(v)
@@ -304,6 +318,11 @@ func (_u *ErrorPassthroughRuleUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *ErrorPassthroughRuleUpdate) check() error {
+	if v, ok := _u.mutation.Action(); ok {
+		if err := errorpassthroughrule.ActionValidator(v); err != nil {
+			return &ValidationError{Name: "action", err: fmt.Errorf(`ent: validator failed for field "ErrorPassthroughRule.action": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := errorpassthroughrule.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "ErrorPassthroughRule.name": %w`, err)}
@@ -331,6 +350,9 @@ func (_u *ErrorPassthroughRuleUpdate) sqlSave(ctx context.Context) (_node int, e
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(errorpassthroughrule.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.Action(); ok {
+		_spec.SetField(errorpassthroughrule.FieldAction, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(errorpassthroughrule.FieldName, field.TypeString, value)
@@ -433,6 +455,20 @@ type ErrorPassthroughRuleUpdateOne struct {
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *ErrorPassthroughRuleUpdateOne) SetUpdatedAt(v time.Time) *ErrorPassthroughRuleUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
+	return _u
+}
+
+// SetAction sets the "action" field.
+func (_u *ErrorPassthroughRuleUpdateOne) SetAction(v string) *ErrorPassthroughRuleUpdateOne {
+	_u.mutation.SetAction(v)
+	return _u
+}
+
+// SetNillableAction sets the "action" field if the given value is not nil.
+func (_u *ErrorPassthroughRuleUpdateOne) SetNillableAction(v *string) *ErrorPassthroughRuleUpdateOne {
+	if v != nil {
+		_u.SetAction(*v)
+	}
 	return _u
 }
 
@@ -718,6 +754,11 @@ func (_u *ErrorPassthroughRuleUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *ErrorPassthroughRuleUpdateOne) check() error {
+	if v, ok := _u.mutation.Action(); ok {
+		if err := errorpassthroughrule.ActionValidator(v); err != nil {
+			return &ValidationError{Name: "action", err: fmt.Errorf(`ent: validator failed for field "ErrorPassthroughRule.action": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := errorpassthroughrule.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "ErrorPassthroughRule.name": %w`, err)}
@@ -762,6 +803,9 @@ func (_u *ErrorPassthroughRuleUpdateOne) sqlSave(ctx context.Context) (_node *Er
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(errorpassthroughrule.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.Action(); ok {
+		_spec.SetField(errorpassthroughrule.FieldAction, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(errorpassthroughrule.FieldName, field.TypeString, value)

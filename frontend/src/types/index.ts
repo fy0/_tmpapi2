@@ -1889,7 +1889,36 @@ export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2' | 'cyber'
 export type ImageSizeSource = 'output' | 'input' | 'default' | 'legacy'
 export type ImageSizeBreakdown = Record<string, number>
 
-export interface UsageLog {
+export interface GatewayAttemptMetadata {
+  attempt: number
+  account_id: number
+  model?: string
+  upstream_status: number
+  failure_kind?: string
+  rule_id?: number
+  action?: string
+  outcome: string
+  started_at: string
+  ended_at: string
+  cost_accounting?: string
+  input_tokens?: number
+  output_tokens?: number
+}
+
+export interface GatewayRequestMetadata {
+  conversation_id?: string
+  conversation_id_source?: string
+  downstream_request_id?: string
+  downstream_status_code?: number
+  request_body_bytes?: number
+  request_started_at?: string
+  request_ended_at?: string
+  attempt_count?: number
+  recovery_outcome?: string
+  attempts?: GatewayAttemptMetadata[]
+}
+
+export interface UsageLog extends GatewayRequestMetadata {
   id: number
   user_id: number
   api_key_id: number
@@ -2349,6 +2378,8 @@ export interface UserErrorListParams {
 }
 
 export interface UsageQueryParams {
+  conversation_id?: string
+  conversation_id_source?: string
   page?: number
   page_size?: number
   api_key_id?: number

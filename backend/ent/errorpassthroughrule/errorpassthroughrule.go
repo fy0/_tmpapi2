@@ -17,6 +17,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// FieldAction holds the string denoting the action field in the database.
+	FieldAction = "action"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldEnabled holds the string denoting the enabled field in the database.
@@ -52,6 +54,7 @@ var Columns = []string{
 	FieldID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
+	FieldAction,
 	FieldName,
 	FieldEnabled,
 	FieldPriority,
@@ -84,6 +87,10 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultAction holds the default value on creation for the "action" field.
+	DefaultAction string
+	// ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	ActionValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
@@ -118,6 +125,11 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByAction orders the results by the action field.
+func ByAction(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAction, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.

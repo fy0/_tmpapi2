@@ -167,13 +167,14 @@ func TestOpenAIGatewayHandlerResponses_FailoverAbortsWhenClientDisconnected(t *t
 	_, hasFinalUpstreamErr := c.Get(service.OpsUpstreamStatusCodeKey)
 	require.False(t, hasFinalUpstreamErr, "不应记录 failover 耗尽的上游错误终态")
 
-	// 真实发生过的 520 应保留 failover 事件（service 层在返回 failover 错误前记录）
+	// 真实发生过的 520 保留为恢复边界的取消记录，不伪造上游 499。
 	rawEvents, ok := c.Get(service.OpsUpstreamErrorsKey)
 	require.True(t, ok)
 	events, ok := rawEvents.([]*service.OpsUpstreamErrorEvent)
 	require.True(t, ok)
 	require.Len(t, events, 1)
-	require.Equal(t, "failover", events[0].Kind)
+	require.Equal(t, "recovery_http", events[0].Kind)
+	require.Equal(t, "cancelled", events[0].RecoveryOutcome)
 	require.Equal(t, 520, events[0].UpstreamStatusCode)
 }
 

@@ -55,9 +55,12 @@ INSERT INTO ops_error_logs (
   response_latency_ms,
   time_to_first_token_ms,
   created_at,
-  api_key_prefix
+  api_key_prefix,
+  conversation_id,
+  conversation_id_source,
+  request_metadata
 ) VALUES (
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41
 )`
 
 func NewOpsRepository(db *sql.DB) service.OpsRepository {
@@ -167,6 +170,9 @@ func opsInsertErrorLogArgs(input *service.OpsInsertErrorLogInput) []any {
 		opsNullInt64(input.TimeToFirstTokenMs),
 		input.CreatedAt,
 		opsNullString(input.APIKeyPrefix),
+		opsNullString(gatewayLogOptionalString(input.ConversationID)),
+		opsNullString(gatewayLogOptionalString(input.ConversationIDSource)),
+		opsNullString(service.GatewayRequestMetadataJSON(input.GatewayRequestMetadata)),
 	}
 }
 
@@ -267,7 +273,10 @@ SELECT
   COALESCE(e.user_agent, ''),
   e.request_type,
   COALESCE(ak.name, ''),
-  ak.deleted_at
+  ak.deleted_at,
+  COALESCE(e.conversation_id, ''),
+  COALESCE(e.conversation_id_source, ''),
+  COALESCE(e.request_metadata::text, '')
 FROM ops_error_logs e
 LEFT JOIN accounts a ON e.account_id = a.id
 LEFT JOIN groups g ON e.group_id = g.id
@@ -302,6 +311,7 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 		var requestType sql.NullInt64
 		var apiKeyName string
 		var apiKeyDeletedAt sql.NullTime
+		var requestMetadata string
 		if err := rows.Scan(
 			&item.ID,
 			&item.CreatedAt,
@@ -338,6 +348,9 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			&requestType,
 			&apiKeyName,
 			&apiKeyDeletedAt,
+			&item.ConversationID,
+			&item.ConversationIDSource,
+			&requestMetadata,
 		); err != nil {
 			return nil, err
 		}
@@ -378,6 +391,7 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			v := int16(requestType.Int64)
 			item.RequestType = &v
 		}
+		item.GatewayRequestMetadata = service.DecodeGatewayRequestMetadata(requestMetadata, item.ConversationID, item.ConversationIDSource)
 		item.APIKeyName = apiKeyName
 		item.APIKeyDeleted = apiKeyDeletedAt.Valid
 		out = append(out, &item)
@@ -449,7 +463,10 @@ SELECT
   e.time_to_first_token_ms,
   COALESCE(e.api_key_prefix, ''),
   COALESCE(ak.name, ''),
-  ak.deleted_at
+  ak.deleted_at,
+  COALESCE(e.conversation_id, ''),
+  COALESCE(e.conversation_id_source, ''),
+  COALESCE(e.request_metadata::text, '')
 FROM ops_error_logs e
 LEFT JOIN users u ON e.user_id = u.id
 LEFT JOIN accounts a ON e.account_id = a.id
@@ -476,6 +493,7 @@ LIMIT 1`
 	var requestType sql.NullInt64
 	var detailAPIKeyName string
 	var detailAPIKeyDeletedAt sql.NullTime
+	var requestMetadata string
 
 	err := r.db.QueryRowContext(ctx, q, id).Scan(
 		&out.ID,
@@ -524,11 +542,15 @@ LIMIT 1`
 		&out.APIKeyPrefix,
 		&detailAPIKeyName,
 		&detailAPIKeyDeletedAt,
+		&out.ConversationID,
+		&out.ConversationIDSource,
+		&requestMetadata,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	out.GatewayRequestMetadata = service.DecodeGatewayRequestMetadata(requestMetadata, out.ConversationID, out.ConversationIDSource)
 	out.StatusCode = int(statusCode.Int64)
 	if resolvedAt.Valid {
 		t := resolvedAt.Time
@@ -984,6 +1006,15 @@ func buildOpsErrorLogsWhere(filter *service.OpsErrorLogFilter) (string, []any) {
 		known := []int{400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504, 529}
 		args = append(args, pq.Array(known))
 		clauses = append(clauses, "NOT (COALESCE(e.upstream_status_code, e.status_code, 0) = ANY($"+itoa(len(args))+"))")
+	}
+	// These exact identifiers remain AND-scoped with user_id / api_key_id below.
+	if id := strings.TrimSpace(filter.ConversationID); id != "" {
+		args = append(args, id)
+		clauses = append(clauses, "e.conversation_id = $"+itoa(len(args)))
+	}
+	if source := strings.TrimSpace(filter.ConversationIDSource); source != "" {
+		args = append(args, source)
+		clauses = append(clauses, "e.conversation_id_source = $"+itoa(len(args)))
 	}
 	// Exact correlation keys (preferred for request↔upstream linkage).
 	if rid := strings.TrimSpace(filter.RequestID); rid != "" {

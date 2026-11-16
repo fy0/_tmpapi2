@@ -40,6 +40,10 @@ func (ErrorPassthroughRule) Mixin() []ent.Mixin {
 // Fields 定义错误透传规则实体的所有字段。
 func (ErrorPassthroughRule) Fields() []ent.Field {
 	return []ent.Field{
+		// An empty value is reserved for legacy callers; the service derives it
+		// from passthrough_code/body, never from the upstream status.
+		field.String("action").MaxLen(16).Default(""),
+
 		// name: 规则名称，用于在界面中标识规则
 		field.String("name").
 			MaxLen(100).

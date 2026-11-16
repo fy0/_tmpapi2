@@ -10,6 +10,7 @@ import (
 // ErrorPassthroughRule 全局错误透传规则
 // 用于控制上游错误如何返回给客户端
 type ErrorPassthroughRule struct {
+	Action          string    `json:"action"` // passthrough | rewrite | retry；空值按旧透传选项解释
 	ID              int64     `json:"id"`
 	Name            string    `json:"name"`             // 规则名称
 	Enabled         bool      `json:"enabled"`          // 是否启用
@@ -26,6 +27,27 @@ type ErrorPassthroughRule struct {
 	Description     *string   `json:"description"`      // 规则描述
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+const (
+	ErrorActionPassthrough = "passthrough"
+	ErrorActionRewrite     = "rewrite"
+	ErrorActionRetry       = "retry"
+)
+
+// EffectiveAction keeps persisted legacy rules and old API callers compatible.
+// In particular, an old status/message rewrite must never silently become retry.
+func (r *ErrorPassthroughRule) EffectiveAction() string {
+	if r == nil {
+		return ""
+	}
+	if r.Action != "" {
+		return r.Action
+	}
+	if r.PassthroughCode && r.PassthroughBody {
+		return ErrorActionPassthrough
+	}
+	return ErrorActionRewrite
 }
 
 // MatchModeAny 表示任一条件匹配即可
@@ -56,6 +78,10 @@ func AllPlatforms() []string {
 
 // Validate 验证规则配置的有效性
 func (r *ErrorPassthroughRule) Validate() error {
+	action := r.EffectiveAction()
+	if action != ErrorActionPassthrough && action != ErrorActionRewrite && action != ErrorActionRetry {
+		return &ValidationError{Field: "action", Message: "action must be 'passthrough', 'rewrite' or 'retry'"}
+	}
 	if r.Name == "" {
 		return &ValidationError{Field: "name", Message: "name is required"}
 	}
@@ -66,10 +92,10 @@ func (r *ErrorPassthroughRule) Validate() error {
 	if len(r.ErrorCodes) == 0 && len(r.Keywords) == 0 {
 		return &ValidationError{Field: "conditions", Message: "at least one error_code or keyword is required"}
 	}
-	if !r.PassthroughCode && (r.ResponseCode == nil || *r.ResponseCode <= 0) {
+	if action == ErrorActionRewrite && !r.PassthroughCode && (r.ResponseCode == nil || *r.ResponseCode < 100 || *r.ResponseCode > 599) {
 		return &ValidationError{Field: "response_code", Message: "response_code is required when passthrough_code is false"}
 	}
-	if !r.PassthroughBody && (r.CustomMessage == nil || *r.CustomMessage == "") {
+	if action == ErrorActionRewrite && !r.PassthroughBody && (r.CustomMessage == nil || *r.CustomMessage == "") {
 		return &ValidationError{Field: "custom_message", Message: "custom_message is required when passthrough_body is false"}
 	}
 	return nil
