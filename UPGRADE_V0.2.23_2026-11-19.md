@@ -75,7 +75,9 @@ Fork 基线已有两个同名、同体的 response billing 测试，合并后仍
 - 对与已有 499 设计冲突的旧断言逐项更新：取消后零上游请求；统一预算耗尽后 503 并停止外层重试；规则终态交由 handler 写协议错误；失败尝试前缀不得提前下发。保留真实取消、重放安全、代理元数据和次数上限的断言。
 - 分离 unit/integration Actions 作业，避免单元失败阻止数据库集成验证。修复远端 lint 的未检查返回值、类型断言、格式和未使用函数。
 
-修复提交 `435c8a4b4` 的 [CI 44382362089](https://github.com/fy0/_tmpapi2/actions/runs/44382362089) 中，后端完整 unit、完整 integration（含容器 PostgreSQL）、前端、shell 与 release-helpers 均通过；[安全扫描](https://github.com/fy0/_tmpapi2/actions/runs/44382362025) 通过。lint 仅余三处格式问题，已统一格式化 Fork 改动的 Go 文件，实际修改三处；补充 handler 的 JSON/SSE 终态交付测试，等待最终远程复测。后续没有本地测试或构建。
+最终代码提交 `5ed6c948f` 的 [CI 44383972097](https://github.com/fy0/_tmpapi2/actions/runs/44383972097) 全部通过：完整 unit、完整 integration（含容器 PostgreSQL）、前端 typecheck/关键 Vitest、macOS shell、release-helpers、golangci-lint。对应[安全扫描](https://github.com/fy0/_tmpapi2/actions/runs/44383972141) 通过。handler 的 JSON/SSE 终态交付测试已包含在该结果中。用户要求后没有本地测试或构建。
+
+**代码验证通过，数据库上线未放行。** 本次在既有 main 上正常快进合入全部升级历史，按用户授权推送 Fork main，由 `.github/workflows/docker-image.yml` 在远端构建并发布 linux/amd64 与 linux/arm64 镜像。最后补充文档不改变上述已验证代码。未运行部署操作。
 
 ## 数据库上线门禁与回退
 
