@@ -1,5 +1,39 @@
 # Fork migration sequence policy
 
+## 2026-11-19: upstream v0.2.20 through v0.2.23
+
+Compared all four upstream migration batches against v0.2.19 and the current
+Fork. The target upstream high-water prefix is 252; the existing Fork
+high-water prefix is 259. This batch maps each new SQL independently, in final
+upstream lexical order:
+
+| Upstream | Fork |
+| --- | --- |
+| 249_add_usage_logs_api_key_cost_index_notx.sql | 260_add_usage_logs_api_key_cost_index_notx.sql |
+| 249_mcp_oauth.sql | 261_mcp_oauth.sql |
+| 250_openai_cache_write_ttl.sql | 262_openai_cache_write_ttl.sql |
+| 251_group_force_openai_ultrafast.sql | 263_group_force_openai_ultrafast.sql |
+| 251_group_usage_rollup_nonblocking_build.sql | 264_group_usage_rollup_nonblocking_build.sql |
+| 252_channel_pricing_ultrafast_multiplier.sql | 265_channel_pricing_ultrafast_multiplier.sql |
+
+The cost index is introduced in v0.2.21, but sorts before the independent MCP
+migration introduced in v0.2.20. Intermediate merge commits are not releases.
+All 309 historical SQL files through 259 retain their filenames and bytes;
+new files retain upstream SQL bytes. The runner's nontransactional index
+recovery and all explicit references use the mapped filenames. The historical
+v0.2.19 alias whitelist is unchanged; this batch adds no speculative aliases.
+`fork_v0223_sequence_test.go` verifies the new order, upstream byte checksums,
+and the aggregate checksum of all historical SQL.
+
+260–265 is this batch's historical mapping, not the next release allocation
+rule. Dependencies, raw and runner checksums, verification, and deployment
+gates are documented in `UPGRADE_V0.2.23_2026-11-19.md`.
+
+**Production deployment remains BLOCKED:** target history/structure checks,
+backups, and isolated real PostgreSQL snapshot upgrade/rollback rehearsals
+have not been performed. Pushing code for Actions to build does not authorize
+deployment.
+
 ## 2026-11-10: gateway recovery / conversation observations
 
 The checked-out upstream baseline is v0.2.19 (highest upstream prefix 248); the pre-feature Fork high-water mark is 256. This exact batch allocates:
