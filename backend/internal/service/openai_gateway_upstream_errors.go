@@ -349,6 +349,9 @@ func isOpenAICompatibleModelNotFound400(respBody []byte) bool {
 }
 
 func isOpenAICompatibleModelNotFoundBody(respBody []byte) bool {
+	if !gjson.GetBytes(respBody, "error").Exists() && gjson.GetBytes(respBody, "response.error").IsObject() {
+		respBody = []byte(gjson.GetBytes(respBody, "response").Raw)
+	}
 	code := strings.TrimSpace(extractUpstreamErrorCode(respBody))
 	if code != "" {
 		return strings.EqualFold(code, "model_not_found")

@@ -576,6 +576,14 @@ func inspectGatewayRecoveryPrelude(resp *http.Response, options gatewayRecoveryO
 		}
 	}()
 	restore := func() {
+		// Bytes already read from upstream belong to the same available batch.
+		// Preserve that boundary so the stream writer can coalesce flushes without
+		// waiting for another upstream read.
+		if buffered := reader.Buffered(); buffered > 0 {
+			available, _ := reader.Peek(buffered)
+			prefix.Write(available)
+			_, _ = reader.Discard(buffered)
+		}
 		resp.Body = &gatewayRecoveryBody{Reader: io.MultiReader(bytes.NewReader(prefix.Bytes()), reader), closer: body}
 	}
 	var partialLine strings.Builder
