@@ -881,15 +881,29 @@ func (s *AccountRepoSuite) TestSetRateLimitedIfLaterDoesNotShortenReset() {
 	s.repo.schedulerCache = cacheRecorder
 
 	s.Require().NoError(s.repo.SetRateLimitedIfLater(s.ctx, account.ID, later))
+	s.Require().Len(cacheRecorder.setAccounts, 1)
+	firstLimitedAt := cacheRecorder.setAccounts[0].RateLimitedAt
+	s.Require().NotNil(firstLimitedAt)
 	s.Require().NoError(s.repo.SetRateLimitedIfLater(s.ctx, account.ID, earlier))
+	s.Require().NoError(s.repo.SetRateLimitedIfLater(s.ctx, account.ID, later))
 
 	got, err := s.repo.GetByID(s.ctx, account.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got.RateLimitResetAt)
 	s.Require().WithinDuration(later, *got.RateLimitResetAt, time.Second)
+	s.Require().Equal(firstLimitedAt, got.RateLimitedAt, "unchanged limits must preserve their generation")
+	s.Require().Len(cacheRecorder.setAccounts, 1, "earlier or equal limits do not update the account or cache")
+	s.Require().WithinDuration(later, *cacheRecorder.setAccounts[0].RateLimitResetAt, time.Second)
+
+	extended := later.Add(time.Hour)
+	s.Require().NoError(s.repo.SetRateLimitedIfLater(s.ctx, account.ID, extended))
+	got, err = s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got.RateLimitResetAt)
+	s.Require().WithinDuration(extended, *got.RateLimitResetAt, time.Second)
 	s.Require().Len(cacheRecorder.setAccounts, 2)
 	s.Require().NotNil(cacheRecorder.setAccounts[1].RateLimitResetAt)
-	s.Require().WithinDuration(later, *cacheRecorder.setAccounts[1].RateLimitResetAt, time.Second)
+	s.Require().WithinDuration(extended, *cacheRecorder.setAccounts[1].RateLimitResetAt, time.Second)
 }
 
 func (s *AccountRepoSuite) TestClearRateLimitIfObservedProtectsRearmed429Generation() {
