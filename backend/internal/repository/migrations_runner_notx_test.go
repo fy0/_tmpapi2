@@ -7,8 +7,32 @@ import (
 	"testing/fstest"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSplitSQLStatementsKeepsCommentsAndQuotedSemicolons(t *testing.T) {
+	for _, prefix := range []string{"-- before; another; comment\n", "/* before; /* nested; */ after; */\n"} {
+		for _, literal := range []string{"'a;''b'", `"column;name"`, "$$a;b$$", "$tag$a;b$tag$"} {
+			sql := prefix + "SELECT " + literal + ";\nSELECT 2;"
+			parts := splitSQLStatements(sql)
+			require.Equal(t, []string{prefix + "SELECT " + literal, "\nSELECT 2"}, parts)
+		}
+	}
+}
+
+func TestConversationIndexesMigrationIgnoresCommentSemicolon(t *testing.T) {
+	const name = "259_gateway_conversation_indexes_notx.sql"
+	data, err := migrations.FS.ReadFile(name)
+	require.NoError(t, err)
+	parts := splitSQLStatements(string(data))
+	require.Len(t, parts, 2, "the immutable historical comment must not become executable SQL")
+	require.Contains(t, parts[0], "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_conversation_scope")
+	require.Contains(t, parts[1], "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ops_error_logs_conversation_scope")
+	nonTx, err := validateMigrationExecutionMode(name, string(data))
+	require.NoError(t, err)
+	require.True(t, nonTx)
+}
 
 func TestValidateMigrationExecutionMode(t *testing.T) {
 	t.Run("事务迁移包含CONCURRENTLY会被拒绝", func(t *testing.T) {

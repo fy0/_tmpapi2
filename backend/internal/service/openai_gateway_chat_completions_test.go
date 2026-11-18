@@ -1626,7 +1626,7 @@ func TestForwardAsChatCompletions_DoneSentinelWithoutTerminalReturnsError(t *tes
 	require.Zero(t, result.Usage.OutputTokens)
 }
 
-func TestForwardAsChatCompletions_UpstreamRequestIgnoresClientCancel(t *testing.T) {
+func TestForwardAsChatCompletions_StopsBeforeUpstreamWhenClientCanceled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
@@ -1663,10 +1663,10 @@ func TestForwardAsChatCompletions_UpstreamRequestIgnoresClientCancel(t *testing.
 	}
 
 	result, err := svc.ForwardAsChatCompletions(reqCtx, c, account, body, "", "gpt-5.1")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-	require.NoError(t, upstream.lastReq.Context().Err())
+	require.ErrorIs(t, err, context.Canceled)
+	require.Nil(t, result)
+	require.Nil(t, upstream.lastReq, "a canceled client must not start billable upstream work")
+	require.False(t, c.Writer.Written())
 }
 
 // TestBuildChatStreamErrorSSE verifies F4: the error chunk payload follows the

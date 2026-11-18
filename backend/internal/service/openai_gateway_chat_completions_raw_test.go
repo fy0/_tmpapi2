@@ -117,7 +117,7 @@ func TestForwardAsRawChatCompletions_ForcesStreamUsageUpstreamAndPassesUsageDown
 	require.Equal(t, 4, result.Usage.OutputTokens)
 	require.Equal(t, 3, result.Usage.CacheReadInputTokens)
 	require.NotNil(t, upstream.lastReq)
-	require.NoError(t, upstream.lastReq.Context().Err())
+	require.ErrorIs(t, upstream.lastReq.Context().Err(), context.Canceled, "completed upstream requests release their context")
 	require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
 	require.True(t, gjson.GetBytes(upstream.lastBody, "stream_options.include_usage").Bool())
 	require.Contains(t, rec.Body.String(), `"usage"`)
@@ -770,15 +770,20 @@ func TestForwardAsRawChatCompletions_TruncationFailoverAttributesManagedProxy(t 
 	rawEvents, ok := c.Get(OpsUpstreamErrorsKey)
 	require.True(t, ok)
 	events := rawEvents.([]*OpsUpstreamErrorEvent)
-	require.Len(t, events, 1)
-	require.Equal(t, "failover", events[0].Kind)
-	require.NotNil(t, events[0].ProxyID)
-	require.Equal(t, proxy.ID, *events[0].ProxyID)
-	require.Equal(t, proxy.Name, events[0].ProxyName)
+	require.Len(t, events, 3, "initial request plus two bounded recovery attempts")
+	for i, event := range events {
+		require.Equal(t, "recovery_stream_read", event.Kind)
+		require.Equal(t, i+1, event.Attempt)
+		require.NotNil(t, event.ProxyID)
+		require.Equal(t, proxy.ID, *event.ProxyID)
+		require.Equal(t, proxy.Name, event.ProxyName)
+	}
+	require.Equal(t, "exhausted", events[2].RecoveryOutcome)
+	require.False(t, failoverErr.ShouldRetryNextAccount(), "the outer loop must not restart the recovery budget")
 }
 
-// 上游 200 但一个 SSE 字节都没发：响应头尚未提交，应换号重试而不是回 200 空流。
-func TestForwardAsRawChatCompletions_EmptyStreamBeforeOutputTriggersFailover(t *testing.T) {
+// 上游 200 但没有 SSE：统一恢复耗尽后返回已决策的 503，禁止外层重复恢复。
+func TestForwardAsRawChatCompletions_EmptyStreamBeforeOutputExhaustsRecovery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{"model":"deepseek-v4-pro","messages":[{"role":"user","content":"hello"}],"stream":true}`)
@@ -803,10 +808,12 @@ func TestForwardAsRawChatCompletions_EmptyStreamBeforeOutputTriggersFailover(t *
 	var failoverErr *UpstreamFailoverError
 	require.True(t, errors.As(err, &failoverErr))
 	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
-	require.Equal(t, OpenAIUpstreamStreamTruncatedCode,
-		gjson.GetBytes(failoverErr.ResponseBody, "error.code").String())
-	require.True(t, failoverErr.ShouldRetryNextAccount())
-	require.False(t, c.Writer.Written(), "换号重试前不得提交 200 响应头")
+	require.True(t, failoverErr.RecoveryHandled)
+	require.Equal(t, "stream_read", failoverErr.RecoveryFailureKind)
+	require.Equal(t, http.StatusServiceUnavailable, failoverErr.ClientStatusCode)
+	require.Equal(t, "1", failoverErr.ResponseHeaders.Get("Retry-After"))
+	require.False(t, failoverErr.ShouldRetryNextAccount())
+	require.False(t, c.Writer.Written(), "恢复失败不得提交 200 响应头")
 	require.Empty(t, rec.Body.String())
 }
 
@@ -1094,7 +1101,7 @@ func TestForwardAsRawChatCompletions_ClientDisconnectDrainsUsage(t *testing.T) {
 	require.True(t, gjson.GetBytes(upstream.lastBody, "stream_options.include_usage").Bool())
 }
 
-func TestForwardAsRawChatCompletions_UpstreamRequestIgnoresClientCancel(t *testing.T) {
+func TestForwardAsRawChatCompletions_StopsBeforeUpstreamWhenClientCanceled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	reqCtx, cancel := context.WithCancel(context.Background())
@@ -1124,10 +1131,10 @@ func TestForwardAsRawChatCompletions_UpstreamRequestIgnoresClientCancel(t *testi
 	account := rawChatCompletionsTestAccount()
 
 	result, err := svc.forwardAsRawChatCompletions(reqCtx, c, account, body, "")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-	require.NoError(t, upstream.lastReq.Context().Err())
+	require.ErrorIs(t, err, context.Canceled)
+	require.Nil(t, result)
+	require.Nil(t, upstream.lastReq, "a canceled client must not start billable upstream work")
+	require.False(t, c.Writer.Written())
 }
 
 func TestForwardAsChatCompletions_UnknownResponsesSupportFallbackUsesVersionedChatURL(t *testing.T) {

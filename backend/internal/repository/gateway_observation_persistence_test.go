@@ -26,14 +26,18 @@ func TestGatewayObservationUsageAndErrorInsertPreserveMetadata(t *testing.T) {
 	encoded, err := driver.DefaultParameterConverter.ConvertValue(prepared.args[len(prepared.args)-1])
 	require.NoError(t, err)
 	var decoded service.GatewayRequestMetadata
-	require.NoError(t, json.Unmarshal([]byte(encoded.(string)), &decoded))
+	encodedJSON, ok := encoded.(string)
+	require.True(t, ok)
+	require.NoError(t, json.Unmarshal([]byte(encodedJSON), &decoded))
 	require.Equal(t, meta.ConversationID, decoded.ConversationID)
 	require.Equal(t, 499, decoded.Attempts[0].UpstreamStatus)
 	errorArgs := opsInsertErrorLogArgs(&service.OpsInsertErrorLogInput{GatewayRequestMetadata: meta})
 	require.Len(t, errorArgs, 41)
 	require.Equal(t, sql.NullString{String: meta.ConversationID, Valid: true}, errorArgs[38])
 	require.Equal(t, sql.NullString{String: meta.ConversationIDSource, Valid: true}, errorArgs[39])
-	require.Contains(t, errorArgs[40].(sql.NullString).String, `"upstream_status":499`)
+	errorMetadata, ok := errorArgs[40].(sql.NullString)
+	require.True(t, ok)
+	require.Contains(t, errorMetadata.String, `"upstream_status":499`)
 	require.NotContains(t, insertOpsErrorLogSQL, meta.ConversationID, "client-controlled IDs must be parameters, never SQL")
 	for _, column := range []string{"conversation_id", "conversation_id_source", "request_metadata"} {
 		require.Contains(t, usageLogSelectColumns, column)
@@ -54,7 +58,9 @@ func TestGatewayObservationUnknownHistoricalMetadataRemainsNull(t *testing.T) {
 	}
 	args := opsInsertErrorLogArgs(&service.OpsInsertErrorLogInput{})
 	for _, arg := range args[len(args)-3:] {
-		require.False(t, arg.(sql.NullString).Valid)
+		value, ok := arg.(sql.NullString)
+		require.True(t, ok)
+		require.False(t, value.Valid)
 	}
 	decoded := service.DecodeGatewayRequestMetadata(`{"conversation_id":"stale-json-id","attempt_count":2}`, "", "")
 	require.Empty(t, decoded.ConversationID, "indexed NULL must not manufacture a historical ID")

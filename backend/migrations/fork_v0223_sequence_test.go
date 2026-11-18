@@ -50,10 +50,10 @@ func TestForkV0223PreservesHistoricalMigrations(t *testing.T) {
 		}
 		data, err := FS.ReadFile(name)
 		require.NoError(t, err)
-		hash.Write([]byte(name))
-		hash.Write([]byte{0})
-		hash.Write(data)
-		hash.Write([]byte{0})
+		_, _ = hash.Write([]byte(name))
+		_, _ = hash.Write([]byte{0})
+		_, _ = hash.Write(data)
+		_, _ = hash.Write([]byte{0})
 		count++
 	}
 	// Computed from 1c9e81eb2: filename + NUL + unmodified SQL bytes + NUL,

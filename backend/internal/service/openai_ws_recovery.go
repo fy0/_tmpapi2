@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -91,7 +90,7 @@ func (a *gatewayWSRecoveryAttempt) recover(err error, headers http.Header, event
 		SetGatewayRecoveryOutcome(a.c, "cancelled")
 		return cancelled
 	}
-	failure := gatewayRecoveryFailure{kind: "transport", status: http.StatusBadGateway, err: err, headers: headers}
+	failure := gatewayRecoveryFailure{kind: "transport", status: http.StatusBadGateway, err: err, headers: headers, websocket: true}
 	if len(event) > 0 {
 		failure.kind, failure.httpStatus, failure.err = "stream_event", http.StatusSwitchingProtocols, nil
 		failure.body = event
@@ -255,13 +254,4 @@ func (p *gatewayWSRecoveryPrelude) write(payload []byte, eventType string, write
 	p.events = nil
 	p.bytes = 0
 	return write(payload)
-}
-
-// Normalize only an abnormal peer EOF; orderly completion is recognized by the
-// caller before this function. A peer close before any terminal event is not success.
-func gatewayWSRecoveryReadError(err error) error {
-	if err == nil {
-		return io.ErrUnexpectedEOF
-	}
-	return err
 }

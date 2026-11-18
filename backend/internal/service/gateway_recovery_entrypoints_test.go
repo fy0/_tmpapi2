@@ -113,7 +113,7 @@ func TestGatewayRecoveryRealWSV2Entrypoint(t *testing.T) {
 				if err != nil {
 					return
 				}
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 				var payload map[string]any
 				if err = conn.ReadJSON(&payload); err != nil {
 					return
@@ -193,7 +193,7 @@ func TestGatewayRecoveryRealWSIngressPreservesTurnAndDropsFailedPrefix(t *testin
 			done <- finished{err: err}
 			return
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 		_, body, err := conn.Read(ctx)
@@ -212,7 +212,7 @@ func TestGatewayRecoveryRealWSIngressPreservesTurnAndDropsFailedPrefix(t *testin
 	defer cancel()
 	client, _, err := coderws.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
 	require.NoError(t, err)
-	defer client.CloseNow()
+	defer func() { _ = client.CloseNow() }()
 	body := []byte(`{"type":"response.create","model":"gpt-5","input":"hello","store":true,"prompt_cache_key":"unchanged-cache","conversation_id":"ingress-conversation"}`)
 	require.NoError(t, client.Write(ctx, coderws.MessageText, body))
 	_, message, err := client.Read(ctx)

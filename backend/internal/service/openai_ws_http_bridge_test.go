@@ -763,13 +763,11 @@ func TestProxyOpenAIWSHTTPBridgeTurnTransportErrorFailoverSafety(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name         string
-		turn         int
-		wantFailover bool
-		wantWrites   int
+		name string
+		turn int
 	}{
-		{name: "first_turn_fails_over_before_downstream_event", turn: 1, wantFailover: true},
-		{name: "later_turn_does_not_replay_completed_turns", turn: 2, wantWrites: 1},
+		{name: "first_turn_exhausts_recovery_before_downstream_event", turn: 1},
+		{name: "later_turn_does_not_replay_completed_turns", turn: 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -802,19 +800,16 @@ func TestProxyOpenAIWSHTTPBridgeTurnTransportErrorFailoverSafety(t *testing.T) {
 
 			require.Nil(t, result)
 			var failoverErr *UpstreamFailoverError
-			if tt.wantFailover {
-				require.ErrorAs(t, err, &failoverErr)
-				require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
-				require.JSONEq(t, string(openAITransportFailoverBody), string(failoverErr.ResponseBody))
-			} else {
-				require.Error(t, err)
-				require.False(t, errors.As(err, &failoverErr))
+			require.ErrorAs(t, err, &failoverErr)
+			require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+			require.True(t, failoverErr.RecoveryHandled)
+			require.Equal(t, http.StatusServiceUnavailable, failoverErr.ClientStatusCode)
+			require.False(t, failoverErr.ShouldRetryNextAccount(), "never restart earlier completed turns")
+			require.Len(t, upstream.requests, 3)
+			for _, sent := range upstream.bodies {
+				require.JSONEq(t, string(upstream.bodies[0]), string(sent), "retry only the current prepared turn")
 			}
-			require.Len(t, writes, tt.wantWrites)
-			if tt.wantWrites > 0 {
-				require.Equal(t, "error", gjson.GetBytes(writes[0], "type").String())
-				require.Equal(t, int64(http.StatusBadGateway), gjson.GetBytes(writes[0], "status").Int())
-			}
+			require.Empty(t, writes, "the handler writes the decided terminal error")
 		})
 	}
 }

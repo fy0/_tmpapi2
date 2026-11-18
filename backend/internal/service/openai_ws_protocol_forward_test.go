@@ -945,7 +945,7 @@ func TestOpenAIGatewayService_Forward_WSv2PolicyViolationFastFallbackHTTP(t *tes
 	require.Equal(t, int32(1), wsAttempts.Load(), "策略违规不应进行 WS 重试")
 }
 
-func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedRetryThenFallbackHTTP(t *testing.T) {
+func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedExhaustsSharedRecovery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	var wsAttempts atomic.Int32
@@ -1026,7 +1026,12 @@ func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedRetryThenFallbac
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.Nil(t, upstream.lastReq, "触发 websocket_connection_limit_reached 后不应回退 HTTP")
-	require.Equal(t, int32(openAIWSReconnectRetryLimit+1), wsAttempts.Load())
+	require.Equal(t, int32(3), wsAttempts.Load(), "initial request plus two shared recovery attempts")
+	var terminal *UpstreamFailoverError
+	require.ErrorAs(t, err, &terminal)
+	require.True(t, terminal.RecoveryHandled)
+	require.Equal(t, http.StatusServiceUnavailable, terminal.ClientStatusCode)
+	require.False(t, terminal.ShouldRetryNextAccount())
 }
 
 func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundRecoversByDroppingPreviousResponseID(t *testing.T) {

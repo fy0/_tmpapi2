@@ -841,7 +841,7 @@ func TestOpenAIGatewayService_OAuthPassthrough_CompactUsesJSONAndKeepsNonStreami
 	require.Contains(t, rec.Body.String(), `"id":"cmp_123"`)
 }
 
-func TestOpenAIGatewayService_OAuthPassthrough_UpstreamRequestIgnoresClientCancel(t *testing.T) {
+func TestOpenAIGatewayService_OAuthPassthrough_StopsBeforeUpstreamWhenClientCanceled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
@@ -881,10 +881,10 @@ func TestOpenAIGatewayService_OAuthPassthrough_UpstreamRequestIgnoresClientCance
 	}
 
 	result, err := svc.Forward(reqCtx, c, account, originalBody)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-	require.NoError(t, upstream.lastReq.Context().Err())
+	require.ErrorIs(t, err, context.Canceled)
+	require.Nil(t, result)
+	require.Nil(t, upstream.lastReq, "a canceled client must not start billable upstream work")
+	require.False(t, c.Writer.Written())
 }
 
 func TestOpenAIGatewayService_OAuthPassthrough_CodexMissingInstructionsGetsDefault(t *testing.T) {
@@ -1086,7 +1086,7 @@ func TestOpenAIGatewayService_OAuthLegacy_GroupForceStillHonorsGlobalFilter(t *t
 	require.Nil(t, result.ServiceTier)
 }
 
-func TestOpenAIGatewayService_OAuthLegacy_UpstreamRequestIgnoresClientCancel(t *testing.T) {
+func TestOpenAIGatewayService_OAuthLegacy_StopsBeforeUpstreamWhenClientCanceled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
@@ -1126,10 +1126,10 @@ func TestOpenAIGatewayService_OAuthLegacy_UpstreamRequestIgnoresClientCancel(t *
 	}
 
 	result, err := svc.Forward(reqCtx, c, account, originalBody)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-	require.NoError(t, upstream.lastReq.Context().Err())
+	require.ErrorIs(t, err, context.Canceled)
+	require.Nil(t, result)
+	require.Nil(t, upstream.lastReq, "a canceled client must not start billable upstream work")
+	require.False(t, c.Writer.Written())
 }
 
 func TestOpenAIGatewayService_OAuthLegacy_CompositeCodexUAUsesCodexOriginator(t *testing.T) {
@@ -1693,7 +1693,16 @@ func TestOpenAIGatewayService_OpenAIPassthrough_RetryableStatusesTriggerFailover
 			require.Error(t, err)
 
 			var failoverErr *UpstreamFailoverError
-			if tc.expectFailover {
+			expectRecovery := tc.statusCode == 502 || tc.statusCode == 503 || tc.statusCode == 504
+			if expectRecovery {
+				require.ErrorAs(t, err, &failoverErr)
+				require.True(t, failoverErr.RecoveryHandled)
+				require.Equal(t, tc.statusCode, failoverErr.StatusCode)
+				require.Equal(t, http.StatusServiceUnavailable, failoverErr.ClientStatusCode)
+				require.False(t, failoverErr.ShouldRetryNextAccount())
+				require.Len(t, upstream.requests, 3)
+				require.False(t, c.Writer.Written())
+			} else if tc.expectFailover {
 				require.ErrorAs(t, err, &failoverErr)
 				require.Equal(t, tc.statusCode, failoverErr.StatusCode)
 				require.False(t, c.Writer.Written(), "retryable passthrough 错误应返回 failover 错误给上层换号，而不是直接向客户端写响应")
@@ -1709,7 +1718,11 @@ func TestOpenAIGatewayService_OpenAIPassthrough_RetryableStatusesTriggerFailover
 			require.True(t, ok)
 			require.NotEmpty(t, arr)
 			require.True(t, arr[len(arr)-1].Passthrough)
-			if tc.expectFailover {
+			if expectRecovery {
+				require.Len(t, arr, 3)
+				require.Equal(t, "recovery_http", arr[len(arr)-1].Kind)
+				require.Equal(t, "exhausted", arr[len(arr)-1].RecoveryOutcome)
+			} else if tc.expectFailover {
 				require.Equal(t, "failover", arr[len(arr)-1].Kind)
 			} else {
 				require.Equal(t, "http_error", arr[len(arr)-1].Kind)
@@ -1784,7 +1797,21 @@ func TestOpenAIGatewayService_APIKeyPassthrough_Transient5xxTriggersFailover(t *
 			events, ok := value.([]*OpsUpstreamErrorEvent)
 			require.True(t, ok)
 			require.NotEmpty(t, events)
-			require.Equal(t, "failover", events[len(events)-1].Kind)
+			expectRecovery := statusCode == 502 || statusCode == 503 || statusCode == 504 || statusCode == 524
+			if expectRecovery {
+				require.True(t, failoverErr.RecoveryHandled)
+				require.Equal(t, http.StatusServiceUnavailable, failoverErr.ClientStatusCode)
+				require.False(t, failoverErr.ShouldRetryNextAccount())
+				require.Len(t, upstream.requests, 3)
+				require.Len(t, events, 3)
+				require.Equal(t, "recovery_http", events[len(events)-1].Kind)
+				require.Equal(t, "exhausted", events[len(events)-1].RecoveryOutcome)
+			} else {
+				require.False(t, failoverErr.RecoveryHandled)
+				require.True(t, failoverErr.ShouldRetryNextAccount())
+				require.Len(t, upstream.requests, 1)
+				require.Equal(t, "failover", events[len(events)-1].Kind)
+			}
 			require.Equal(t, account.ID, events[len(events)-1].AccountID)
 		})
 	}
@@ -1853,7 +1880,10 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeConfigured5xxRetriesSame
 
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
-	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.True(t, failoverErr.RecoveryHandled)
+	require.Equal(t, http.StatusServiceUnavailable, failoverErr.ClientStatusCode)
+	require.False(t, failoverErr.RetryableOnSameAccount)
+	require.False(t, failoverErr.ShouldRetryNextAccount(), "the configured pool must not retry again outside shared recovery")
 	require.False(t, c.Writer.Written())
 }
 

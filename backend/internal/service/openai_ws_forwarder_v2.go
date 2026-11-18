@@ -225,6 +225,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		}(),
 	})
 	if err != nil {
+		s.handleOpenAIWSDialTransientFailure(ctx, account, mappedModel, err)
 		if decided := recovery.recover(err, nil, nil, false); decided != nil {
 			return nil, decided
 		}
@@ -236,7 +237,6 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			}
 			return nil, &agentIdentityTaskRecoveredError{}
 		}
-		s.handleOpenAIWSDialTransientFailure(ctx, account, mappedModel, err)
 		dialStatus, dialClass, dialCloseStatus, dialCloseReason, dialRespServer, dialRespVia, dialRespCFRay, dialRespReqID := summarizeOpenAIWSDialError(err)
 		logOpenAIWSModeInfo(
 			"acquire_fail account_id=%d account_type=%s transport=%s reason=%s dial_status=%d dial_class=%s dial_close_status=%s dial_close_reason=%s dial_resp_server=%s dial_resp_via=%s dial_resp_cf_ray=%s dial_resp_x_request_id=%s cause=%s preferred_conn_id=%s force_new_conn=%v ws_host=%s ws_path=%s proxy_enabled=%v",
@@ -693,6 +693,7 @@ readLoop:
 
 		if eventType == "error" || eventType == "response.failed" {
 			if decided := recovery.recover(nil, lease.HandshakeHeaders(), message, wroteDownstream || semanticOutput); decided != nil {
+				s.handleOpenAIWSFailureAccountSideEffects(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
 				lease.MarkBroken()
 				return nil, decided
 			}

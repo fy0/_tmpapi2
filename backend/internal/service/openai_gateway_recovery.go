@@ -67,6 +67,7 @@ type gatewayRecoveryFailure struct {
 	headers    http.Header
 	err        error
 	unsafe     bool
+	websocket  bool
 }
 
 var errGatewayRecoveryPreludeTimeout = errors.New("upstream first-output buffer deadline exceeded")
@@ -89,7 +90,7 @@ func gatewayRecoveryRequestInfo(request *http.Request) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	var info struct {
 		Model      string `json:"model"`
 		Background bool   `json:"background"`
@@ -347,8 +348,14 @@ func recordGatewayRecoveryAttempt(c *gin.Context, observation *gatewayRequestObs
 	// Legacy handlers own their Ops event (and proxy attribution). The shared
 	// metadata/log still captures this attempt, but must not duplicate that event.
 	if f != nil && account != nil && item.Outcome != "legacy_handling" {
+		proxyID, proxyName := opsUpstreamProxyAttribution(account)
+		if f.websocket {
+			proxyID, proxyName = opsUpstreamWSProxyAttribution(account)
+		}
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{Platform: account.Platform, AccountID: account.ID, AccountName: account.Name,
-			Attempt: item.Attempt, RuleID: item.RuleID, Action: item.Action, RecoveryOutcome: item.Outcome,
+			ProxyID: proxyID, ProxyName: proxyName,
+			Passthrough: c.GetBool("openai_passthrough"),
+			Attempt:     item.Attempt, RuleID: item.RuleID, Action: item.Action, RecoveryOutcome: item.Outcome,
 			SkipMonitoring:     rule != nil && rule.SkipMonitoring && item.Outcome != "retrying",
 			UpstreamStatusCode: f.httpStatus, Kind: "recovery_" + f.kind, Message: gatewayRecoveryMessage(*f)})
 	}
@@ -464,6 +471,9 @@ func recoverOpenAIUpstream(c *gin.Context, request *http.Request, account *Accou
 			budgetTimer = nil
 		}
 		if failure.kind == "" {
+			// The accepted generation keeps its bounded transport drain for final
+			// billing usage. Cancellation still prevents all new recovery attempts.
+			stopDownstream()
 			item.UpstreamStatus, item.Outcome, item.CostAccounting = resp.StatusCode, "forwarded", "usage_log"
 			resp.Body = &gatewayRecoveryBody{Reader: resp.Body, closer: resp.Body, finish: func() {
 				cleanup()
@@ -581,7 +591,7 @@ func inspectGatewayRecoveryPrelude(resp *http.Response, options gatewayRecoveryO
 		// waiting for another upstream read.
 		if buffered := reader.Buffered(); buffered > 0 {
 			available, _ := reader.Peek(buffered)
-			prefix.Write(available)
+			_, _ = prefix.Write(available)
 			_, _ = reader.Discard(buffered)
 		}
 		resp.Body = &gatewayRecoveryBody{Reader: io.MultiReader(bytes.NewReader(prefix.Bytes()), reader), closer: body}
@@ -589,8 +599,8 @@ func inspectGatewayRecoveryPrelude(resp *http.Response, options gatewayRecoveryO
 	var partialLine strings.Builder
 	for {
 		line, readErr := reader.ReadSlice('\n')
-		prefix.Write(line)
-		partialLine.Write(line)
+		_, _ = prefix.Write(line)
+		_, _ = partialLine.Write(line)
 		if timedOut.Load() {
 			return &gatewayRecoveryFailure{kind: "stream_read", httpStatus: resp.StatusCode, status: http.StatusGatewayTimeout, headers: resp.Header, err: errGatewayRecoveryPreludeTimeout}, false
 		}
@@ -608,9 +618,9 @@ func inspectGatewayRecoveryPrelude(resp *http.Response, options gatewayRecoveryO
 		}
 		if strings.HasPrefix(text, "data:") {
 			if data.Len() > 0 {
-				data.WriteByte('\n')
+				_ = data.WriteByte('\n')
 			}
-			data.WriteString(strings.TrimPrefix(strings.TrimPrefix(text, "data:"), " "))
+			_, _ = data.WriteString(strings.TrimPrefix(strings.TrimPrefix(text, "data:"), " "))
 		}
 		if text == "" || readErr != nil {
 			payload := data.String()

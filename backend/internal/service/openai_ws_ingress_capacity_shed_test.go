@@ -38,7 +38,7 @@ func (r *openAIWSIngressCapacityShedRepo) UpdateExtra(context.Context, int64, ma
 // 客户端会打印 "Selected model is at capacity" 并直接终止会话而不是退避重试。
 //
 // 第二个用例锁住改写范围：非容量类错误码必须原样下发，客户端依赖原码各自处理。
-func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *testing.T) {
+func TestProxyResponsesWebSocketFromClient_CapacityRecoveryAndDeterministicPassthrough(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -46,9 +46,11 @@ func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *
 		upstreamEvents [][]byte
 		wantContains   []string
 		wantAbsent     []string
+		wantRecovery   bool
 	}{
 		{
-			name: "capacity_shed_error_and_failed_are_rewritten",
+			name:         "capacity_shed_error_and_failed_are_rewritten",
+			wantRecovery: true,
 			upstreamEvents: [][]byte{
 				[]byte(`{"type":"error","error":{"type":"service_unavailable_error","code":"server_is_overloaded","message":"Our servers are currently overloaded. Please try again later."}}`),
 				[]byte(`{"type":"response.failed","response":{"id":"resp_shed","status":"failed","error":{"code":"server_is_overloaded","message":"Our servers are currently overloaded. Please try again later."}}}`),
@@ -118,6 +120,7 @@ func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *
 			}
 
 			serverDone := make(chan struct{})
+			serverError := make(chan error, 1)
 			wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				defer close(serverDone)
 				conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
@@ -139,7 +142,7 @@ func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *
 				if readErr != nil || (msgType != coderws.MessageText && msgType != coderws.MessageBinary) {
 					return
 				}
-				_ = svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, &account, "sk-test", firstMessage, nil)
+				serverError <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, &account, "sk-test", firstMessage, nil)
 			}))
 			defer wsServer.Close()
 
@@ -167,17 +170,28 @@ func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *
 			// 本轮已终止，主动断开客户端让 ingress 退出 turn 循环。
 			_ = clientConn.CloseNow()
 
-			require.NotEmpty(t, frames, "客户端应至少收到一个下发事件")
-			joined := strings.Join(frames, "\n")
-			for _, want := range tt.wantContains {
-				require.Contains(t, joined, want, "客户端收到的事件:\n%s", joined)
-			}
-			for _, absent := range tt.wantAbsent {
-				require.NotContains(t, joined, absent, "客户端收到的事件:\n%s", joined)
+			if tt.wantRecovery {
+				require.Empty(t, frames, "discard failed attempt frames; the handler writes the decided terminal error")
+			} else {
+				require.NotEmpty(t, frames, "客户端应至少收到一个下发事件")
+				joined := strings.Join(frames, "\n")
+				for _, want := range tt.wantContains {
+					require.Contains(t, joined, want, "客户端收到的事件:\n%s", joined)
+				}
+				for _, absent := range tt.wantAbsent {
+					require.NotContains(t, joined, absent, "客户端收到的事件:\n%s", joined)
+				}
 			}
 
 			select {
 			case <-serverDone:
+				if tt.wantRecovery {
+					var terminal *UpstreamFailoverError
+					require.ErrorAs(t, <-serverError, &terminal)
+					require.True(t, terminal.RecoveryHandled)
+					require.Equal(t, http.StatusServiceUnavailable, terminal.ClientStatusCode)
+					require.False(t, terminal.ShouldRetryNextAccount())
+				}
 			case <-time.After(5 * time.Second):
 				t.Fatal("等待 ingress websocket 结束超时")
 			}

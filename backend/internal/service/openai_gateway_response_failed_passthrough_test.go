@@ -76,15 +76,14 @@ func TestForwardAsChatCompletions_ResponseFailed_PassthroughRule(t *testing.T) {
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "passthrough")
-	require.Equal(t, 400, rec.Code, "passthrough rule should override 502 to 400")
-
-	respBody := rec.Body.String()
-	errType := gjson.Get(respBody, "error.type").String()
-	require.Equal(t, "upstream_error", errType)
-	errMsg := gjson.Get(respBody, "error.message").String()
-	require.NotEmpty(t, errMsg, "passthrough should preserve error message")
-	require.Contains(t, errMsg, "context window")
+	var terminal *UpstreamFailoverError
+	require.ErrorAs(t, err, &terminal)
+	require.True(t, terminal.RecoveryHandled)
+	require.Equal(t, 400, terminal.ClientStatusCode)
+	require.Contains(t, terminal.ClientMessage, "context window")
+	require.Equal(t, int64(1), terminal.RecoveryRuleID)
+	require.False(t, terminal.ShouldRetryNextAccount())
+	require.False(t, c.Writer.Written(), "the handler writes the protocol-specific terminal error")
 }
 
 func TestResponsesStreamAccessStateFailoverPrecedesPassthroughRule(t *testing.T) {
@@ -285,10 +284,14 @@ func TestForwardAsChatCompletions_ResponseFailed_ErrorCodeRuleMatchesViaSemantic
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code, "error-code-conditioned rule should match via semantic status inference")
-	respBody := rec.Body.String()
-	require.Equal(t, "upstream_error", gjson.Get(respBody, "error.type").String())
-	require.Contains(t, gjson.Get(respBody, "error.message").String(), "context window")
+	var terminal *UpstreamFailoverError
+	require.ErrorAs(t, err, &terminal)
+	require.True(t, terminal.RecoveryHandled)
+	require.Equal(t, http.StatusBadRequest, terminal.ClientStatusCode, "error-code-conditioned rule must match the semantic status")
+	require.Contains(t, terminal.ClientMessage, "context window")
+	require.Equal(t, int64(1), terminal.RecoveryRuleID)
+	require.False(t, terminal.ShouldRetryNextAccount())
+	require.False(t, c.Writer.Written())
 }
 
 func TestForwardAsAnthropic_ResponseFailed_ErrorCodeRuleMatchesViaSemanticStatus(t *testing.T) {

@@ -557,12 +557,71 @@ func validateMigrationExecutionMode(name, content string) (bool, error) {
 }
 
 func splitSQLStatements(content string) []string {
-	parts := strings.Split(content, ";")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "" {
+	var out []string
+	start, blockDepth := 0, 0
+	var quote byte
+	lineComment := false
+	dollarQuote := ""
+	for i := 0; i < len(content); i++ {
+		ch := content[i]
+		if lineComment {
+			lineComment = ch != '\n'
 			continue
 		}
+		if blockDepth > 0 {
+			if strings.HasPrefix(content[i:], "/*") {
+				blockDepth++
+				i++
+			} else if strings.HasPrefix(content[i:], "*/") {
+				blockDepth--
+				i++
+			}
+			continue
+		}
+		if dollarQuote != "" {
+			if strings.HasPrefix(content[i:], dollarQuote) {
+				i += len(dollarQuote) - 1
+				dollarQuote = ""
+			}
+			continue
+		}
+		if quote != 0 {
+			if ch == quote {
+				if i+1 < len(content) && content[i+1] == quote {
+					i++
+				} else {
+					quote = 0
+				}
+			}
+			continue
+		}
+		switch {
+		case strings.HasPrefix(content[i:], "--"):
+			lineComment = true
+			i++
+		case strings.HasPrefix(content[i:], "/*"):
+			blockDepth = 1
+			i++
+		case ch == '\'' || ch == '"':
+			quote = ch
+		case ch == '$':
+			// PostgreSQL dollar-quoted strings may contain statement delimiters.
+			end := i + 1
+			for end < len(content) && ((content[end] >= 'a' && content[end] <= 'z') || (content[end] >= 'A' && content[end] <= 'Z') || content[end] == '_' || (end > i+1 && content[end] >= '0' && content[end] <= '9')) {
+				end++
+			}
+			if end < len(content) && content[end] == '$' {
+				dollarQuote = content[i : end+1]
+				i = end
+			}
+		case ch == ';':
+			if part := content[start:i]; strings.TrimSpace(part) != "" {
+				out = append(out, part)
+			}
+			start = i + 1
+		}
+	}
+	if part := content[start:]; strings.TrimSpace(part) != "" {
 		out = append(out, part)
 	}
 	return out

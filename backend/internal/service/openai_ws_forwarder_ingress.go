@@ -875,6 +875,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			recovery := beginGatewayWSRecoveryAttempt(c, account, payload, forcePreferredConn)
 			decided := recovery.recover(acquireErr, nil, nil, false)
 			recovery.finish()
+			if decided != nil {
+				s.handleOpenAIWSDialTransientFailure(ctx, account, canonicalOpenAIAccountSchedulingModel(account, ingressSessionOriginalModel), acquireErr)
+			}
 			var retry *gatewayWSRecoveryRetry
 			if errors.As(decided, &retry) {
 				if err := waitGatewayWSRecovery(ctx, c, retry.delay); err != nil {
@@ -1070,6 +1073,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			if eventType == "error" || eventType == "response.failed" {
 				if decided := recovery.recover(nil, lease.HandshakeHeaders(), upstreamMessage, wroteDownstream || prelude.committed); decided != nil {
+					s.handleOpenAIWSFailureAccountSideEffects(ctx, account, mappedModel, lease.HandshakeHeaders(), upstreamMessage)
 					lease.MarkBroken()
 					return nil, decided
 				}

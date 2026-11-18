@@ -595,10 +595,12 @@ func TestOpenAIGatewayService_Forward_WSv2_ResponseFailedIsNotSchedulingSuccess(
 
 	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.5","stream":false,"input":"hello"}`))
 
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.Equal(t, "response.failed", result.UpstreamTerminalEvent)
-	require.False(t, result.SucceededForScheduling())
+	var terminal *UpstreamFailoverError
+	require.ErrorAs(t, err, &terminal)
+	require.True(t, terminal.RecoveryHandled)
+	require.False(t, terminal.ShouldRetryNextAccount())
+	require.Nil(t, result, "failed recovery must not report a successful billable generation")
+	require.False(t, c.Writer.Written(), "the handler owns the terminal response")
 	require.True(t, svc.isOpenAIAccountModelRuntimeBlocked(account, "gpt-5.5"))
 }
 
