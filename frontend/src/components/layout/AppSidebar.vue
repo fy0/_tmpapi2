@@ -686,6 +686,10 @@ const PluginIcon = {
   render: () => h(Icon, { name: 'cube' })
 }
 
+const MCPIcon = {
+  render: () => h(Icon, { name: 'mcp' })
+}
+
 const BellIcon = {
   render: () =>
     h(
@@ -913,6 +917,7 @@ const purchaseNavLabel = computed(() => {
 const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
+const flagMCP = makeSidebarFlag(FeatureFlags.mcp)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagSupportTicketsForUser = () => appStore.cachedPublicSettings?.ticket_entry_visibility !== 'admin'
@@ -950,6 +955,7 @@ function buildSelfNavSections(withDashboard: boolean): NavSection[] {
         { path: '/invoices', label: t('nav.myInvoices'), icon: OrderListIcon, hideInSimpleMode: true },
         { path: '/support-tickets', label: t('nav.supportTickets'), icon: BellIcon, featureFlag: flagSupportTicketsForUser },
         { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
+        { path: '/settings/mcp', label: t('mcp.title'), icon: MCPIcon, featureFlag: flagMCP },
         { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
       ]
     },
@@ -1105,6 +1111,7 @@ const adminNavItems = computed((): NavItem[] => {
   if (authStore.isSimpleMode) {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
+    if (flagMCP()) filtered.push({ path: '/settings/mcp', label: t('mcp.title'), icon: MCPIcon })
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
     for (const cm of defaultCustomMenuItemsForAdmin.value) {
       filtered.push(customMenuNavItem(cm))
