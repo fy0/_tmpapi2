@@ -885,7 +885,7 @@ func (s *AntigravityGatewayService) setAntigravityModelRateLimits(ctx context.Co
 	if account.IsTrustModeEnabled() {
 		return true
 	}
-	keys := antigravityModelRateLimitKeys(modelName)
+	keys := antigravityModelRateLimitKeys(account, modelName)
 	if len(keys) == 0 {
 		return false
 	}
