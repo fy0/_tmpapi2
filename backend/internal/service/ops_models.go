@@ -103,10 +103,10 @@ type OpsErrorLogDetail struct {
 }
 
 type OpsErrorLogFilter struct {
-	ConversationID string
+	ConversationID       string
 	ConversationIDSource string
-	StartTime *time.Time
-	EndTime   *time.Time
+	StartTime            *time.Time
+	EndTime              *time.Time
 
 	Platform  string
 	GroupID   *int64

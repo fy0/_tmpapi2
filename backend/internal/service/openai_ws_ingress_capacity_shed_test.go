@@ -31,13 +31,8 @@ func (r *openAIWSIngressCapacityShedRepo) UpdateExtra(context.Context, int64, ma
 	return nil
 }
 
-// ctx_pool 的 ingress 直写路径把 error / response.failed 交给 WS 客户端前，必须和
-// HTTP/SSE（openai_gateway_response_handling.go）与 http_bridge
-// （openai_ws_http_bridge.go）两条路径一样，把容量降载码改写为可重试的
-// server_error：Codex 按闭集判定，server_is_overloaded / slow_down 属致命集，
-// 客户端会打印 "Selected model is at capacity" 并直接终止会话而不是退避重试。
-//
-// 第二个用例锁住改写范围：非容量类错误码必须原样下发，客户端依赖原码各自处理。
+// 恢复层缓冲容量故障，耗尽后由 handler 写入可重试终态，失败尝试不能提前下发。
+// 非瞬态错误仍保留原码，客户端依赖原码处理。
 func TestProxyResponsesWebSocketFromClient_CapacityRecoveryAndDeterministicPassthrough(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -49,17 +44,12 @@ func TestProxyResponsesWebSocketFromClient_CapacityRecoveryAndDeterministicPasst
 		wantRecovery   bool
 	}{
 		{
-			name:         "capacity_shed_error_and_failed_are_rewritten",
+			name:         "capacity_failure_frames_are_buffered_for_recovery",
 			wantRecovery: true,
 			upstreamEvents: [][]byte{
 				[]byte(`{"type":"error","error":{"type":"service_unavailable_error","code":"server_is_overloaded","message":"Our servers are currently overloaded. Please try again later."}}`),
 				[]byte(`{"type":"response.failed","response":{"id":"resp_shed","status":"failed","error":{"code":"server_is_overloaded","message":"Our servers are currently overloaded. Please try again later."}}}`),
 			},
-			wantContains: []string{
-				`"code":"server_error"`,
-				"Our servers are currently overloaded",
-			},
-			wantAbsent: []string{"server_is_overloaded"},
 		},
 		{
 			name: "non_capacity_error_code_is_passed_through",

@@ -58,11 +58,24 @@
 - Ent 完整重新生成完成（为避免依赖解析网络等待使用本机缓存与 GOPROXY=off）：仅修正 mutation 容量和 15 处 Group 默认值索引，消除初始化 panic；Wire 重新生成无差异。生成时补充的无关 go.sum 元数据已撤销。
 - `go test -tags=integration ./... -run '^$' -count=1 -p 1` 所有包编译通过；本机缺 Docker，仓储 TestMain 跳过真实容器数据库测试，不能算 PostgreSQL 集成验收。
 - 全量 unit 首轮完成：service 包尚有三处新 prompt 参数测试编译问题（已修复）；sysutil 的一个符号链接用例因 Windows 缺权限失败，随后在 Linux 子系统运行整个包全部通过；其余包通过。
-- 用户随后要求停止本地运行、改在远程验证。已终止本地 service 重跑；终止前仍发现 compact 回退、请求生命周期、流式刷新次数、错误规则及恢复/failover 等回归，不能声称后端单元测试通过。保留原断言，在远程 Actions 复测并核对。远程结果将在完成后补齐。
+- 用户随后要求停止本地运行、改在远程验证。已终止本地 service 重跑；终止前仍发现 compact 回退、请求生命周期、流式刷新次数、错误规则及恢复/failover 等回归，不能声称后端单元测试通过。逐项核对实际回归与既有 499 需求的语义变化，在远程 Actions 复测。
 
 Fork 基线已有两个同名、同体的 response billing 测试，合并后仍然存在，删除重复副本后不再依赖 overlay（上游目标只有一个副本）。另适配上游新增 UsageBillingRepository 构造参数、WS 搜索重连 payload 参数，并清除自动合并的 integrationDSN 重复声明。
 
 额外跨平台检查限制：macOS apple-container 测试在 Git Bash 下的 `stat -f %Lp` 不兼容；release helper 在 Windows 下的 Bash 路径不兼容，在 WSL 中又缺 Python 3.11 的 `hashlib.file_digest`（CI 指定 Python 3.12）。没有为这些本机限制改动上游部署/发布脚本，后续由 Actions 原生环境验证。
+
+
+## 远程回归修复
+
+- 用户给出的 2026-10-02 日志对应远端旧 main 的 [CI 37008997171](https://github.com/fy0/_tmpapi2/actions/runs/37008997171)。实际失败为 `TestSetRateLimitedIfLaterDoesNotShortenReset`：较早/相同时间不更新数据库，也不刷新缓存。测试改为保留缓存一份，并补充真正延长时生成第二份快照；不改变生产限流逻辑。
+- [CI 44380569190](https://github.com/fy0/_tmpapi2/actions/runs/44380569190) 揭示历史 259 迁移注释中的分号被执行器拆成伪 SQL，导致容器数据库初始化失败。修复执行器，使分号只有在注释/引号外才分句；增加直接读取历史 259 文件的回归，历史 SQL 字节/checksum 不变。
+- 恢复层接受成功输出后撤销自身的立即取消监听，保留上游 transport 的有时限用量 drain，修复 `TestHTTPUpstreamForwardDrainsUsageAfterClientDisconnect`；取消前不发起请求/重试的约束保留。
+- 保留首输出检查已缓冲的同批 SSE 字节，恢复合并 flush 行为；识别嵌套 `response.error` 的模型不可用故障，使 compact 兼容回退仍由原路径处理。
+- 恢复尝试保留代理归属和透传标记；WS 握手/流内故障在恢复截获时仍记录模型健康信号。
+- 对与已有 499 设计冲突的旧断言逐项更新：取消后零上游请求；统一预算耗尽后 503 并停止外层重试；规则终态交由 handler 写协议错误；失败尝试前缀不得提前下发。保留真实取消、重放安全、代理元数据和次数上限的断言。
+- 分离 unit/integration Actions 作业，避免单元失败阻止数据库集成验证。修复远端 lint 的未检查返回值、类型断言、格式和未使用函数。
+
+修复提交 `435c8a4b4` 的 [CI 44382362089](https://github.com/fy0/_tmpapi2/actions/runs/44382362089) 中，后端完整 unit、完整 integration（含容器 PostgreSQL）、前端、shell 与 release-helpers 均通过；[安全扫描](https://github.com/fy0/_tmpapi2/actions/runs/44382362025) 通过。lint 仅余三处格式问题，已统一格式化 Fork 改动的 Go 文件，实际修改三处；补充 handler 的 JSON/SSE 终态交付测试，等待最终远程复测。后续没有本地测试或构建。
 
 ## 数据库上线门禁与回退
 
