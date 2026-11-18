@@ -1748,7 +1748,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			logOpenAIWSModeInfo("ingress_ws_web_search_activation account_id=%d turn=%d action=reconnect", account.ID, turn)
 			resetSessionLease(true)
-			acquiredLease, acquireErr := acquireTurnLease(turn, "", false, true)
+			acquiredLease, acquireErr := acquireTurnLease(turn, "", false, true, fullPayload)
 			if acquireErr != nil {
 				return fmt.Errorf("acquire upstream websocket for web search activation: %w", acquireErr)
 			}

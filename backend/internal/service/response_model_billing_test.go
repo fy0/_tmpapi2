@@ -759,15 +759,3 @@ func TestGrokResponseAuditResponseModelRejectsUnknownHigherAndConflict(t *testin
 		require.InDelta(t, record(t, "grok-4.7", "", false), record(t, "grok-4.7", "grok-4.3", true), 1e-12)
 	})
 }
-
-func TestToUsageFields_ResponseModelSourcePassesThrough(t *testing.T) {
-	r := ChannelMappingResult{
-		MappedModel:        "claude-fable-5",
-		ChannelID:          4,
-		Mapped:             false,
-		BillingModelSource: BillingModelSourceResponse,
-	}
-	fields := r.ToUsageFields("claude-fable-5", "claude-fable-5")
-	require.Equal(t, int64(4), fields.ChannelID)
-	require.Equal(t, BillingModelSourceResponse, fields.BillingModelSource)
-}

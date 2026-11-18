@@ -40,7 +40,7 @@ function mountTable(row: Partial<OpsErrorLog>) {
 
   return mount(OpsErrorLogTable, {
     props: { rows: [base], total: 1, loading: false, page: 1, pageSize: 20 },
-    global: { stubs: { 'el-tooltip': TooltipStub, Pagination: PaginationStub } },
+    global: { stubs: { 'el-tooltip': TooltipStub, Pagination: PaginationStub, GatewayConversationCell: true } },
   })
 }
 
